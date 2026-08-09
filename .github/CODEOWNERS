@@ -1,0 +1,5 @@
+# Global CODEOWNERS
+# Mapped review assignments for code paths
+
+*       @sculra-core-devs
+/docs/  @sculra-docs-leads

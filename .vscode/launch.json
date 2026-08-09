@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Next.js (Frontend)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm --filter sculra-frontend dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug Express (Backend)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "sculra-backend", "dev"],
+      "port": 9229,
+      "console": "integratedTerminal",
+      "restart": true,
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
