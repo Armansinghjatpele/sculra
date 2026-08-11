@@ -1,7 +1,73 @@
+# Dependencies
 node_modules/
-.env
-.env.*
-!.env.example
+/node_modules
+**/node_modules/
+
+# Next.js Build Output
+.next/
+/.next
+**/.next/
+
+# Build targets & compilations
 dist/
 build/
-.next/
+out/
+coverage/
+storybook-static/
+
+# Environment configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env.*.local
+!.env.example
+
+# Logs & temp files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+tmp/
+temp/
+cache/
+.cache/
+
+# System & Editor configurations
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.idea/
+.serverless/
+
+# Testing artifacts (Playwright, Jest, Vitest)
+playwright-report/
+test-results/
+test-recordings/
+e2e-screenshots/
+e2e-videos/
+junit.xml
+
+# Storage binaries & media checks (strictly no local binary storage commits)
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.exe
+*.apk
+*.ipa
+*.dmg
+*.iso
+*.bin
+*.pt
+*.onnx
+*.weights
+*.bin

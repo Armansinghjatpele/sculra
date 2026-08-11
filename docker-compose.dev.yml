@@ -1,0 +1,80 @@
+# ==============================================================================
+# Sculra Local Infrastructure Composability (docker-compose.dev.yml)
+# ==============================================================================
+# Declares Docker services for isolated runners, caching, and worker pools.
+# Avoids unnecessary product containerization for simple local development.
+
+version: '3.8'
+
+services:
+  # 1. Redis Cache & Queue Manager
+  redis:
+    image: redis:7-alpine
+    container_name: sculra-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+
+  # 2. Browser Worker Grid (Playwright Headless Services)
+  browser-worker:
+    image: mcr.microsoft.com/playwright:v1.45.0-jammy
+    container_name: sculra-browser-worker-dev
+    ipc: host # Prevents OOM issues in chromium sandboxes
+    security_opt:
+      - seccomp:unconfined # Required for running Chrome inside Docker sandbox
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+    ports:
+      - "3005:3005"
+    command: npx playwright install-deps && tail -f /dev/null # Placeholder runner loop
+    restart: unless-stopped
+
+  # 3. AI Worker (Runs inference wrappers & models mapping)
+  ai-worker:
+    build:
+      context: ./backend
+      dockerfile_inline: |
+        FROM node:20-slim
+        WORKDIR /app
+        CMD ["node", "-e", "console.log('AI Worker active'); setInterval(() => {}, 1000)"]
+    container_name: sculra-ai-worker-dev
+    environment:
+      - NODE_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
+
+  # 4. Background Job Worker (Executes async queues)
+  background-worker:
+    build:
+      context: ./backend
+      dockerfile_inline: |
+        FROM node:20-slim
+        WORKDIR /app
+        CMD ["node", "-e", "console.log('Background Jobs active'); setInterval(() => {}, 1000)"]
+    container_name: sculra-background-worker-dev
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # 5. Testing Worker (Executes local code analysis sweeps)
+  testing-worker:
+    image: node:20-slim
+    container_name: sculra-testing-worker-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=development
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local

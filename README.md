@@ -8,17 +8,18 @@ Sculra is a production-ready, enterprise-grade automated QA testing SaaS. It all
 
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, TailwindCSS v4, Framer Motion, Radix UI.
 - **Backend API & Queue**: Node.js, TypeScript, Express, BullMQ, Redis.
-- **Database & Auth**: Supabase PostgreSQL (Row-Level Security enabled), Supabase Auth, Storage.
-- **Error Tracking & Analytics**: Sentry (monitoring shell), PostHog (analytics shell).
-- **Security**: Cloudflare (edge routing/rate-limiting architecture).
+- **Database & Auth**: Supabase PostgreSQL (Row-Level Security enabled) + **Clerk Authentication**.
+  *IMPORTANT: Supabase Auth is NOT used. Clerk manages all identity, OAuth, and sessions.*
+- **Error Tracking & Analytics**: Sentry (monitoring), PostHog (analytics).
+- **Security**: Cloudflare (edge routing/rate-limiting/headers).
 
 ---
 
 ## 2. High-Level Architecture
 
 Sculra utilizes a decoupled architecture designed for high availability and low latency:
-1. **Next.js 15 Client**: Leverages React Server Components for fast initial paint and client components for real-time dashboard updates via Supabase Realtime subscriptions.
-2. **Express API Server**: Handles Stripe checkout, webhook integrations, RBAC validation, and pushes browser test jobs to a Redis-backed queue.
+1. **Next.js 15 Client**: Leverages React Server Components for fast initial paint and client components for real-time dashboard updates.
+2. **Express API Server**: Handles Stripe checkout, webhook integrations, and pushes browser test jobs to a Redis-backed queue.
 3. **Distributed Worker Nodes**: 
    - **Browser Runner**: Uses Playwright to navigate pages, capture viewport screenshots, intercept console error logs, and record test runs.
    - **AI Agents Orchestration**: Independent reasoning agents (Tester, Designer, PM, Security, Accessibility) that interact with OpenAI/Anthropic APIs and database history.
@@ -32,9 +33,8 @@ A summary of the core monorepo directories:
 ```text
 Sculra/
 ├── .github/          # CI/CD Workflows and PR checks
-├── assets/           # Brand style logos
-├── docs/             # Technical architecture guides
-├── database/         # Supabase migrations, triggers, policies, and buckets
+├── .vscode/          # VS Code setting profiles
+├── supabase/         # Local Supabase configurations & storage buckets
 ├── shared/           # Cross-workspace TypeScript typings and config details
 ├── frontend/         # Next.js 15 client dashboard and landing layouts
 ├── backend/          # Express API server and job workers
@@ -48,33 +48,26 @@ For a comprehensive file-level breakdown, see [FolderStructure.md](file:///c:/Us
 
 ---
 
-## 4. Setup Instructions
+## 4. One-Command local development setup
 
-### Prerequisites
-- Node.js (v18+)
-- Local PostgreSQL/Docker or Supabase account.
-- Redis server instance.
+To spin up Sculra locally, follow these 5 steps:
 
-### Installation
-1. Clone the repository and install workspace dependencies:
+1. **Install dependencies** (Use `pnpm` workspace manager):
    ```bash
-   git clone https://github.com/Sculra/Sculra.git
-   cd Sculra
-   npm install
+   pnpm install
    ```
-2. Copy environmental variables:
-   - For frontend: `cp .env.example frontend/.env.local`
-   - For backend: `cp .env.example backend/.env`
-   - Set up API keys for Supabase, OpenAI, Anthropic, Stripe, and Redis.
-3. Apply database schemas:
+2. **Configure environment variables**:
+   Copy `.env.example` to `frontend/.env.local` (and `backend/.env` if developing API servers) and configure keys.
+3. **Start local Supabase** (Requires Docker and Supabase CLI installed):
    ```bash
-   supabase link --project-ref your-project
-   supabase db push
+   supabase start
    ```
-4. Start local development servers:
+4. **Start Sculra servers**:
    ```bash
-   npm run dev
+   pnpm dev
    ```
+5. **Open local website**:
+   Navigate to [http://localhost:3000](http://localhost:3000).
 
 ---
 
@@ -83,21 +76,7 @@ For a comprehensive file-level breakdown, see [FolderStructure.md](file:///c:/Us
 - **Conventional Commits**: Commits must follow `type(scope): message` standards (e.g. `feat(billing): configure Stripe checkout hook`).
 - **No Implicit Any**: Zero `any` values in TypeScript. Enforce compile-level safety via `tsc --noEmit`.
 - **Composition over Inheritance**: Custom UI components are designed as generic, composable elements styled dark-first with Tailwind.
-- **Row-Level Security**: Ensure all database tables containing tenant records have active RLS policies referencing `auth.uid()`.
+- **Row-Level Security**: Ensure all database tables containing tenant records have active RLS policies.
 
 For full coding policies, see [CodingStandards.md](file:///c:/Users/arman/OneDrive/Desktop/sculra/docs/CodingStandards.md).
-
----
-
-## 6. Project Roadmap
-
-- [x] Initial Repository Scaffolding & Shared Types
-- [x] Global CSS Design System & Theme Variables
-- [x] Reusable Layout Navbar/Sidebar Components
-- [x] Supabase Migration Schemas & Storage Buckets
-- [x] AI Agents & Browser Automation Interfaces
-- [ ] Supabase Auth & JWT Middleware Integration
-- [ ] Playwright DOM crawl execution logic
-- [ ] OpenAI/Anthropic Reasoning Agents implementation
-- [ ] Stripe Portal Integration & Webhook handlers
-
+For more infrastructure details, see [INFRASTRUCTURE.md](file:///c:/Users/arman/OneDrive/Desktop/sculra/docs/INFRASTRUCTURE.md).
