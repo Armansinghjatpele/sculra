@@ -3,7 +3,7 @@ packages:
   - 'backend'
   - 'shared'
 allowBuilds:
-  core-js: set this to true or false
+  core-js: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - lucide-react@1.30.0

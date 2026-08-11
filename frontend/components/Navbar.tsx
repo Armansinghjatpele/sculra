@@ -1,5 +1,8 @@
+'use client';
+
 import * as React from 'react';
 import Link from 'next/link';
+import { SignedIn, SignedOut, UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 
@@ -18,10 +21,18 @@ export function Navbar({ className, ...props }: NavbarProps) {
         {/* Logo */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="h-6 w-6 rounded bg-primary flex items-center justify-center font-bold text-white text-xs">
-              QP
-            </span>
-            <span className="hidden font-bold tracking-tight text-foreground sm:inline-block">
+            <svg
+              className="h-5 w-5 text-accent"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span className="font-bold tracking-tight text-foreground sm:inline-block">
               Sculra
             </span>
           </Link>
@@ -57,19 +68,39 @@ export function Navbar({ className, ...props }: NavbarProps) {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-4">
-          <Link href="/login">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button variant="accent" size="sm">
-              Get Started
-            </Button>
-          </Link>
+          <SignedOut>
+            <Link href="/sign-in">
+              <Button variant="ghost" size="sm">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/sign-up">
+              <Button variant="accent" size="sm">
+                Get Started
+              </Button>
+            </Link>
+          </SignedOut>
+
+          <SignedIn>
+            <div className="flex items-center gap-3.5">
+              <Link href="/dashboard" className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                Dashboard
+              </Link>
+              <OrganizationSwitcher
+                afterCreateOrganizationUrl="/dashboard"
+                afterLeaveOrganizationUrl="/"
+                afterSelectOrganizationUrl="/dashboard"
+                appearance={{
+                  elements: {
+                    rootBox: 'text-xs text-foreground bg-zinc-900 border border-white/8 rounded p-1',
+                  }
+                }}
+              />
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </SignedIn>
         </div>
       </div>
     </header>
   );
 }
-
