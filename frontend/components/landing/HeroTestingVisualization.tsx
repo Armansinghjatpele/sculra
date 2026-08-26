@@ -30,6 +30,14 @@ export function HeroTestingVisualization() {
           <span className="h-2 w-2 rounded-full bg-green-500/60" />
           <span className="ml-2">sculra-agent-session://dashboard-v2</span>
         </div>
+        
+        {/* Micro-interaction callout */}
+        <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded border border-accent/20 bg-accent/5 text-[9px] text-accent">
+          <span>Push to main</span>
+          <span className="text-muted-foreground">▸</span>
+          <span className="font-semibold">Auto-triggers test run</span>
+        </div>
+
         <div className="flex items-center gap-2">
           <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-accent" />
           <span>Agent Swarm: Active</span>

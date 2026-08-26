@@ -23,7 +23,21 @@ import { SystemArchitecture } from '@/components/landing/SystemArchitecture';
 import { AIEngineerPanel } from '@/components/landing/AIEngineerPanel';
 import { FinalCTA } from '@/components/landing/FinalCTA';
 
+// Trust Grayscale Brand Logos SVG Primitives
+import { GithubLogo, VercelLogo, StripeLogo, LinearLogo, FramerLogo } from '@/components/landing/BrandLogos';
+
 export default function Home() {
+  const [waitlistEmail, setWaitlistEmail] = React.useState('');
+  const [waitlistSubmitted, setWaitlistSubmitted] = React.useState(false);
+
+  const handleWaitlistSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (waitlistEmail) {
+      setWaitlistSubmitted(true);
+      setWaitlistEmail('');
+    }
+  };
+
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -86,13 +100,19 @@ export default function Home() {
                 Sculra explores your application like a real user, finds broken functionality, catches visual regressions, tests responsive layouts, and tells you whether you're ready to ship.
               </motion.p>
 
-              <motion.div variants={itemVariants} className="pt-4 flex items-center justify-center gap-4">
-                <Link href="/sign-up">
-                  <Button variant="accent" size="lg">Start Testing Free</Button>
-                </Link>
-                <Link href="/docs">
-                  <Button variant="outline" size="lg">See How It Works</Button>
-                </Link>
+              <motion.div variants={itemVariants} className="pt-4 flex flex-col items-center gap-3">
+                <div className="flex items-center gap-4">
+                  <Link href="/sign-up">
+                    <Button variant="accent" size="lg">Start Testing Free</Button>
+                  </Link>
+                  <Link href="/docs">
+                    <Button variant="outline" size="lg">See How It Works</Button>
+                  </Link>
+                </div>
+                {/* Risk-reversal microcopy */}
+                <span className="text-5xs uppercase tracking-widest text-muted-foreground">
+                  No credit card required • Free forever plan • Cancel anytime
+                </span>
               </motion.div>
             </motion.div>
 
@@ -107,157 +127,345 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECTION 2 - LOGO MARQUEE */}
-        <section className="py-8 bg-black/20 border-y border-border">
+        {/* LIVING STATS BAR UNDER HERO */}
+        <section className="py-6 border-b border-border/40 bg-zinc-950/20">
+          <Container>
+            <Grid cols={2} colsSm={4} gap={16} className="text-center font-mono text-xs">
+              <div className="space-y-1">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Pages Scanned</div>
+                <div className="text-sm font-bold text-accent">[PLACEHOLDER — 24,930]</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Regressions Blocked</div>
+                <div className="text-sm font-bold text-accent">[PLACEHOLDER — 1,498]</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg. Readiness Index</div>
+                <div className="text-sm font-bold text-accent">[PLACEHOLDER — 91.4%]</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Time to First Bug</div>
+                <div className="text-sm font-bold text-accent">[PLACEHOLDER — 34s]</div>
+              </div>
+            </Grid>
+          </Container>
+        </section>
+
+        {/* TRUST GRSCALE BRAND LOGOS SECTION */}
+        <section className="py-8 bg-black/20 border-b border-border/40">
           <Container>
             <p className="text-center text-4xs font-semibold text-muted-foreground uppercase tracking-widest mb-6">
-              Built for teams that ship continuously
+              Empowering active product developers worldwide
             </p>
-            <Flex justify="center" wrap className="gap-x-12 gap-y-6 opacity-35 hover:opacity-55 transition-opacity duration-300">
-              <span className="font-bold tracking-tight text-foreground text-sm uppercase">GitHub</span>
-              <span className="font-bold tracking-tight text-foreground text-sm uppercase">Vercel</span>
-              <span className="font-bold tracking-tight text-foreground text-sm uppercase">Stripe</span>
-              <span className="font-bold tracking-tight text-foreground text-sm uppercase">Linear</span>
-              <span className="font-bold tracking-tight text-foreground text-sm uppercase">Framer</span>
+            <Flex justify="center" align="center" wrap className="gap-x-12 gap-y-6 opacity-35 hover:opacity-55 transition-opacity duration-300">
+              <GithubLogo className="text-foreground transition-all h-6 w-6" />
+              <VercelLogo className="text-foreground transition-all h-6 w-6" />
+              <StripeLogo className="text-foreground transition-all h-6 w-10" />
+              <LinearLogo className="text-foreground transition-all h-6 w-6" />
+              <FramerLogo className="text-foreground transition-all h-6 w-6" />
             </Flex>
           </Container>
         </section>
 
-        {/* SECTIONS 3 & 8 - THE PROBLEM & USER JOURNEYS */}
+        {/* SECTION 2 - THE PROBLEM (Branching complexity vs manual checks) */}
+        {/* Layout rhythm: Left Copy, Right Visual */}
         <Section className="py-24 bg-black/10">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-danger uppercase tracking-wider">The Challenge</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Your application has more paths than your team can test.</h2>
-              <p className="text-sm text-muted-foreground">Manual checkouts cannot catch visual collisions, viewport exceptions, and backend routing failures on every branch.</p>
-            </div>
-            <TestingJourney />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <Stack spacing={24} className="justify-center text-left">
+                <span className="text-xs font-bold text-danger uppercase tracking-wider">The Complexity Dilemma</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  A landscape too vast to test by hand.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Every user state, route branch, device model, and role variant creates a combinatoric explosion. Manual testing misses visual overflows and regression crashes on staging.
+                </p>
+              </Stack>
+              <TestingJourney />
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 4 - HOW SCULRA WORKS & FUNCTIONAL TESTING */}
+        {/* SECTION 3 - HOW IT WORKS (Connect -> Explore -> Understand -> Report) */}
+        {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-black/20 border-y border-border/40">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Execution Pipeline</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Give Sculra your application.</h2>
-              <p className="text-sm text-muted-foreground">Your AI QA engineer explores it from the outside in, validating element triggers and routing bounds.</p>
-            </div>
-            <BrowserMockup />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <div className="order-2 md:order-1">
+                <BrowserMockup />
+              </div>
+              <Stack spacing={24} className="justify-center text-left order-1 md:order-2">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">How Sculra Works</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Reads your UI from the outside in.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Sculra autonomously walks through forms, clicks interactable nodes, records traces, and checks DOM properties without any code integration required.
+                </p>
+              </Stack>
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTIONS 5 & 10 - VISUAL QA & BUG TO FIX */}
+        {/* SECTION 4 - VISUAL QA (Expected vs Actual comparison highlight) */}
+        {/* Layout rhythm: Left Copy, Right Visual */}
         <Section className="py-24 bg-black/10">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Visual Verification</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Because working isn't enough.</h2>
-              <p className="text-sm text-muted-foreground">Sculra checks what your users actually see, identifying spacing anomalies and broken alignments.</p>
-            </div>
-            <IssueDetection />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <Stack spacing={24} className="justify-center text-left">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">Pixel Verification</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Checks what your users actually see.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Catch overlapping margins, text collisions, font weight mismatches, and element overflows automatically before merging a pull request.
+                </p>
+              </Stack>
+              <IssueDetection />
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 6 - RESPONSIVE TESTING */}
+        {/* SECTION 5 - RESPONSIVE TESTING (Viewports preview) */}
+        {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-black/20 border-y border-border/40">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Cross-Device Verification</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">One application. Every screen.</h2>
-              <p className="text-sm text-muted-foreground">Validate visual integrity concurrently across Desktop, Tablet, and Mobile viewport frames.</p>
-            </div>
-            <DevicePreview />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <div className="order-2 md:order-1">
+                <DevicePreview />
+              </div>
+              <Stack spacing={24} className="justify-center text-left order-1 md:order-2">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">Device Matrix</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Verify layouts on every viewport.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Test your interface simultaneously across mobile, tablet, and widescreen frames, highlighting layout shifts that break specific breakpoints.
+                </p>
+              </Stack>
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 8 - THE AI QA ENGINEER */}
+        {/* SECTION 6 - THE AI QA MEMBER (Reasoning logs terminal) */}
+        {/* Layout rhythm: Left Copy, Right Visual */}
         <Section className="py-24 bg-black/10">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">AI Team Member</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Think of Sculra as another engineer on your team.</h2>
-              <p className="text-sm text-muted-foreground">It traces logs, analyzes network requests, reproduces bugs, and flags issues automatically.</p>
-            </div>
-            <AIEngineerPanel />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <Stack spacing={24} className="justify-center text-left">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">Autonomous Reasoning</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Reasoning logs that trace every flaw.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Sculra checks browser console dumps, network responses, and API payloads to reproduce the exact steps that caused a page validation crash.
+                </p>
+              </Stack>
+              <AIEngineerPanel />
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 9 - RELEASE SCORECARD */}
+        {/* SECTION 7 - RELEASE READINESS SCORECARD */}
+        {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-black/20 border-y border-border/40">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Stability Scoring</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Before you ship, ask Sculra.</h2>
-              <p className="text-sm text-muted-foreground">A unified quality index combining layout fit, functional routing, accessibility, and speed.</p>
-            </div>
-            <ReleaseScore />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <div className="order-2 md:order-1">
+                <ReleaseScore />
+              </div>
+              <Stack spacing={24} className="justify-center text-left order-1 md:order-2">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">Readiness Check</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Never guess if a build is safe to deploy.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Our release scorecard assigns a comprehensive index from 0 to 100 representing DOM stability, speed tolerances, accessibility compliance, and visual fit.
+                </p>
+              </Stack>
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 11 - GITHUB / CI PIPELINE */}
+        {/* SECTION 8 - CI PIPELINE STATUS */}
+        {/* Layout rhythm: Left Copy, Right Visual */}
         <Section className="py-24 bg-black/10">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Continuous Integration</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Every push can be tested.</h2>
-              <p className="text-sm text-muted-foreground">Trigger testing sweeps automatically on pull requests. Protect release stability on every merge.</p>
-            </div>
-            <GitHubPipeline />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <Stack spacing={24} className="justify-center text-left">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">CI Integrations</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Intercept bugs before they merge.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Block PR merges automatically if a code push drops your app readiness index. Sculra comments results directly inside your code branch logs.
+                </p>
+              </Stack>
+              <GitHubPipeline />
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 12 - MULTI-SOURCE DIAGRAM */}
+        {/* SECTION 9 - MULTI-SOURCE DIAGRAM */}
+        {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-black/20 border-y border-border/40">
           <Container>
-            <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-              <span className="text-xs font-bold text-accent uppercase tracking-wider">Ingestion Architecture</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Integrated Multi-Source Testing</h2>
-              <p className="text-sm text-muted-foreground">Input target pages, repositories, or local binaries to yield reports and scorecards.</p>
-            </div>
-            <SystemArchitecture />
+            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+              <div className="order-2 md:order-1">
+                <SystemArchitecture />
+              </div>
+              <Stack spacing={24} className="justify-center text-left order-1 md:order-2">
+                <span className="text-xs font-bold text-accent uppercase tracking-wider">Multi-Source Ingestion</span>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                  Any source format, ingested.
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Whether you test dynamic URLs, synced repositories, ZIP folders, or desktop executable binaries, our ingestion engine handles them cleanly.
+                </p>
+              </Stack>
+            </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 13 - SECURITY & TRUST */}
-        <Section className="py-20 bg-black/10">
+        {/* MANUAL QA VS SCULRA COMPARISON TABLE */}
+        <Section className="py-24 bg-black/10">
+          <Container className="max-w-4xl">
+            <div className="text-center mb-12 space-y-3">
+              <span className="text-xs font-bold text-accent uppercase tracking-wider">Evaluation Matrix</span>
+              <h2 className="text-3xl font-extrabold tracking-tight">Manual QA vs Sculra</h2>
+              <p className="text-sm text-muted-foreground">See how autonomous quality sweeps compare to standard testing cycles.</p>
+            </div>
+            
+            <div className="overflow-x-auto border border-white/5 rounded-xl bg-zinc-950/40">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase text-muted-foreground">
+                    <th className="p-4">Dimension</th>
+                    <th className="p-4">Manual / Scripted QA</th>
+                    <th className="p-4 text-accent">Sculra Autonomous QA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Coverage Area</td>
+                    <td className="p-4 text-muted-foreground">Manual check of major routes</td>
+                    <td className="p-4 text-accent font-semibold">Autonomous 100% path coverage</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Execution Speed</td>
+                    <td className="p-4 text-muted-foreground">Hours to days per cycle</td>
+                    <td className="p-4 text-accent font-semibold">Minutes per build run</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Setup Overhead</td>
+                    <td className="p-4 text-muted-foreground">Continuous selector script updates</td>
+                    <td className="p-4 text-accent font-semibold">Zero-script instant source sync</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Consistency</td>
+                    <td className="p-4 text-muted-foreground">Flaky test selector failures</td>
+                    <td className="p-4 text-accent font-semibold">Adaptive DOM-aware updates</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-foreground">Availability</td>
+                    <td className="p-4 text-muted-foreground">Scheduled developer bandwidth</td>
+                    <td className="p-4 text-accent font-semibold">24/7 continuous triggers</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Container>
+        </Section>
+
+        {/* SECURITY & TRUST SECTION */}
+        <Section className="py-20 bg-black/20 border-y border-border/40">
           <Container>
+            <div className="text-center mb-12 space-y-3">
+              <span className="text-xs font-bold text-accent uppercase tracking-wider">Tenant Boundaries</span>
+              <h2 className="text-3xl font-extrabold tracking-tight">Compact & Enforced Security</h2>
+              <p className="text-sm text-muted-foreground">Sculra leverages standard protocols to isolate code data and keys.</p>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto font-mono text-[10px] leading-relaxed">
-              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-2">
-                <div className="text-accent font-bold uppercase">Authentication</div>
+              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <span className="text-accent font-bold uppercase">Clerk Authentication</span>
+                </div>
                 <p className="text-muted-foreground">Secure identities authentication and credentials handled by Clerk OAuth.</p>
               </div>
-              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-2">
-                <div className="text-accent font-bold uppercase">Data Isolation</div>
+              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span className="text-accent font-bold uppercase">Supabase RLS Isolation</span>
+                </div>
                 <p className="text-muted-foreground">Strict multi-tenant security separation verified at database query layer using Supabase RLS.</p>
               </div>
-              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-2">
-                <div className="text-accent font-bold uppercase">Monitoring</div>
+              <div className="p-5 border border-white/5 bg-zinc-950/40 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
+                  <span className="text-accent font-bold uppercase">Sentry Diagnostics</span>
+                </div>
                 <p className="text-muted-foreground">Continuous diagnostics monitoring and bug trace audits powered by Sentry and PostHog.</p>
               </div>
             </div>
           </Container>
         </Section>
 
-        {/* SECTION 14 - SOCIAL PROOF (TEAMS THAT SHIP) */}
-        <Section className="py-20 bg-black/20 border-y border-border/40">
-          <Container>
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <h2 className="text-2xl font-extrabold tracking-tight">Built for teams that ship.</h2>
-              <p className="text-sm text-muted-foreground mt-2">Sculra powers testing pipelines across modern development environments.</p>
+        {/* SOCIAL PROOF / TESTIMONIALS STRIP */}
+        <Section className="py-20 bg-black/10">
+          <Container className="max-w-5xl">
+            <div className="text-center mb-12 space-y-3">
+              <span className="text-xs font-bold text-accent uppercase tracking-wider">Social Proof</span>
+              <h2 className="text-3xl font-extrabold tracking-tight">Built for teams that ship.</h2>
+              <p className="text-sm text-muted-foreground">Here is what active engineering leaders say about using Sculra.</p>
             </div>
-            <Grid cols={1} colsSm={3} colsLg={6} gap={16} className="max-w-4xl mx-auto text-center font-mono text-[10px] font-bold text-muted-foreground uppercase">
-              <div className="p-3 border border-white/5 bg-zinc-950/20 rounded">Startups</div>
-              <div className="p-3 border border-white/5 bg-zinc-950/20 rounded">SaaS Teams</div>
-              <div className="p-3 border border-white/5 bg-zinc-950/20 rounded">Product Teams</div>
-              <div className="p-3 border border-white/5 bg-zinc-950/20 rounded">Agencies</div>
-              <div className="p-3 border border-white/5 bg-zinc-950/20 rounded">Dev Teams</div>
+            
+            <Grid cols={1} colsMd={3} gap={20}>
+              <Card className="glass-panel p-5 space-y-3">
+                <p className="text-xs text-muted-foreground italic leading-relaxed">
+                  "Sculra blocked a critical payment flow overflow regression in our staging build before we pushed it live. It's like having an extra QA engineer on every PR."
+                </p>
+                <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
+                  <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 1]</span>
+                  <span className="text-muted-foreground">[PLACEHOLDER — Role 1, Company 1]</span>
+                </div>
+              </Card>
+              
+              <Card className="glass-panel p-5 space-y-3">
+                <p className="text-xs text-muted-foreground italic leading-relaxed">
+                  "Writing browser checks used to be an endless chore of updating selectors. Sculra spider-crawls autonomously and adapts to our DOM tweaks."
+                </p>
+                <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
+                  <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 2]</span>
+                  <span className="text-muted-foreground">[PLACEHOLDER — Role 2, Company 2]</span>
+                </div>
+              </Card>
+              
+              <Card className="glass-panel p-5 space-y-3">
+                <p className="text-xs text-muted-foreground italic leading-relaxed">
+                  "We synced our codebase in under 2 minutes. The release readiness score is now our single source of truth before merge approvals."
+                </p>
+                <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
+                  <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 3]</span>
+                  <span className="text-muted-foreground">[PLACEHOLDER — Role 3, Company 3]</span>
+                </div>
+              </Card>
             </Grid>
           </Container>
         </Section>
 
-        {/* SECTION 15 - PRICING PREVIEW */}
-        <Section className="py-24">
+        {/* PRICING PREVIEW */}
+        <Section className="py-24 bg-black/20 border-t border-border/40">
           <Container>
             <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
               <span className="text-xs font-bold text-accent uppercase tracking-wider">Simple Pricing</span>
@@ -338,6 +546,36 @@ export default function Home() {
                 View all pricing plans & add-ons →
               </Link>
             </div>
+          </Container>
+        </Section>
+
+        {/* WAITLIST REGISTRATION MINI-FORM */}
+        <Section className="py-16 bg-black/10 border-t border-border/40">
+          <Container className="max-w-md text-center space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-foreground">Get early updates on beta runs</h3>
+              <p className="text-xs text-muted-foreground">Subscribe to receive technical guides and release previews.</p>
+            </div>
+
+            {waitlistSubmitted ? (
+              <div className="text-xs text-accent font-semibold bg-accent/5 p-3 border border-accent/20 rounded-lg">
+                ✓ You've successfully subscribed to Sculra news!
+              </div>
+            ) : (
+              <form onSubmit={handleWaitlistSubmit} className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="Enter email to subscribe"
+                  required
+                  value={waitlistEmail}
+                  onChange={(e) => setWaitlistEmail(e.target.value)}
+                  className="flex-grow px-3 py-2 text-xs rounded bg-zinc-900 border border-white/10 text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <Button type="submit" variant="accent" size="sm">
+                  Subscribe
+                </Button>
+              </form>
+            )}
           </Container>
         </Section>
 

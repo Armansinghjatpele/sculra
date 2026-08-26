@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { use } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { AppShell } from '@/components/AppShell';
 import { Grid, Stack, Flex } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
@@ -11,7 +12,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { TestRunTable } from '@/components/TestRunTable';
 import { IssueList } from '@/components/IssueList';
-import { mockProjects, mockTestRuns, mockIssues } from '@/lib/demoData';
+import { getProject, getTestRuns, getIssues } from '@/services/db';
+import { Project, TestRun, Issue } from '@/lib/demoData';
 import Link from 'next/link';
 
 interface ProjectDetailPageProps {
@@ -19,19 +21,57 @@ interface ProjectDetailPageProps {
 }
 
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
-  // Resolve params promise (standard in Next.js 15/16 App Router)
+  // Resolve params promise (standard in Next.js App Router)
   const resolvedParams = use(params);
   const projectId = resolvedParams.projectId;
 
-  const project = mockProjects.find((p) => p.id === projectId);
+  const { getToken, orgId } = useAuth();
+  const [project, setProject] = React.useState<Project | null>(null);
+  const [projectRuns, setProjectRuns] = React.useState<TestRun[]>([]);
+  const [projectIssues, setProjectIssues] = React.useState<Issue[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('overview');
+
+  React.useEffect(() => {
+    const loadProjectData = async () => {
+      try {
+        setLoading(true);
+        const token = await getToken();
+        if (token) {
+          const [proj, runs, iss] = await Promise.all([
+            getProject(token, projectId),
+            getTestRuns(token, orgId),
+            getIssues(token, orgId),
+          ]);
+          setProject(proj);
+          setProjectRuns(runs.filter((r) => r.projectId === projectId));
+          setProjectIssues(iss.filter((i) => i.projectId === projectId));
+        }
+      } catch (e) {
+        console.error('[ProjectDetail Load Error]: Failed loading project data.', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProjectData();
+  }, [getToken, orgId, projectId]);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+          Loading project workspace details...
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!project) {
     return (
       <AppShell>
-        <div className="py-12 text-center">
+        <div className="py-12 text-center max-w-sm mx-auto space-y-4">
           <h1 className="text-lg font-bold text-foreground">Project Not Found</h1>
-          <p className="text-xs text-muted-foreground mt-2">The requested project ID does not exist.</p>
+          <p className="text-xs text-muted-foreground">The requested project ID does not exist in this workspace scope.</p>
           <Link href="/projects" className="mt-4 inline-block">
             <Button variant="accent" size="sm">Back to Projects</Button>
           </Link>
@@ -39,10 +79,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
       </AppShell>
     );
   }
-
-  // Filter runs and issues related to this project
-  const projectRuns = mockTestRuns.filter((r) => r.projectId === projectId);
-  const projectIssues = mockIssues.filter((i) => i.projectId === projectId);
 
   return (
     <AppShell>
@@ -67,6 +103,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="test-runs">Test History</TabsTrigger>
             <TabsTrigger value="issues">Issues List</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -88,8 +126,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
               <Card className="glass-panel col-span-1 text-center py-6">
                 <CardHeader className="p-0">
                   <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Open Vulnerabilities</CardDescription>
-                  <CardTitle className={`text-3xl font-extrabold mt-2 ${project.openIssuesCount > 0 ? 'text-danger' : 'text-success'}`}>
-                    {project.openIssuesCount}
+                  <CardTitle className={`text-3xl font-extrabold mt-2 ${projectIssues.length > 0 ? 'text-danger' : 'text-success'}`}>
+                    {projectIssues.length}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 mt-4 text-3xs text-muted-foreground">
@@ -129,6 +167,58 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                   No open issues identified. Excellent score stability!
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <div className="mt-4 space-y-4">
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Reports compiled</h3>
+              {projectRuns.length > 0 ? (
+                <div className="overflow-x-auto border border-white/5 rounded-xl bg-zinc-950/40">
+                  <table className="w-full text-left border-collapse text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase text-muted-foreground">
+                        <th className="p-4">Report ID</th>
+                        <th className="p-4">Score</th>
+                        <th className="p-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-[11px]">
+                      {projectRuns.map((r) => (
+                        <tr key={r.id} className="hover:bg-white/5">
+                          <td className="p-4 text-muted-foreground">{r.id}</td>
+                          <td className="p-4 text-accent font-bold">{r.releaseScore}%</td>
+                          <td className="p-4 text-foreground uppercase">{r.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground text-center py-8">No reports compiled yet.</div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <div className="mt-4 space-y-6">
+              <Card className="glass-panel p-6">
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-widest mb-4">Project Scope Configurations</h3>
+                <div className="space-y-4 font-mono text-xs">
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-muted-foreground">Project Name</span>
+                    <span className="text-foreground">{project.name}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-muted-foreground">Crawler Target</span>
+                    <span className="text-foreground">{project.url || project.repoUrl || 'Local'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="text-foreground uppercase">{project.type}</span>
+                  </div>
+                </div>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>

@@ -47,6 +47,13 @@ export function BrowserMockup() {
             <span className="h-2 w-2 rounded-full bg-green-500/60" />
             <span className="ml-2">sculra-engine-inspect://sandbox-route</span>
           </div>
+
+          {/* Micro-interaction callout */}
+          <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded border border-accent/20 bg-accent/5 text-[9px] text-accent">
+            <span>New PR</span>
+            <span className="text-muted-foreground">▸</span>
+            <span className="font-semibold">Release Readiness Score posted</span>
+          </div>
         </div>
 
         {/* Content wrapper with transition */}
