@@ -41,3 +41,38 @@ export function FramerLogo(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function BrandLogosMarquee() {
+  const logos = [
+    { Icon: GithubLogo, name: 'GitHub' },
+    { Icon: VercelLogo, name: 'Vercel' },
+    { Icon: StripeLogo, name: 'Stripe' },
+    { Icon: LinearLogo, name: 'Linear' },
+    { Icon: FramerLogo, name: 'Framer' },
+  ];
+
+  return (
+    <div className="relative overflow-hidden w-full py-4 select-none [mask-image:linear-gradient(to_right,transparent,white_20%,white_80%,transparent)]">
+      <div className="animate-marquee flex gap-16 items-center">
+        {/* Row 1 */}
+        <div className="flex gap-16 items-center shrink-0">
+          {logos.map((logo, idx) => (
+            <div key={`r1-${idx}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-300">
+              <logo.Icon className="h-5 w-auto text-muted-foreground" />
+              <span className="text-[10px] uppercase font-mono tracking-wider font-semibold">{logo.name}</span>
+            </div>
+          ))}
+        </div>
+        {/* Row 2 */}
+        <div className="flex gap-16 items-center shrink-0">
+          {logos.map((logo, idx) => (
+            <div key={`r2-${idx}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-300">
+              <logo.Icon className="h-5 w-auto text-muted-foreground" />
+              <span className="text-[10px] uppercase font-mono tracking-wider font-semibold">{logo.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

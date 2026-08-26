@@ -81,7 +81,7 @@ export function TestingJourney() {
       <div className="relative border border-white/5 rounded-xl bg-zinc-950/20 p-8 shadow-glass overflow-hidden h-96 flex flex-col justify-between">
         <div className="space-y-2">
           <span className="text-[10px] font-bold text-accent uppercase tracking-wider">AI User Journeys</span>
-          <h3 className="text-lg font-bold text-foreground">Don't Test Pages. Test Experiences.</h3>
+          <h3 className="text-lg font-bold text-foreground">Don&apos;t Test Pages. Test Experiences.</h3>
           <p className="text-xs text-muted-foreground">Sculra tests state workflows, traversing routes sequentially to reproduce real user logic.</p>
         </div>
 

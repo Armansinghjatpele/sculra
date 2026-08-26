@@ -2,16 +2,22 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 export function HeroTestingVisualization() {
   const [activeStep, setActiveStep] = React.useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
   
   React.useEffect(() => {
+    if (prefersReducedMotion) {
+      setActiveStep(3); // Show final stage directly
+      return;
+    }
     const timer = setInterval(() => {
       setActiveStep((prev) => (prev + 1) % 4);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [prefersReducedMotion]);
 
   const steps = [
     { label: 'Crawl and Discover', status: 'scanning', details: 'Scanning DOM tree for interactive elements...' },
@@ -21,7 +27,7 @@ export function HeroTestingVisualization() {
   ];
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto rounded-xl border border-white/8 bg-zinc-950/45 shadow-glass backdrop-blur-md p-4 overflow-hidden">
+    <div className="relative w-full max-w-4xl mx-auto rounded-xl border border-white/8 bg-zinc-950/45 shadow-glass backdrop-blur-md p-4 overflow-hidden border-gradient-hover">
       {/* Mock Header Menu */}
       <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4 text-[10px] text-muted-foreground font-mono">
         <div className="flex items-center gap-1.5">
@@ -64,7 +70,7 @@ export function HeroTestingVisualization() {
                     <div className="font-semibold text-2xs">{s.label}</div>
                     {idx === activeStep && (
                       <motion.div
-                        initial={{ opacity: 0 }}
+                        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="text-[10px] text-muted-foreground"
                       >
@@ -124,7 +130,7 @@ export function HeroTestingVisualization() {
                 </div>
 
                 {/* Animated Scanning Box */}
-                {activeStep === 0 && (
+                {activeStep === 0 && !prefersReducedMotion && (
                   <motion.div
                     initial={{ width: 0, height: 0, opacity: 0 }}
                     animate={{ width: 100, height: 40, opacity: 1 }}
@@ -136,7 +142,7 @@ export function HeroTestingVisualization() {
                 )}
 
                 {/* Interactive cursor */}
-                {activeStep === 1 && (
+                {activeStep === 1 && !prefersReducedMotion && (
                   <motion.div
                     initial={{ x: 200, y: 100 }}
                     animate={{ x: 30, y: 15 }}

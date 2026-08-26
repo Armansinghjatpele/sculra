@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 export function BrowserMockup() {
   const [step, setStep] = React.useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const workflowSteps = [
     { title: '01 / CONNECT', desc: 'Point Sculra to your Target URL, GitHub Repository, or ZIP upload bundle.' },
@@ -12,6 +14,15 @@ export function BrowserMockup() {
     { title: '03 / UNDERSTAND', desc: 'Sculra checks console logs, layout structures, visual changes, accessibility, and speed.' },
     { title: '04 / REPORT', desc: 'Get a clean build scorecard detailing bug categories, severity, and code location recommendations.' },
   ];
+
+  // Auto-progress loops unless user reduced motion is active
+  React.useEffect(() => {
+    if (prefersReducedMotion) return;
+    const interval = setInterval(() => {
+      setStep((prev) => (prev + 1) % workflowSteps.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion, workflowSteps.length]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
@@ -21,7 +32,7 @@ export function BrowserMockup() {
           <button
             key={idx}
             onClick={() => setStep(idx)}
-            className={`p-4 border rounded-lg text-left transition-all duration-300 ${
+            className={`p-4 border rounded-lg text-left transition-all duration-300 cursor-pointer ${
               idx === step
                 ? 'border-accent/40 bg-accent/5'
                 : 'border-white/5 bg-zinc-950/20 hover:border-white/10'
@@ -38,7 +49,7 @@ export function BrowserMockup() {
       </div>
 
       {/* Simulated Sandbox Browser Area */}
-      <div className="relative border border-white/8 rounded-xl bg-zinc-950/40 p-6 shadow-glass backdrop-blur-md min-h-[300px] flex flex-col justify-between overflow-hidden">
+      <div className="relative border border-white/8 rounded-xl bg-zinc-950/40 p-6 shadow-glass backdrop-blur-md min-h-[300px] flex flex-col justify-between overflow-hidden border-gradient-hover">
         {/* Browser Top */}
         <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4 text-[10px] text-muted-foreground font-mono">
           <div className="flex items-center gap-1.5">
@@ -88,13 +99,13 @@ export function BrowserMockup() {
               >
                 <div className="flex items-center justify-between border-b border-white/5 pb-2 text-[9px] text-accent">
                   <span>AGENT_CRAWLER</span>
-                  <span>ACTIVE</span>
+                  <span className="animate-pulse">ACTIVE</span>
                 </div>
                 <div className="space-y-1.5 leading-relaxed">
                   <div className="text-foreground">→ Scanning DOM: found 14 interactive inputs</div>
                   <div>→ Filling input[type=email] values...</div>
                   <div>→ Triggering click on form primary submit button...</div>
-                  <div className="text-green-400">✓ Form action successfully executed (200 OK)</div>
+                  <div className="text-green-400 font-bold">✓ Form action successfully executed (200 OK)</div>
                 </div>
               </motion.div>
             )}
@@ -134,8 +145,8 @@ export function BrowserMockup() {
                 className="w-full max-w-md border border-white/5 bg-zinc-950/80 rounded-lg p-5 space-y-4"
               >
                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                  <span className="text-xs font-bold text-foreground">Sculra Build QA Report</span>
-                  <span className="text-[10px] font-mono text-danger font-semibold bg-danger/10 px-2 py-0.5 rounded">Not Ready</span>
+                  <span className="text-xs font-bold text-foreground">Sculra Build PR Report</span>
+                  <span className="text-[10px] font-mono text-danger font-semibold bg-danger/10 px-2 py-0.5 rounded border border-danger/20">Not Ready</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="p-3 border border-white/5 rounded bg-black/20">
@@ -148,16 +159,11 @@ export function BrowserMockup() {
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground leading-relaxed text-center">
-                  4 layout anomalies must be resolved before merging the target PR.
+                  Crawl sweep finished in 45s. Block merge due to visual regression exceptions.
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-
-        {/* Footer info */}
-        <div className="border-t border-white/5 pt-3 mt-4 text-[9px] text-muted-foreground text-center font-mono uppercase tracking-wider">
-          Sculra runs autonomously from the outside in without code hooks.
         </div>
       </div>
     </div>

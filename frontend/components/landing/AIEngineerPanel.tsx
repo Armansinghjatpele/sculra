@@ -2,16 +2,22 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 export function AIEngineerPanel() {
   const [terminalStep, setTerminalStep] = React.useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   React.useEffect(() => {
+    if (prefersReducedMotion) {
+      setTerminalStep(3); // Show all steps instantly
+      return;
+    }
     const timer = setInterval(() => {
       setTerminalStep((prev) => (prev + 1) % 4);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [prefersReducedMotion]);
 
   const logs = [
     { text: 'Thinking: Initializing autonomous crawl sweep on dashboard/settings...', type: 'info' },
@@ -21,7 +27,7 @@ export function AIEngineerPanel() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto border border-white/5 rounded-xl bg-zinc-950/40 p-6 shadow-glass overflow-hidden font-mono text-[10px] leading-relaxed">
+    <div className="max-w-4xl mx-auto border border-white/5 rounded-xl bg-zinc-950/40 p-6 shadow-glass overflow-hidden font-mono text-[10px] leading-relaxed border-gradient-hover">
       
       {/* Title Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4 text-muted-foreground">
@@ -37,7 +43,7 @@ export function AIEngineerPanel() {
         {logs.slice(0, terminalStep + 1).map((l, idx) => (
           <motion.div
             key={idx}
-            initial={{ opacity: 0, x: -10 }}
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4 }}
             className="flex items-start gap-2.5"

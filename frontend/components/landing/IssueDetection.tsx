@@ -2,9 +2,19 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 export function IssueDetection() {
   const [toggleFix, setToggleFix] = React.useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  React.useEffect(() => {
+    if (prefersReducedMotion) return;
+    const interval = setInterval(() => {
+      setToggleFix((prev) => !prev);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto items-center">
@@ -14,13 +24,13 @@ export function IssueDetection() {
           <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Visual Bug Detection</span>
           <button
             onClick={() => setToggleFix(!toggleFix)}
-            className="px-3 py-1 rounded border border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors font-mono text-[9px] text-accent uppercase font-bold"
+            className="px-3 py-1 rounded border border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors font-mono text-[9px] text-accent uppercase font-bold cursor-pointer"
           >
             {toggleFix ? 'Show Bug' : 'Show Fix'}
           </button>
         </div>
 
-        <div className="relative border border-white/5 rounded-xl bg-zinc-950/20 p-6 shadow-glass overflow-hidden h-80 flex flex-col justify-between">
+        <div className="relative border border-white/5 rounded-xl bg-zinc-950/20 p-6 shadow-glass overflow-hidden h-80 flex flex-col justify-between border-gradient-hover">
           <div className="grid grid-cols-2 gap-4 h-full relative">
             {/* LEFT: Expected UI (Target reference) */}
             <div className="border border-white/5 rounded-lg bg-zinc-900/50 p-4 flex flex-col justify-between opacity-80 select-none">
@@ -106,7 +116,7 @@ export function IssueDetection() {
           <div className="space-y-2">
             <span className="text-foreground font-semibold text-[9px] block">Console Trace Exception:</span>
             <div className="bg-black/50 p-3 border border-white/5 rounded text-[8px] text-red-400 overflow-x-auto whitespace-pre">
-              TypeError: Cannot read properties of undefined (reading 'style')
+              TypeError: Cannot read properties of undefined (reading &apos;style&apos;)
               at resizeSidebar (AppShell.tsx:L124)
             </div>
           </div>
