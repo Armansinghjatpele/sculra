@@ -46,7 +46,7 @@ export async function getOrganizations(clerkToken: string) {
 export async function getProjects(clerkToken: string, clerkOrgId?: string | null) {
   const supabase = getSupabaseUserClient(clerkToken);
   
-  let query = supabase.from('projects').select('*');
+  let query = supabase.from('projects').select('*, test_runs(id, status, overall_score, created_at, duration_ms), issues(id, status)');
 
   if (clerkOrgId) {
     // Select projects associated with the active Clerk Organization mapping
@@ -75,26 +75,58 @@ export async function getProjects(clerkToken: string, clerkOrgId?: string | null
   }
 
   // Format database projects to client models
-  return (data || []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    type: p.source_type,
-    status: p.status === 'active' ? 'passed' : 'running', // Map to UI status states
-    lastTestRun: undefined,
-    releaseScore: 100,
-    openIssuesCount: 0,
-    url: p.source_url,
-    repoUrl: p.repository_url,
-    environment: 'Staging',
-    branch: 'main',
-  })) as Project[];
+  return (data || []).map((p: any) => {
+    let env = 'Staging';
+    let branch = 'main';
+    if (p.description) {
+      try {
+        const meta = JSON.parse(p.description);
+        if (meta.environment) env = meta.environment;
+        if (meta.branch) branch = meta.branch;
+      } catch {
+        // description is not JSON, ignore
+      }
+    }
+
+    const sortedRuns = [...(p.test_runs || [])].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const lastRun = sortedRuns[0] || null;
+
+    let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' = 'running';
+    if (lastRun) {
+      if (lastRun.status === 'passed') uiStatus = 'passed';
+      else if (lastRun.status === 'failed' || lastRun.status === 'cancelled') uiStatus = 'failed';
+      else if (lastRun.status === 'needs_review') uiStatus = 'needs_review';
+      else uiStatus = 'running';
+    }
+
+    const openIssuesCount = (p.issues || []).filter((i: any) => i.status === 'open').length;
+    const releaseScore = lastRun ? lastRun.overall_score : null;
+    const lastTestRun = lastRun ? 'Synced' : undefined;
+
+    return {
+      id: p.id,
+      name: p.name,
+      type: p.source_type,
+      status: uiStatus,
+      lastTestRun,
+      releaseScore,
+      openIssuesCount,
+      url: p.source_url,
+      repoUrl: p.repository_url,
+      environment: env,
+      branch,
+      createdAt: p.created_at ? new Date(p.created_at).toLocaleDateString() : undefined,
+    };
+  }) as Project[];
 }
 
 export async function getProject(clerkToken: string, id: string) {
   const supabase = getSupabaseUserClient(clerkToken);
   const { data, error } = await supabase
     .from('projects')
-    .select('*')
+    .select('*, test_runs(id, status, overall_score, created_at, duration_ms), issues(id, status)')
     .eq('id', id)
     .maybeSingle();
 
@@ -103,19 +135,49 @@ export async function getProject(clerkToken: string, id: string) {
   }
 
   if (!data) return null;
-  
+
+  let env = 'Staging';
+  let branch = 'main';
+  if (data.description) {
+    try {
+      const meta = JSON.parse(data.description);
+      if (meta.environment) env = meta.environment;
+      if (meta.branch) branch = meta.branch;
+    } catch {
+      // description is not JSON, ignore
+    }
+  }
+
+  const sortedRuns = [...(data.test_runs || [])].sort(
+    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  const lastRun = sortedRuns[0] || null;
+
+  let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' = 'running';
+  if (lastRun) {
+    if (lastRun.status === 'passed') uiStatus = 'passed';
+    else if (lastRun.status === 'failed' || lastRun.status === 'cancelled') uiStatus = 'failed';
+    else if (lastRun.status === 'needs_review') uiStatus = 'needs_review';
+    else uiStatus = 'running';
+  }
+
+  const openIssuesCount = (data.issues || []).filter((i: any) => i.status === 'open').length;
+  const releaseScore = lastRun ? lastRun.overall_score : null;
+  const lastTestRun = lastRun ? 'Synced' : undefined;
+
   return {
     id: data.id,
     name: data.name,
     type: data.source_type,
-    status: data.status === 'active' ? 'passed' : 'running',
-    lastTestRun: undefined,
-    releaseScore: 100,
-    openIssuesCount: 0,
+    status: uiStatus,
+    lastTestRun,
+    releaseScore,
+    openIssuesCount,
     url: data.source_url,
     repoUrl: data.repository_url,
-    environment: 'Staging',
-    branch: 'main',
+    environment: env,
+    branch,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleDateString() : undefined,
   } as Project;
 }
 
@@ -154,6 +216,10 @@ export async function createProject(clerkToken: string, projectData: {
       repository_url: projectData.repoUrl,
       created_by: projectData.clerkUserId,
       status: 'active',
+      description: JSON.stringify({
+        environment: projectData.environment || 'Staging',
+        branch: projectData.branch || 'main',
+      }),
     })
     .select('*')
     .single();
@@ -168,7 +234,7 @@ export async function createProject(clerkToken: string, projectData: {
     type: data.source_type,
     status: 'running',
     lastTestRun: undefined,
-    releaseScore: 100,
+    releaseScore: null,
     openIssuesCount: 0,
     url: data.source_url,
     repoUrl: data.repository_url,

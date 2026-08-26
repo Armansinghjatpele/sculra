@@ -31,7 +31,9 @@ export function ProjectCard({ project }: { project: Project }) {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Stability Score</span>
-          <span className="font-semibold text-foreground">{project.releaseScore}%</span>
+          <span className="font-semibold text-foreground">
+            {project.releaseScore !== null ? `${project.releaseScore}%` : 'No release score yet'}
+          </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Open Issues</span>

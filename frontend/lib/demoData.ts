@@ -8,12 +8,13 @@ export interface Project {
   type: 'website' | 'github' | 'zip' | 'desktop' | 'api';
   status: 'passed' | 'running' | 'failed' | 'needs_review';
   lastTestRun?: string;
-  releaseScore: number;
+  releaseScore: number | null;
   openIssuesCount: number;
   url?: string;
   repoUrl?: string;
   environment?: string;
   branch?: string;
+  createdAt?: string;
 }
 
 export interface TestRun {

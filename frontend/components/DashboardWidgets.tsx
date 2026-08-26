@@ -98,14 +98,18 @@ export function ReleaseScoreWidget({
   score,
   label = 'Overall Stability',
 }: {
-  score: number;
+  score: number | null;
   label?: string;
 }) {
   let scoreColor = 'text-success';
   let badgeText = 'Excellent';
   let badgeVar: 'success' | 'warning' | 'danger' = 'success';
 
-  if (score < 70) {
+  if (score === null) {
+    scoreColor = 'text-muted-foreground';
+    badgeText = 'No tests yet';
+    badgeVar = 'warning';
+  } else if (score < 70) {
     scoreColor = 'text-danger';
     badgeText = 'Critical Failures';
     badgeVar = 'danger';
@@ -124,12 +128,14 @@ export function ReleaseScoreWidget({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-baseline gap-2">
-          <span className={cn('text-4xl font-extrabold tracking-tight', scoreColor)}>{score}%</span>
+          <span className={cn('text-4xl font-extrabold tracking-tight', scoreColor)}>
+            {score !== null ? `${score}%` : 'N/A'}
+          </span>
           <Badge variant={badgeVar} className="text-3xs py-0.5 px-2">
             {badgeText}
           </Badge>
         </div>
-        <Progress value={score} />
+        <Progress value={score !== null ? score : 0} />
         <p className="text-4xs text-muted-foreground leading-normal">
           This score represents visual alignments, API error rates, and security compliance levels.
         </p>

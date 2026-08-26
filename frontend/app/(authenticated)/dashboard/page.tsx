@@ -37,15 +37,16 @@ export default async function DashboardPage() {
 
   // Compute live statistics summary values from data layer
   const criticalCount = issues.filter((i) => i.severity === 'critical').length;
-  const scoreAverage = projects.length > 0 
-    ? Math.round(projects.reduce((acc, p) => acc + p.releaseScore, 0) / projects.length) 
-    : 100;
+  const scoredProjects = projects.filter((p) => p.releaseScore !== null);
+  const scoreAverage = scoredProjects.length > 0 
+    ? Math.round(scoredProjects.reduce((acc, p) => acc + (p.releaseScore || 0), 0) / scoredProjects.length) 
+    : null;
 
   const statsList = [
     { label: 'Total Projects', value: projects.length, changePercent: projects.length > 0 ? 0 : undefined, timeframe: 'Current target workspaces' },
     { label: 'Total Test Runs', value: testRuns.length, changePercent: testRuns.length > 0 ? undefined : undefined, timeframe: 'All sweeps executed' },
     { label: 'Critical Issues', value: criticalCount, changePercent: criticalCount > 0 ? undefined : undefined, timeframe: 'Require immediate resolution' },
-    { label: 'Avg Release Score', value: `${scoreAverage}%`, changePercent: undefined, timeframe: 'Stability baseline index' },
+    { label: 'Avg Release Score', value: scoreAverage !== null ? `${scoreAverage}%` : 'N/A', changePercent: undefined, timeframe: 'Stability baseline index' },
   ];
 
   return (
