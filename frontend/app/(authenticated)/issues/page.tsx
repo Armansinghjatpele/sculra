@@ -54,7 +54,7 @@ export default function IssuesPage() {
   }, [issues, severityFilter, statusFilter, projectFilter]);
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         <Flex justify="between" align="center" wrap={true} className="gap-4">
           <div>
@@ -113,6 +113,6 @@ export default function IssuesPage() {
           <IssueList issues={filteredIssues} />
         )}
       </Stack>
-    </AppShell>
+    </>
   );
 }

@@ -33,7 +33,7 @@ export default function ReportsPage() {
   }, [getToken, orgId]);
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         <Flex justify="between" align="center" wrap={true} className="gap-4">
           <div>
@@ -94,6 +94,6 @@ export default function ReportsPage() {
           </div>
         )}
       </Stack>
-    </AppShell>
+    </>
   );
 }

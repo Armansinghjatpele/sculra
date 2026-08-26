@@ -15,7 +15,7 @@ export default function TeamPage() {
   const { user } = useUser();
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Organization Team</h1>
@@ -63,6 +63,7 @@ export default function TeamPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-[11px]">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {memberships?.data?.map((m: any) => (
                   <tr key={m.id} className="hover:bg-white/5">
                     <td className="p-4 text-foreground font-semibold flex items-center gap-2">
@@ -93,6 +94,6 @@ export default function TeamPage() {
           </div>
         )}
       </Stack>
-    </AppShell>
+    </>
   );
 }

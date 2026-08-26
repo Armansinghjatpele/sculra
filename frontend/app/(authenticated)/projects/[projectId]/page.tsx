@@ -58,30 +58,26 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="py-12 text-center text-xs text-muted-foreground font-mono">
-          Loading project workspace details...
-        </div>
-      </AppShell>
+      <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+        Loading project workspace details...
+      </div>
     );
   }
 
   if (!project) {
     return (
-      <AppShell>
-        <div className="py-12 text-center max-w-sm mx-auto space-y-4">
-          <h1 className="text-lg font-bold text-foreground">Project Not Found</h1>
-          <p className="text-xs text-muted-foreground">The requested project ID does not exist in this workspace scope.</p>
-          <Link href="/projects" className="mt-4 inline-block">
-            <Button variant="accent" size="sm">Back to Projects</Button>
-          </Link>
-        </div>
-      </AppShell>
+      <div className="py-12 text-center max-w-sm mx-auto space-y-4">
+        <h1 className="text-lg font-bold text-foreground">Project Not Found</h1>
+        <p className="text-xs text-muted-foreground">The requested project ID does not exist in this workspace scope.</p>
+        <Link href="/projects" className="mt-4 inline-block">
+          <Button variant="accent" size="sm">Back to Projects</Button>
+        </Link>
+      </div>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         {/* Reusable PageHeader component */}
         <PageHeader
@@ -223,6 +219,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
           </TabsContent>
         </Tabs>
       </Stack>
-    </AppShell>
+    </>
   );
 }

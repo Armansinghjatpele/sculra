@@ -52,7 +52,7 @@ export default function TestRunsPage() {
   }, [runs, statusFilter, projectFilter]);
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         <Flex justify="between" align="center" wrap={true} className="gap-4">
           <div>
@@ -100,6 +100,6 @@ export default function TestRunsPage() {
           <TestRunTable runs={filteredRuns} />
         )}
       </Stack>
-    </AppShell>
+    </>
   );
 }

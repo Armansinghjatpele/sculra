@@ -70,7 +70,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         {/* Reusable PageHeader component */}
         <PageHeader
@@ -160,6 +160,6 @@ export default function ProjectsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   );
 }

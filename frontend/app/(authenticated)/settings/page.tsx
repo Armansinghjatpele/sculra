@@ -34,7 +34,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   ];
 
   return (
-    <AppShell>
+    <>
       <Stack spacing={24}>
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Console Settings</h1>
@@ -190,6 +190,6 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
           </div>
         </Flex>
       </Stack>
-    </AppShell>
+    </>
   );
 }
