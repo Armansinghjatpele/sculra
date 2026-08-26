@@ -32,7 +32,7 @@ export default function DashboardPage() {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const token = await getToken({ template: 'supabase' });
+        const token = await getToken();
         if (token) {
           const [projs, runs, iss, ins] = await Promise.all([
             getProjects(token, orgId),

@@ -28,4 +28,8 @@ enabled = true
 file_size_limit = "50MB"
 
 [auth]
-enabled = false # Supabase Auth is NOT used. Clerk handles authentication.
+enabled = true
+
+[auth.third_party.clerk]
+enabled = true
+domain = "clerk.sculra.com"

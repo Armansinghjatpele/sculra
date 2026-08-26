@@ -28,7 +28,7 @@ export default function ProjectsPage() {
   const loadProjects = React.useCallback(async () => {
     try {
       setLoading(true);
-      const token = await getToken({ template: 'supabase' });
+      const token = await getToken();
       if (token) {
         const data = await getProjects(token, orgId);
         setProjects(data);
@@ -47,7 +47,7 @@ export default function ProjectsPage() {
   const handleCreateProject = async () => {
     if (!newProjectName.trim() || !userId) return;
     try {
-      const token = await getToken({ template: 'supabase' });
+      const token = await getToken();
       if (token) {
         await createProject(token, {
           name: newProjectName,

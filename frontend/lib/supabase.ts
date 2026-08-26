@@ -10,24 +10,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * Returns a typed Supabase client scoped to the authenticated user.
- * Injects Clerk JWT session token into global headers so Row Level Security policies evaluate safely.
+ * Injects Clerk JWT session token through the supported accessToken mechanism.
  */
-export function getSupabaseUserClient(clerkToken?: string) {
+export function getSupabaseUserClient(clerkTokenOrFetcher?: string | (() => Promise<string | null>)) {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase configuration is not loaded.');
   }
 
-  const globalHeaders: Record<string, string> = {};
-  if (clerkToken) {
-    globalHeaders['Authorization'] = `Bearer ${clerkToken}`;
-  }
-
   return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: globalHeaders,
+    accessToken: async () => {
+      if (typeof clerkTokenOrFetcher === 'function') {
+        const token = await clerkTokenOrFetcher();
+        return token || '';
+      }
+      return clerkTokenOrFetcher || '';
     },
     auth: {
-      persistSession: false, // Turn off storage/cookies caching since Clerk maintains sessions
+      persistSession: false, // Clerk maintains sessions
     },
   });
 }
@@ -35,8 +34,13 @@ export function getSupabaseUserClient(clerkToken?: string) {
 /**
  * Returns a trusted Supabase client powered by the service_role key.
  * SERVER-ONLY. Bypasses Row Level Security policies for background syncing (e.g. Clerk webhooks).
+ * This client is never imported or bundled into client-side code.
  */
 export function getSupabaseServiceClient() {
+  if (typeof window !== 'undefined') {
+    throw new Error('Security Violation: getSupabaseServiceClient must never be executed on the browser client.');
+  }
+
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error('Supabase service role configurations are missing or not running in a server context.');
   }

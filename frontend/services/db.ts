@@ -7,13 +7,12 @@
 import { getSupabaseUserClient } from '../lib/supabase';
 import { Project, TestRun, Issue, AIInsight, Notification, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications } from '../lib/demoData';
 
-/**
- * Helper to check if a database payload is empty.
- * If empty or database connection is dry (not configured/seeded), we fall back to safe demo states.
- */
 function useFallback(error: any) {
   if (error) {
-    console.warn('[Supabase Database Service Warning]: Falling back to mock demo data.', error.message);
+    if (process.env.NODE_ENV !== 'development' || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'anon-key-123') {
+      throw new Error(`Database Connection Failed: ${error.message}`);
+    }
+    console.warn('[Supabase Database Service Warning]: Falling back to mock demo data in development.', error.message);
     return true;
   }
   return false;
