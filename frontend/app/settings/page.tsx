@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
+import { use } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { Stack, Flex } from '@/components/LayoutPrimitives';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/Card';
@@ -9,9 +9,14 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { SettingsNavigation } from '@/components/SettingsNavigation';
 
-export default function SettingsPage() {
-  const searchParams = useSearchParams();
-  const tab = searchParams.get('tab') || 'profile';
+interface SettingsPageProps {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default function SettingsPage({ searchParams }: SettingsPageProps) {
+  // Resolve searchParams promise (standard Next.js App Router behavior)
+  const resolvedSearchParams = use(searchParams);
+  const tab = resolvedSearchParams.tab || 'profile';
 
   return (
     <AppShell>

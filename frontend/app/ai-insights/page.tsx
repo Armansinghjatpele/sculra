@@ -11,14 +11,14 @@ export default function AIInsightsPage() {
     {
       id: 'ins-1',
       agent: 'Security Inspector Agent',
-      severity: 'warning' as const,
+      severity: 'medium' as const,
       finding: 'Missing HttpOnly flag in session cookie in sculra-monorepo.',
       recommendation: 'Configure response headers to append HttpOnly cookie configuration values.',
     },
     {
       id: 'ins-2',
       agent: 'UX Accessibility Agent',
-      severity: 'warning' as const,
+      severity: 'medium' as const,
       finding: 'Secondary button element contrast ratio is below 4.5:1 (WCAG AA requirement).',
       recommendation: 'Adjust foreground slate color values to enhance contrast on dark backdrops.',
     },

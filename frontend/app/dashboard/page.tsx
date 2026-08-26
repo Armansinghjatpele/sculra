@@ -10,7 +10,7 @@ import { Badge } from '@/components/Badge';
 import { ReleaseScoreWidget, StatisticsWidget, BugCounterWidget, AIInsightsWidget } from '@/components/DashboardWidgets';
 import { TestRunTable } from '@/components/TestRunTable';
 import { IssueList } from '@/components/IssueList';
-import { mockTestRuns, mockIssues, mockAIInsights } from '@/lib/demoData';
+import { mockTestRuns, mockIssues } from '@/lib/demoData';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -33,7 +33,7 @@ export default function DashboardPage() {
     <AppShell>
       <Stack spacing={24}>
         {/* Welcome Section */}
-        <Flex justify="between" align="center" wrap="wrap" className="gap-4">
+        <Flex justify="between" align="center" wrap={true} className="gap-4">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
               {greeting}, {userName}.
@@ -59,7 +59,7 @@ export default function DashboardPage() {
           <BugCounterWidget counts={{ critical: 1, high: 2, medium: 4, low: 2 }} />
           <AIInsightsWidget
             insights={[
-              { id: '1', agent: 'Diagnostics', severity: 'warning', finding: '3 issues appear related to the latest GitHub branch deployment.', recommendation: 'Verify recent cookie and alignment headers.' }
+              { id: '1', agent: 'Diagnostics', severity: 'high', finding: '3 issues appear related to the latest GitHub branch deployment.', recommendation: 'Verify recent cookie and alignment headers.' }
             ]}
           />
         </Grid>

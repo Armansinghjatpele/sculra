@@ -53,7 +53,7 @@ export default function ProjectsPage() {
     <AppShell>
       <Stack spacing={24}>
         {/* Header Title Controls */}
-        <Flex justify="between" align="center" wrap="wrap" className="gap-4">
+        <Flex justify="between" align="center" wrap={true} className="gap-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">Projects Workspace</h1>
             <p className="text-xs text-muted-foreground">Manage your test suites targets and configurations.</p>
