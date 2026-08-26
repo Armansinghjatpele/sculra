@@ -1,32 +1,71 @@
 'use client';
 
 import * as React from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { AppShell } from '@/components/AppShell';
 import { Grid, Stack, Flex } from '@/components/LayoutPrimitives';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { Button } from '@/components/Button';
-import { Badge } from '@/components/Badge';
 import { ReleaseScoreWidget, StatisticsWidget, BugCounterWidget, AIInsightsWidget } from '@/components/DashboardWidgets';
 import { TestRunTable } from '@/components/TestRunTable';
 import { IssueList } from '@/components/IssueList';
-import { mockTestRuns, mockIssues } from '@/lib/demoData';
+import { getProjects, getTestRuns, getIssues, getAIInsights } from '@/services/db';
+import { Project, TestRun, Issue, AIInsight } from '@/lib/demoData';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const { getToken, orgId } = useAuth();
   const userName = user?.firstName || 'Developer';
+
+  // State hooks for dashboard elements
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [testRuns, setTestRuns] = React.useState<TestRun[]>([]);
+  const [issues, setIssues] = React.useState<Issue[]>([]);
+  const [insights, setInsights] = React.useState<AIInsight[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
   // Resolve time-aware greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  // Stats mapped for Sculra Stat Cards
+  React.useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        const token = await getToken({ template: 'supabase' });
+        if (token) {
+          const [projs, runs, iss, ins] = await Promise.all([
+            getProjects(token, orgId),
+            getTestRuns(token, orgId),
+            getIssues(token, orgId),
+            getAIInsights(token, orgId),
+          ]);
+          setProjects(projs);
+          setTestRuns(runs);
+          setIssues(iss);
+          setInsights(ins);
+        }
+      } catch (e) {
+        console.error('[Dashboard Load Error]: Failed loading multi-tenant database summary.', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDashboardData();
+  }, [getToken, orgId]);
+
+  // Compute live statistics summary values from data layer
+  const criticalCount = issues.filter((i) => i.severity === 'critical').length;
+  const passedCount = testRuns.filter((r) => r.status === 'passed').length;
+  const scoreAverage = projects.length > 0 
+    ? Math.round(projects.reduce((acc, p) => acc + p.releaseScore, 0) / projects.length) 
+    : 100;
+
   const statsList = [
-    { label: 'Total Projects', value: 4, changePercent: 25, timeframe: 'Last 30 days' },
-    { label: 'Total Test Runs', value: 124, changePercent: 12, timeframe: 'Last 30 days' },
-    { label: 'Testing Minutes', value: '342m', changePercent: 18, timeframe: 'Last 30 days' },
-    { label: 'Latest Release Score', value: '94%', changePercent: 2, timeframe: 'Current stability' },
+    { label: 'Total Projects', value: projects.length, changePercent: projects.length > 0 ? 0 : undefined, timeframe: 'Current target workspaces' },
+    { label: 'Total Test Runs', value: testRuns.length, changePercent: testRuns.length > 0 ? undefined : undefined, timeframe: 'All sweeps executed' },
+    { label: 'Critical Issues', value: criticalCount, changePercent: criticalCount > 0 ? undefined : undefined, timeframe: 'Require immediate resolution' },
+    { label: 'Avg Release Score', value: `${scoreAverage}%`, changePercent: undefined, timeframe: 'Stability baseline index' },
   ];
 
   return (
@@ -52,39 +91,55 @@ export default function DashboardPage() {
           </Flex>
         </Flex>
 
-        {/* 1. Key Stability Scorecards Grid */}
-        <Grid cols={1} colsMd={3} gap={16}>
-          {/* Release Readiness illustrative widget */}
-          <ReleaseScoreWidget score={82} label="Release Readiness Score" />
-          <BugCounterWidget counts={{ critical: 1, high: 2, medium: 4, low: 2 }} />
-          <AIInsightsWidget
-            insights={[
-              { id: '1', agent: 'Diagnostics', severity: 'high', finding: '3 issues appear related to the latest GitHub branch deployment.', recommendation: 'Verify recent cookie and alignment headers.' }
-            ]}
-          />
-        </Grid>
+        {loading ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Loading workspace summary metrics...</div>
+        ) : (
+          <>
+            {/* 1. Key Stability Scorecards Grid */}
+            <Grid cols={1} colsMd={3} gap={16}>
+              <ReleaseScoreWidget score={scoreAverage} label="Workspace Stability Score" />
+              <BugCounterWidget 
+                counts={{
+                  critical: issues.filter((i) => i.severity === 'critical').length,
+                  high: issues.filter((i) => i.severity === 'high').length,
+                  medium: issues.filter((i) => i.severity === 'medium').length,
+                  low: issues.filter((i) => i.severity === 'low').length,
+                }} 
+              />
+              <AIInsightsWidget
+                insights={insights.map((ins) => ({
+                  id: ins.id,
+                  agent: 'Diagnostics Agent',
+                  severity: ins.severity === 'critical' ? 'critical' : 'high',
+                  finding: ins.message,
+                  recommendation: 'Verify recently connected routes, packages, and style configurations.',
+                }))}
+              />
+            </Grid>
 
-        {/* 2. Numeric Statistics Summary */}
-        <StatisticsWidget items={statsList} />
+            {/* 2. Numeric Statistics Summary */}
+            <StatisticsWidget items={statsList} />
 
-        {/* 3. Dynamic Lists: Recent Test Runs & Detected Issues */}
-        <Grid cols={1} colsLg={3} gap={24}>
-          {/* Recent Test Runs (Left 2 cols) */}
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
-              Recent Test Runs
-            </h2>
-            <TestRunTable runs={mockTestRuns} />
-          </div>
+            {/* 3. Dynamic Lists: Recent Test Runs & Detected Issues */}
+            <Grid cols={1} colsLg={3} gap={24}>
+              {/* Recent Test Runs (Left 2 cols) */}
+              <div className="lg:col-span-2 space-y-4">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
+                  Recent Test Runs
+                </h2>
+                <TestRunTable runs={testRuns.slice(0, 5)} />
+              </div>
 
-          {/* Recent Issues List (Right 1 col) */}
-          <div className="space-y-4">
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
-              Open Vulnerabilities
-            </h2>
-            <IssueList issues={mockIssues.slice(0, 3)} />
-          </div>
-        </Grid>
+              {/* Recent Issues List (Right 1 col) */}
+              <div className="space-y-4">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
+                  Open Vulnerabilities
+                </h2>
+                <IssueList issues={issues.slice(0, 4)} />
+              </div>
+            </Grid>
+          </>
+        )}
       </Stack>
     </AppShell>
   );

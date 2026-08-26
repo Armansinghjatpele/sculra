@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { AppShell } from '@/components/AppShell';
 import { Stack } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
@@ -10,35 +11,62 @@ import { ProjectList } from '@/components/ProjectList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/Dialog';
 import { URLInput } from '@/components/URLInput';
 import { Select } from '@/components/Select';
-import { mockProjects, Project } from '@/lib/demoData';
+import { getProjects, createProject } from '@/services/db';
+import { Project } from '@/lib/demoData';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = React.useState<Project[]>(mockProjects);
+  const { getToken, orgId, userId } = useAuth();
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
   // New project input form states
   const [newProjectName, setNewProjectName] = React.useState('');
-  const [newProjectType, setNewProjectType] = React.useState<'website' | 'github' | 'zip' | 'desktop'>('website');
+  const [newProjectType, setNewProjectType] = React.useState<'website' | 'github' | 'zip' | 'desktop' | 'api'>('website');
   const [newProjectUrl, setNewProjectUrl] = React.useState('');
 
-  const handleCreateProject = () => {
-    if (!newProjectName.trim()) return;
-    const newProj: Project = {
-      id: `proj-${Date.now()}`,
-      name: newProjectName,
-      type: newProjectType,
-      status: 'running',
-      lastTestRun: 'Just now',
-      releaseScore: 100,
-      openIssuesCount: 0,
-      url: newProjectType === 'website' ? newProjectUrl : undefined,
-      repoUrl: newProjectType === 'github' ? newProjectUrl : undefined,
-    };
-    setProjects([newProj, ...projects]);
-    setIsCreateOpen(false);
-    // Reset states
-    setNewProjectName('');
-    setNewProjectUrl('');
+  const loadProjects = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: 'supabase' });
+      if (token) {
+        const data = await getProjects(token, orgId);
+        setProjects(data);
+      }
+    } catch (e) {
+      console.error('[Projects Load Error]: Failed loading projects target workspace.', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken, orgId]);
+
+  React.useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim() || !userId) return;
+    try {
+      const token = await getToken({ template: 'supabase' });
+      if (token) {
+        await createProject(token, {
+          name: newProjectName,
+          type: newProjectType,
+          url: newProjectType === 'website' ? newProjectUrl : undefined,
+          repoUrl: newProjectType === 'github' ? newProjectUrl : undefined,
+          clerkOrgId: orgId,
+          clerkUserId: userId,
+        });
+        // Reload list from live database
+        await loadProjects();
+        setIsCreateOpen(false);
+        // Reset states
+        setNewProjectName('');
+        setNewProjectUrl('');
+      }
+    } catch (e) {
+      console.error('[Projects Creation Error]: Failed creating target project in database.', e);
+    }
   };
 
   return (
@@ -49,14 +77,18 @@ export default function ProjectsPage() {
           title="Projects Workspace"
           description="Manage your test suites targets and configurations."
           action={
-            <Button variant="accent" size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Button variant="accent" size="sm" onClick={() => setIsCreateOpen(true)} disabled={loading}>
               Create Project
             </Button>
           }
         />
 
-        {/* Reusable ProjectList component */}
-        <ProjectList initialProjects={projects} onCreateTrigger={() => setIsCreateOpen(true)} />
+        {/* ProjectList with database projects */}
+        {loading ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Loading workspace projects...</div>
+        ) : (
+          <ProjectList initialProjects={projects} onCreateTrigger={() => setIsCreateOpen(true)} />
+        )}
       </Stack>
 
       {/* 2. Create Project Modal Dialog */}
