@@ -1,117 +1,91 @@
 'use client';
 
 import * as React from 'react';
+import { useUser } from '@clerk/nextjs';
+import { AppShell } from '@/components/AppShell';
+import { Grid, Stack, Flex } from '@/components/LayoutPrimitives';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
+import { Button } from '@/components/Button';
 import { Badge } from '@/components/Badge';
-import { Chart } from '@/components/Chart';
+import { ReleaseScoreWidget, StatisticsWidget, BugCounterWidget, AIInsightsWidget } from '@/components/DashboardWidgets';
+import { TestRunTable } from '@/components/TestRunTable';
+import { IssueList } from '@/components/IssueList';
+import { mockTestRuns, mockIssues, mockAIInsights } from '@/lib/demoData';
+import Link from 'next/link';
 
-export default function DashboardConsolePage() {
-  const chartData = [
-    { label: 'Mon', value: 88 },
-    { label: 'Tue', value: 92 },
-    { label: 'Wed', value: 90 },
-    { label: 'Thu', value: 95 },
-    { label: 'Fri', value: 98 },
-    { label: 'Sat', value: 97 },
-    { label: 'Sun', value: 100 },
+export default function DashboardPage() {
+  const { user } = useUser();
+  const userName = user?.firstName || 'Developer';
+
+  // Resolve time-aware greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // Stats mapped for Sculra Stat Cards
+  const statsList = [
+    { label: 'Total Projects', value: 4, changePercent: 25, timeframe: 'Last 30 days' },
+    { label: 'Total Test Runs', value: 124, changePercent: 12, timeframe: 'Last 30 days' },
+    { label: 'Testing Minutes', value: '342m', changePercent: 18, timeframe: 'Last 30 days' },
+    { label: 'Latest Release Score', value: '94%', changePercent: 2, timeframe: 'Current stability' },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Console Overview</h1>
-        <p className="text-sm text-muted-foreground">Monitor release safety and active test flows.</p>
-      </div>
+    <AppShell>
+      <Stack spacing={24}>
+        {/* Welcome Section */}
+        <Flex justify="between" align="center" wrap="wrap" className="gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              {greeting}, {userName}.
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              Your software quality command center.
+            </p>
+          </div>
+          <Flex className="gap-3">
+            <Link href="/projects">
+              <Button variant="accent" size="sm">Start a Test</Button>
+            </Link>
+            <Link href="/projects">
+              <Button variant="outline" size="sm">Create Project</Button>
+            </Link>
+          </Flex>
+        </Flex>
 
-      {/* Overview Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-panel">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Release Score</CardTitle>
-            <Badge variant="success">98%</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">A+ Excellent</div>
-            <p className="text-3xs text-muted-foreground mt-1">Uptime, performance and security checks passed.</p>
-          </CardContent>
-        </Card>
+        {/* 1. Key Stability Scorecards Grid */}
+        <Grid cols={1} colsMd={3} gap={16}>
+          {/* Release Readiness illustrative widget */}
+          <ReleaseScoreWidget score={82} label="Release Readiness Score" />
+          <BugCounterWidget counts={{ critical: 1, high: 2, medium: 4, low: 2 }} />
+          <AIInsightsWidget
+            insights={[
+              { id: '1', agent: 'Diagnostics', severity: 'warning', finding: '3 issues appear related to the latest GitHub branch deployment.', recommendation: 'Verify recent cookie and alignment headers.' }
+            ]}
+          />
+        </Grid>
 
-        <Card className="glass-panel">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Active Projects</CardTitle>
-            <span className="text-xs text-muted-foreground">Total: 4</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">3 / 4 Configured</div>
-            <p className="text-3xs text-muted-foreground mt-1">1 sandbox environment running.</p>
-          </CardContent>
-        </Card>
+        {/* 2. Numeric Statistics Summary */}
+        <StatisticsWidget items={statsList} />
 
-        <Card className="glass-panel">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Total Bugs</CardTitle>
-            <Badge variant="danger">2 Open</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">0 Critical</div>
-            <p className="text-3xs text-muted-foreground mt-1">2 warning items discovered in forms validation.</p>
-          </CardContent>
-        </Card>
+        {/* 3. Dynamic Lists: Recent Test Runs & Detected Issues */}
+        <Grid cols={1} colsLg={3} gap={24}>
+          {/* Recent Test Runs (Left 2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
+              Recent Test Runs
+            </h2>
+            <TestRunTable runs={mockTestRuns} />
+          </div>
 
-        <Card className="glass-panel">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Storage Space</CardTitle>
-            <span className="text-xs text-muted-foreground">Limit: 10GB</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">1.4 GB Used</div>
-            <p className="text-3xs text-muted-foreground mt-1">Mainly screenshots and HTML traces.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Chart Section */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 glass-panel">
-          <CardHeader>
-            <CardTitle>Stability History</CardTitle>
-            <CardDescription>Average QA health trends across the active week.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Chart data={chartData} height={200} />
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-3 glass-panel">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Recent test-runs triggered in this organization.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Badge variant="success">Passed</Badge>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-medium text-foreground">run_main_branch_3</p>
-                <p className="truncate text-3xs text-muted-foreground">My App Core - 10m ago</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="success">Passed</Badge>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-medium text-foreground">run_main_branch_2</p>
-                <p className="truncate text-3xs text-muted-foreground">My App Core - 1h ago</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="warning">Warning</Badge>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-medium text-foreground">sandbox_env_v1</p>
-                <p className="truncate text-3xs text-muted-foreground">Admin Portal - 4h ago</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          {/* Recent Issues List (Right 1 col) */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-widest">
+              Open Vulnerabilities
+            </h2>
+            <IssueList issues={mockIssues.slice(0, 3)} />
+          </div>
+        </Grid>
+      </Stack>
+    </AppShell>
   );
 }
