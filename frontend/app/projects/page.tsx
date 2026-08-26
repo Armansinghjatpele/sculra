@@ -2,11 +2,11 @@
 
 import * as React from 'react';
 import { AppShell } from '@/components/AppShell';
-import { Container, Grid, Stack, Flex } from '@/components/LayoutPrimitives';
+import { Stack } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
-import { ProjectCard } from '@/components/ProjectCard';
-import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
+import { ProjectList } from '@/components/ProjectList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/Dialog';
 import { URLInput } from '@/components/URLInput';
 import { Select } from '@/components/Select';
@@ -14,8 +14,6 @@ import { mockProjects, Project } from '@/lib/demoData';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = React.useState<Project[]>(mockProjects);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [filterType, setFilterType] = React.useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
   // New project input form states
@@ -43,63 +41,22 @@ export default function ProjectsPage() {
     setNewProjectUrl('');
   };
 
-  const filteredProjects = projects.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === 'all' || p.type === filterType;
-    return matchesSearch && matchesType;
-  });
-
   return (
     <AppShell>
       <Stack spacing={24}>
-        {/* Header Title Controls */}
-        <Flex justify="between" align="center" wrap={true} className="gap-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Projects Workspace</h1>
-            <p className="text-xs text-muted-foreground">Manage your test suites targets and configurations.</p>
-          </div>
-          <Button variant="accent" size="sm" onClick={() => setIsCreateOpen(true)}>
-            Create Project
-          </Button>
-        </Flex>
+        {/* Reusable PageHeader component */}
+        <PageHeader
+          title="Projects Workspace"
+          description="Manage your test suites targets and configurations."
+          action={
+            <Button variant="accent" size="sm" onClick={() => setIsCreateOpen(true)}>
+              Create Project
+            </Button>
+          }
+        />
 
-        {/* Filters and Search Bar */}
-        <Flex className="gap-3 w-full wrap sm:flex-nowrap">
-          <Input
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 h-9"
-          />
-          <Select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            options={[
-              { label: 'All Targets', value: 'all' },
-              { label: 'Websites', value: 'website' },
-              { label: 'GitHub Repos', value: 'github' },
-              { label: 'ZIP Bundles', value: 'zip' },
-              { label: 'Desktop Apps', value: 'desktop' },
-            ]}
-            className="w-full sm:w-40 h-9"
-          />
-        </Flex>
-
-        {/* Projects Grid List */}
-        {filteredProjects.length > 0 ? (
-          <Grid cols={1} colsSm={2} colsLg={3} gap={16}>
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </Grid>
-        ) : (
-          <EmptyState
-            title="No projects found"
-            description="Create your first project target to enable AI-powered testing runs."
-            actionText="Create Project"
-            onAction={() => setIsCreateOpen(true)}
-          />
-        )}
+        {/* Reusable ProjectList component */}
+        <ProjectList initialProjects={projects} onCreateTrigger={() => setIsCreateOpen(true)} />
       </Stack>
 
       {/* 2. Create Project Modal Dialog */}

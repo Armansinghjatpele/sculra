@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { use } from 'react';
 import { AppShell } from '@/components/AppShell';
-import { Container, Grid, Stack, Flex } from '@/components/LayoutPrimitives';
+import { Grid, Stack, Flex } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
-import { Badge } from '@/components/Badge';
+import { StatusBadge } from '@/components/StatusBadge';
+import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { TestRunTable } from '@/components/TestRunTable';
@@ -43,33 +44,22 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const projectRuns = mockTestRuns.filter((r) => r.projectId === projectId);
   const projectIssues = mockIssues.filter((i) => i.projectId === projectId);
 
-  const statusColors = {
-    passed: 'success',
-    running: 'accent',
-    failed: 'danger',
-    needs_review: 'warning',
-  } as const;
-
   return (
     <AppShell>
       <Stack spacing={24}>
-        {/* Header Title Metadata */}
-        <Flex justify="between" align="center" wrap={true} className="gap-4 border-b border-border/30 pb-4">
-          <div>
+        {/* Reusable PageHeader component */}
+        <PageHeader
+          title={project.name}
+          description={`Type: ${project.type} | Target: ${project.url || project.repoUrl || 'Local file archive'}`}
+          action={
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold tracking-tight text-foreground">{project.name}</h1>
-              <Badge variant={statusColors[project.status]} className="text-5xs uppercase tracking-wider py-0.5 px-2">
-                {project.status.replace('_', ' ')}
-              </Badge>
+              <StatusBadge status={project.status} />
+              <Link href="/projects">
+                <Button variant="outline" size="sm">Back to Workspace</Button>
+              </Link>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Type: {project.type} | Target: {project.url || project.repoUrl || 'Local file archive'}
-            </p>
-          </div>
-          <Link href="/projects">
-            <Button variant="outline" size="sm">Back to Workspace</Button>
-          </Link>
-        </Flex>
+          }
+        />
 
         {/* Tab switcher using compound Tabs components */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

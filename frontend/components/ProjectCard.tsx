@@ -1,24 +1,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
-import { Badge } from './Badge';
+import { StatusBadge } from './StatusBadge';
 import { Project } from '@/lib/demoData';
 
 export function ProjectCard({ project }: { project: Project }) {
-  const statusColors = {
-    passed: 'success',
-    running: 'accent',
-    failed: 'danger',
-    needs_review: 'warning',
-  } as const;
-
   return (
     <Card className="glass-panel glass-interactive flex flex-col justify-between h-full">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-4 mb-2">
-          <Badge variant={statusColors[project.status]} className="text-4xs uppercase tracking-wider py-0 px-2">
-            {project.status.replace('_', ' ')}
-          </Badge>
+          <StatusBadge status={project.status} />
           <span className="text-4xs text-muted-foreground uppercase tracking-widest font-semibold">
             {project.type}
           </span>

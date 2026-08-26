@@ -1,16 +1,9 @@
 import * as React from 'react';
-import { Badge } from './Badge';
+import { StatusBadge } from './StatusBadge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './Table';
 import { TestRun } from '@/lib/demoData';
 
 export function TestRunTable({ runs }: { runs: TestRun[] }) {
-  const statusColors = {
-    passed: 'success',
-    running: 'accent',
-    failed: 'danger',
-    needs_review: 'warning',
-  } as const;
-
   return (
     <div className="rounded-md border border-border bg-card/10 overflow-hidden">
       <Table>
@@ -29,9 +22,7 @@ export function TestRunTable({ runs }: { runs: TestRun[] }) {
             <TableRow key={run.id} className="hover:bg-muted/40 transition-colors">
               <TableCell className="text-xs font-semibold text-foreground">{run.projectName}</TableCell>
               <TableCell>
-                <Badge variant={statusColors[run.status]} className="text-5xs py-0.5 px-1.5 uppercase tracking-wider">
-                  {run.status.replace('_', ' ')}
-                </Badge>
+                <StatusBadge status={run.status} />
               </TableCell>
               <TableCell className="text-xs font-medium text-muted-foreground">{run.issuesCount} issues</TableCell>
               <TableCell className="text-xs font-bold text-foreground">{run.releaseScore}%</TableCell>
