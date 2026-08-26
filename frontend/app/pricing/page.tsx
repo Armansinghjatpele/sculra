@@ -80,7 +80,7 @@ export default function PricingPage() {
                     </ul>
                   </CardContent>
                   <CardFooter className="pt-4 border-t border-border/20">
-                    <Link href="/register" className="w-full">
+                    <Link href="/sign-up" className="w-full">
                       <Button variant={plan.variant} className="w-full text-xs">
                         {plan.cta}
                       </Button>

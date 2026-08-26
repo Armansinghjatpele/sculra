@@ -94,7 +94,7 @@ export default function Home() {
               </motion.p>
 
               <motion.div variants={itemVariants} className="pt-4 flex items-center justify-center gap-4">
-                <Link href="/register">
+                <Link href="/sign-up">
                   <Button variant="accent" size="lg">Start Free Trial</Button>
                 </Link>
                 <Link href="/docs">
@@ -252,7 +252,7 @@ export default function Home() {
                 Sync your GitHub repo or connect a target URL to deploy autonomous testing sweeps.
               </p>
               <div className="flex justify-center gap-4">
-                <Link href="/register">
+                <Link href="/sign-up">
                   <Button variant="accent" size="lg">Start Free Trial</Button>
                 </Link>
                 <Link href="/pricing">
