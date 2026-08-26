@@ -17,6 +17,7 @@ const mobileNav = [
   { title: 'Issues', href: '/issues' },
   { title: 'Reports', href: '/reports' },
   { title: 'Team', href: '/team' },
+  { title: 'Activity', href: '/activity' },
   { title: 'Settings', href: '/settings' },
 ];
 
@@ -52,6 +53,7 @@ export function AppShell({ children }: AppShellProps) {
         { title: 'Go to Issues', href: '/issues' },
         { title: 'Go to Reports', href: '/reports' },
         { title: 'Go to Team', href: '/team' },
+        { title: 'Go to Activity', href: '/activity' },
         { title: 'Go to Settings', href: '/settings' },
       ],
     },

@@ -7,6 +7,7 @@ import { ReleaseScoreWidget, StatisticsWidget, BugCounterWidget, AIInsightsWidge
 import { TestRunTable } from '@/components/TestRunTable';
 import { IssueList } from '@/components/IssueList';
 import { getProjects, getTestRuns, getIssues, getAIInsights } from '@/services/db';
+import { Project, TestRun, Issue, AIInsight } from '@/lib/demoData';
 import Link from 'next/link';
 
 export default async function DashboardPage() {

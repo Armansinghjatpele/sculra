@@ -74,6 +74,11 @@ export function AppSidebar({ isCollapsed, setIsCollapsed }: AppSidebarProps) {
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
         )},
+        { title: 'Activity', href: '/activity', icon: (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        )},
       ],
     },
     {
