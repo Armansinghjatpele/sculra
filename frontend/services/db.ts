@@ -80,11 +80,13 @@ export async function getProjects(clerkToken: string, clerkOrgId?: string | null
     name: p.name,
     type: p.source_type,
     status: p.status === 'active' ? 'passed' : 'running', // Map to UI status states
-    lastTestRun: 'Synced',
-    releaseScore: 94,
+    lastTestRun: undefined,
+    releaseScore: 100,
     openIssuesCount: 0,
     url: p.source_url,
     repoUrl: p.repository_url,
+    environment: 'Staging',
+    branch: 'main',
   })) as Project[];
 }
 
@@ -107,11 +109,13 @@ export async function getProject(clerkToken: string, id: string) {
     name: data.name,
     type: data.source_type,
     status: data.status === 'active' ? 'passed' : 'running',
-    lastTestRun: 'Synced',
-    releaseScore: 94,
+    lastTestRun: undefined,
+    releaseScore: 100,
     openIssuesCount: 0,
     url: data.source_url,
     repoUrl: data.repository_url,
+    environment: 'Staging',
+    branch: 'main',
   } as Project;
 }
 
@@ -122,6 +126,8 @@ export async function createProject(clerkToken: string, projectData: {
   repoUrl?: string;
   clerkOrgId?: string | null;
   clerkUserId: string;
+  environment?: string;
+  branch?: string;
 }) {
   const supabase = getSupabaseUserClient(clerkToken);
   let internalOrgId: string | null = null;
@@ -161,11 +167,13 @@ export async function createProject(clerkToken: string, projectData: {
     name: data.name,
     type: data.source_type,
     status: 'running',
-    lastTestRun: 'Just now',
+    lastTestRun: undefined,
     releaseScore: 100,
     openIssuesCount: 0,
     url: data.source_url,
     repoUrl: data.repository_url,
+    environment: projectData.environment || 'Staging',
+    branch: projectData.branch || 'main',
   } as Project;
 }
 

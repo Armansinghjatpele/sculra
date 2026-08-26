@@ -5,13 +5,15 @@
 export interface Project {
   id: string;
   name: string;
-  type: 'website' | 'github' | 'zip' | 'desktop';
+  type: 'website' | 'github' | 'zip' | 'desktop' | 'api';
   status: 'passed' | 'running' | 'failed' | 'needs_review';
-  lastTestRun: string;
+  lastTestRun?: string;
   releaseScore: number;
   openIssuesCount: number;
   url?: string;
   repoUrl?: string;
+  environment?: string;
+  branch?: string;
 }
 
 export interface TestRun {

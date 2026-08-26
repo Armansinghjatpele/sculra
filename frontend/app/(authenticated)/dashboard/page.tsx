@@ -61,7 +61,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <Flex className="gap-3">
-          <Link href="/projects">
+          <Link href="/projects/new">
             <Button variant="accent" size="sm">+ Add Project</Button>
           </Link>
         </Flex>
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="pt-2">
-            <Link href="/projects">
+            <Link href="/projects/new">
               <Button variant="accent" size="lg">Add Project</Button>
             </Link>
           </div>
