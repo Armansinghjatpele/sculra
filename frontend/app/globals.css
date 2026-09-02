@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 /* ==============================================================================
-   Sculra ADVANCED DESIGN SYSTEM TOKENS (Tailwind v4 - Dark & Light Mode)
+   Sculra ADVANCED DESIGN SYSTEM TOKENS (Tailwind v4 - Clean Black & White Theme)
    ============================================================================== */
 
 :root {
-  /* --- Colors (Dark Mode Default) --- */
-  --neutral-50: #fafafa;
-  --neutral-100: #f4f4f5;
-  --neutral-200: #e4e4e7;
-  --neutral-300: #d4d4d8;
-  --neutral-400: #a1a1aa;
-  --neutral-500: #71717a;
-  --neutral-600: #52525b;
-  --neutral-700: #3f3f46;
+  /* --- Colors (Light Theme Default - Skoora & Constella Inspiration) --- */
+  --neutral-50: #ffffff;
+  --neutral-100: #fafafa;
+  --neutral-200: #f4f4f5;
+  --neutral-300: #e4e4e7;
+  --neutral-400: #d4d4d8;
+  --neutral-500: #a1a1aa;
+  --neutral-600: #71717a;
+  --neutral-700: #52525b;
   --neutral-800: #27272a;
   --neutral-900: #18181b;
   --neutral-950: #09090b;
@@ -22,21 +22,21 @@
   --primary-200: #dbeafe;
   --primary-300: #bfdbfe;
   --primary-400: #93c5fd;
-  --primary-500: #60a5fa;
+  --primary-500: #3b82f6;
   --primary-600: #2563eb;
   --primary-700: #1d4ed8;
   --primary-800: #1e40af;
   --primary-900: #1e3a8a;
 
-  --accent-100: #e6fcff;
-  --accent-200: #b3f7ff;
-  --accent-300: #80f1ff;
-  --accent-400: #4debff;
-  --accent-500: #00d4ff;
-  --accent-600: #00b3d9;
-  --accent-700: #008ca6;
-  --accent-800: #006473;
-  --accent-900: #003b40;
+  --accent-100: #e0f2fe;
+  --accent-200: #bae6fd;
+  --accent-300: #7dd3fc;
+  --accent-400: #38bdf8;
+  --accent-500: #0284c7;
+  --accent-600: #0369a1;
+  --accent-700: #075985;
+  --accent-800: #0c4a6e;
+  --accent-900: #082f49;
 
   --accent-2-100: #f5f3ff;
   --accent-2-200: #ede9fe;
@@ -88,45 +88,45 @@
   --info-800: #5b21b6;
   --info-900: #4c1d95;
 
-  /* Theme mappings (Dark Mode first) */
-  --background: #08080f;
-  --foreground: var(--neutral-100);
+  /* Theme mappings (Light Theme Base) */
+  --background: #ffffff;
+  --foreground: #09090b;
 
-  --card: rgba(20, 20, 30, 0.65);
-  --card-foreground: var(--neutral-100);
-  --card-border: rgba(255, 255, 255, 0.1);
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --card-border: #e4e4e7;
 
-  --popover: #0a0a0c;
-  --popover-foreground: var(--neutral-100);
-  --popover-border: rgba(255, 255, 255, 0.1);
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --popover-border: #e4e4e7;
 
-  --primary: var(--primary-600);
+  --primary: #09090b;
   --primary-foreground: #ffffff;
-  --accent: var(--accent-500);
-  --accent-2: var(--accent-2-500);
-  --accent-foreground: #030303;
+  --accent: #0284c7;
+  --accent-2: #8b5cf6;
+  --accent-foreground: #ffffff;
 
-  --success: var(--success-500);
+  --success: var(--success-600);
   --success-foreground: #ffffff;
-  --warning: var(--warning-500);
-  --warning-foreground: #030303;
-  --danger: var(--danger-500);
+  --warning: var(--warning-600);
+  --warning-foreground: #09090b;
+  --danger: var(--danger-600);
   --danger-foreground: #ffffff;
-  --info: var(--info-500);
+  --info: var(--info-600);
   --info-foreground: #ffffff;
 
-  --muted: #141416;
-  --muted-foreground: var(--neutral-400);
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.03);
-  --ring: rgba(0, 212, 255, 0.35);
+  --border: #e4e4e7;
+  --input: #f4f4f5;
+  --ring: rgba(2, 132, 199, 0.3);
 
-  --gradient-accent: linear-gradient(to right, var(--accent-500), var(--accent-2-500));
-  --gradient-glow: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(139, 92, 246, 0.15) 50%, transparent 100%);
+  --gradient-accent: linear-gradient(135deg, #09090b 0%, #27272a 100%);
+  --gradient-glow: radial-gradient(circle, rgba(2, 132, 199, 0.08) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 100%);
 
-  --sidebar-bg: #050507;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-bg: #fafafa;
+  --sidebar-border: #e4e4e7;
 
   /* --- Spacing System (8px grid base) --- */
   --space-2: 0.125rem;  /* 2px */
@@ -155,14 +155,14 @@
   --radius-full: 9999px;
 
   /* --- Shadow Scale --- */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
-  --shadow-floating-card: 0 12px 48px rgba(0, 0, 0, 0.5);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  --shadow-glass: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+  --shadow-floating-card: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
 
   /* --- Motion Systems --- */
   --transition-very-fast: 100ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -172,41 +172,24 @@
   --transition-very-slow: 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* --- Support Light Mode --- */
-.light {
-  --background: #fafafa;
-  --foreground: var(--neutral-900);
-
-  --card: rgba(255, 255, 255, 0.7);
-  --card-foreground: var(--neutral-900);
-  --card-border: rgba(0, 0, 0, 0.06);
-
-  --popover: #ffffff;
-  --popover-foreground: var(--neutral-900);
-  --popover-border: rgba(0, 0, 0, 0.08);
-
-  --primary: var(--primary-600);
-  --primary-foreground: #ffffff;
-  --accent: var(--accent-600);
-  --accent-foreground: #ffffff;
-
-  --success: var(--success-600);
-  --warning: var(--warning-600);
-  --danger: var(--danger-600);
-  --info: var(--info-600);
-
-  --muted: #f4f4f5;
-  --muted-foreground: var(--neutral-500);
-
-  --border: rgba(0, 0, 0, 0.06);
-  --input: rgba(0, 0, 0, 0.02);
-  --ring: rgba(37, 99, 235, 0.3);
-
-  --sidebar-bg: #f7f7f9;
-  --sidebar-border: rgba(0, 0, 0, 0.05);
-
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
-  --shadow-floating-card: 0 12px 48px rgba(0, 0, 0, 0.08);
+/* Optional Dark Class Override */
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --card-border: #27272a;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --popover-border: #27272a;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --border: #27272a;
+  --input: #27272a;
+  --sidebar-bg: #09090b;
+  --sidebar-border: #27272a;
 }
 
 @theme {
@@ -339,7 +322,7 @@
   }
 }
 
-/* Keyboard navigability focus ring styling */
+/* Focus ring styling */
 .focus-ring-visible:focus-visible {
   outline: none;
   ring: 2px;
@@ -349,7 +332,7 @@
 }
 
 .text-gradient {
-  background: var(--gradient-accent);
+  background: linear-gradient(135deg, #09090b 0%, #52525b 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -357,32 +340,18 @@
 }
 
 .border-gradient-hover {
-  position: relative;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.border-gradient-hover::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(to right, transparent, transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.border-gradient-hover:hover::after {
-  background: var(--gradient-accent);
+.border-gradient-hover:hover {
+  border-color: #a1a1aa;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
 }
 
 .bg-grid-ambient {
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
 }
 
 @keyframes marquee {
@@ -402,6 +371,3 @@
     transform: none !important;
   }
 }
-
-
-

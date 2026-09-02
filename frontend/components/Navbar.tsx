@@ -9,30 +9,45 @@ import { Button } from './Button';
 export interface NavbarProps extends React.HTMLAttributes<HTMLElement> {}
 
 export function Navbar({ className, ...props }: NavbarProps) {
+  const [scrolled, setScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full border-b border-border bg-background/60 backdrop-blur-md',
+        'sticky top-0 z-40 w-full border-b transition-all duration-200',
+        scrolled
+          ? 'border-border/80 bg-background/80 backdrop-blur-md shadow-xs'
+          : 'border-transparent bg-background/60 backdrop-blur-sm',
         className
       )}
       {...props}
     >
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center space-x-2">
-            <svg
-              className="h-5 w-5 text-accent"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span className="font-bold tracking-tight text-foreground sm:inline-block">
+            <div className="h-6 w-6 rounded-md bg-zinc-950 flex items-center justify-center text-white shadow-xs">
+              <svg
+                className="h-3.5 w-3.5 text-cyan-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <span className="font-extrabold tracking-tight text-foreground sm:inline-block text-base">
               Sculra
             </span>
           </Link>
@@ -41,25 +56,25 @@ export function Navbar({ className, ...props }: NavbarProps) {
           <nav className="hidden gap-6 md:flex">
             <Link
               href="/features"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               Features
             </Link>
             <Link
               href="/pricing"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               Pricing
             </Link>
             <Link
               href="/enterprise"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               Enterprise
             </Link>
             <Link
               href="/docs"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               Docs
             </Link>
@@ -67,15 +82,15 @@ export function Navbar({ className, ...props }: NavbarProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <SignedOut>
             <Link href="/sign-in">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="text-xs font-semibold">
                 Sign In
               </Button>
             </Link>
             <Link href="/sign-up">
-              <Button variant="accent" size="sm">
+              <Button variant="default" size="sm" className="text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800 shadow-xs">
                 Get Started
               </Button>
             </Link>
@@ -92,7 +107,7 @@ export function Navbar({ className, ...props }: NavbarProps) {
                 afterSelectOrganizationUrl="/dashboard"
                 appearance={{
                   elements: {
-                    rootBox: 'text-xs text-foreground bg-zinc-900 border border-white/8 rounded p-1',
+                    rootBox: 'text-xs text-foreground bg-zinc-100 border border-zinc-200 rounded p-1 shadow-xs',
                   }
                 }}
               />

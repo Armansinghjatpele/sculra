@@ -20,59 +20,59 @@ export function HeroTestingVisualization() {
   }, [prefersReducedMotion]);
 
   const steps = [
-    { label: 'Crawl and Discover', status: 'scanning', details: 'Scanning DOM tree for interactive elements...' },
+    { label: 'Crawl & Discover', status: 'scanning', details: 'Scanning DOM tree for interactive elements...' },
     { label: 'Trigger Click Action', status: 'click', details: 'Clicking primary checkout CTA...' },
     { label: 'Check Layout Alignments', status: 'check', details: 'Asserting layout alignment bounding boxes...' },
     { label: 'Assess Build Score', status: 'done', details: 'Report ready. Stability score indexed at 94%.' },
   ];
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto rounded-xl border border-white/8 bg-zinc-950/45 shadow-glass backdrop-blur-md p-4 overflow-hidden border-gradient-hover">
+    <div className="relative w-full max-w-4xl mx-auto rounded-2xl border border-zinc-200/90 bg-white shadow-lg p-3 sm:p-5 overflow-hidden transition-all duration-300">
       {/* Mock Header Menu */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4 text-[10px] text-muted-foreground font-mono">
+      <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 mb-4 text-[11px] text-zinc-500 font-mono">
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-red-500/60" />
-          <span className="h-2 w-2 rounded-full bg-yellow-500/60" />
-          <span className="h-2 w-2 rounded-full bg-green-500/60" />
-          <span className="ml-2">sculra-agent-session://dashboard-v2</span>
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+          <span className="ml-2 font-medium text-zinc-700">sculra-agent-session://dashboard-v2</span>
         </div>
         
         {/* Micro-interaction callout */}
-        <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded border border-accent/20 bg-accent/5 text-[9px] text-accent">
-          <span>Push to main</span>
-          <span className="text-muted-foreground">▸</span>
-          <span className="font-semibold">Auto-triggers test run</span>
+        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-800 font-mono">
+          <span className="font-semibold text-zinc-600">Push to main</span>
+          <span className="text-zinc-400">▸</span>
+          <span className="font-bold text-zinc-950">Auto-triggers test run</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-accent" />
-          <span>Agent Swarm: Active</span>
+        <div className="flex items-center gap-2 font-mono text-[10px] text-zinc-700">
+          <span className="animate-pulse h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="font-semibold">Agent Swarm: Active</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Left Control Panel / Terminal */}
-        <div className="md:col-span-1 border border-white/5 rounded-lg bg-black/40 p-4 font-mono text-[11px] leading-relaxed flex flex-col justify-between h-64 md:h-auto">
+        <div className="md:col-span-1 border border-zinc-800 rounded-xl bg-zinc-950 p-4 font-mono text-[11px] leading-relaxed flex flex-col justify-between h-64 md:h-auto text-zinc-300 shadow-inner">
           <div className="space-y-3">
-            <div className="text-accent font-semibold tracking-wider uppercase text-[9px]">Sculra Agent Swarm</div>
+            <div className="text-cyan-400 font-bold tracking-wider uppercase text-[10px]">Sculra Agent Swarm</div>
             <div className="space-y-2">
               {steps.map((s, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 p-1.5 rounded transition-all duration-300 ${
-                    idx === activeStep ? 'bg-zinc-900 border-l-2 border-accent text-foreground' : 'text-muted-foreground'
+                  className={`flex items-start gap-2 p-2 rounded-lg transition-all duration-300 ${
+                    idx === activeStep ? 'bg-zinc-900 border-l-2 border-cyan-400 text-white shadow-xs' : 'text-zinc-500'
                   }`}
                 >
-                  <span className="mt-0.5 select-none">
+                  <span className="mt-0.5 select-none font-bold text-cyan-400">
                     {idx < activeStep ? '✓' : idx === activeStep ? '→' : '○'}
                   </span>
                   <div className="space-y-0.5">
-                    <div className="font-semibold text-2xs">{s.label}</div>
+                    <div className="font-semibold text-xs">{s.label}</div>
                     {idx === activeStep && (
                       <motion.div
                         initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="text-[10px] text-muted-foreground"
+                        className="text-[10px] text-zinc-400"
                       >
                         {s.details}
                       </motion.div>
@@ -82,48 +82,49 @@ export function HeroTestingVisualization() {
               ))}
             </div>
           </div>
-          <div className="border-t border-white/5 pt-2 mt-4 text-[10px] text-muted-foreground">
-            Logs: <span className="text-foreground">23 elements scanned</span>
+          <div className="border-t border-zinc-800 pt-2.5 mt-4 text-[10px] text-zinc-400 flex justify-between">
+            <span>Logs:</span>
+            <span className="text-zinc-200 font-semibold">23 elements scanned</span>
           </div>
         </div>
 
         {/* Right Sandbox App Area */}
-        <div className="md:col-span-2 border border-white/5 rounded-lg bg-zinc-900/50 p-6 relative flex flex-col justify-between overflow-hidden h-72 md:h-96">
+        <div className="md:col-span-2 border border-zinc-200 rounded-xl bg-zinc-50/70 p-6 relative flex flex-col justify-between overflow-hidden h-72 md:h-96">
           {/* Simulated Browser Viewport */}
           <div className="space-y-6">
             {/* Nav Bar */}
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="font-bold text-xs">Acme Inc.</span>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3">
+              <span className="font-extrabold text-xs text-zinc-900">Acme Inc.</span>
+              <div className="flex items-center gap-3 text-[11px] font-medium text-zinc-500">
                 <span>Products</span>
                 <span>Settings</span>
-                <span className="h-5 w-5 rounded-full bg-zinc-800 border border-white/10" />
+                <span className="h-5 w-5 rounded-full bg-zinc-200 border border-zinc-300" />
               </div>
             </div>
 
             {/* Content Mock */}
             <div className="space-y-4 relative">
               <div className="space-y-1">
-                <div className="h-4 w-28 bg-white/10 rounded" />
-                <div className="h-3 w-48 bg-white/5 rounded" />
+                <div className="h-4 w-32 bg-zinc-300/80 rounded" />
+                <div className="h-3 w-52 bg-zinc-200 rounded" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="border border-white/5 rounded p-3 space-y-2">
-                  <div className="h-3 w-12 bg-white/10 rounded" />
-                  <div className="h-5 w-20 bg-white/5 rounded" />
+                <div className="border border-zinc-200/90 rounded-lg bg-white p-3.5 space-y-2 shadow-xs">
+                  <div className="h-3 w-16 bg-zinc-200 rounded" />
+                  <div className="h-5 w-24 bg-zinc-800 rounded" />
                 </div>
-                <div className="border border-white/5 rounded p-3 space-y-2">
-                  <div className="h-3 w-12 bg-white/10 rounded" />
-                  <div className="h-5 w-20 bg-white/5 rounded" />
+                <div className="border border-zinc-200/90 rounded-lg bg-white p-3.5 space-y-2 shadow-xs">
+                  <div className="h-3 w-16 bg-zinc-200 rounded" />
+                  <div className="h-5 w-24 bg-zinc-800 rounded" />
                 </div>
               </div>
 
               {/* Interactive Target Element */}
               <div className="relative pt-2">
                 <div
-                  className={`inline-block px-4 py-2 rounded text-xs font-semibold bg-accent text-background transition-all duration-300 ${
-                    activeStep === 1 ? 'scale-105 ring-2 ring-accent/50' : ''
+                  className={`inline-block px-4 py-2 rounded-md text-xs font-bold bg-zinc-950 text-white transition-all duration-300 shadow-xs ${
+                    activeStep === 1 ? 'scale-105 ring-2 ring-zinc-950/20' : ''
                   }`}
                 >
                   Pay Invoice
@@ -133,11 +134,11 @@ export function HeroTestingVisualization() {
                 {activeStep === 0 && !prefersReducedMotion && (
                   <motion.div
                     initial={{ width: 0, height: 0, opacity: 0 }}
-                    animate={{ width: 100, height: 40, opacity: 1 }}
+                    animate={{ width: 105, height: 40, opacity: 1 }}
                     transition={{ repeat: Infinity, duration: 1.5, repeatType: 'reverse' }}
-                    className="absolute -top-1 -left-1 border border-accent rounded bg-accent/5 flex items-center justify-center pointer-events-none"
+                    className="absolute -top-1 -left-1 border-2 border-cyan-500 rounded bg-cyan-50/40 flex items-center justify-center pointer-events-none"
                   >
-                    <span className="text-[8px] text-accent font-mono animate-pulse">DOM_CRAWL</span>
+                    <span className="text-[9px] text-cyan-700 font-mono font-bold animate-pulse">DOM_CRAWL</span>
                   </motion.div>
                 )}
 
@@ -147,9 +148,9 @@ export function HeroTestingVisualization() {
                     initial={{ x: 200, y: 100 }}
                     animate={{ x: 30, y: 15 }}
                     transition={{ duration: 1.2, ease: 'easeInOut' }}
-                    className="absolute pointer-events-none"
+                    className="absolute pointer-events-none drop-shadow-md"
                   >
-                    <svg className="h-5 w-5 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="h-5 w-5 text-zinc-950" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M4.5 3v15.2l3.8-3.8 2.9 6.8 2.6-1.1-2.9-6.8 5.3-.3z" />
                     </svg>
                   </motion.div>
@@ -157,8 +158,8 @@ export function HeroTestingVisualization() {
 
                 {/* Visual Alignment Bounding Checks */}
                 {activeStep === 2 && (
-                  <div className="absolute inset-0 border border-green-500/40 bg-green-500/5 rounded flex items-center justify-center pointer-events-none">
-                    <span className="text-[8px] text-green-400 font-mono">ALIGN_OK</span>
+                  <div className="absolute inset-0 border-2 border-emerald-500 bg-emerald-50/50 rounded-md flex items-center justify-center pointer-events-none">
+                    <span className="text-[9px] text-emerald-700 font-mono font-bold">ALIGN_OK (0px offset)</span>
                   </div>
                 )}
               </div>
@@ -166,11 +167,11 @@ export function HeroTestingVisualization() {
           </div>
 
           {/* Score Indicator */}
-          <div className="border-t border-white/5 pt-4 flex justify-between items-center">
-            <span className="text-[10px] text-muted-foreground font-mono">Stability recommendation: ready</span>
+          <div className="border-t border-zinc-200/80 pt-3.5 flex justify-between items-center">
+            <span className="text-[11px] text-zinc-600 font-mono">Stability recommendation: <strong className="text-zinc-900">READY</strong></span>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-foreground">Score:</span>
-              <span className="text-xs font-bold text-accent">94/100</span>
+              <span className="text-xs font-bold text-zinc-700">Release Score:</span>
+              <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">94/100</span>
             </div>
           </div>
         </div>

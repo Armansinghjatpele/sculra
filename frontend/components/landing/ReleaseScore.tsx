@@ -22,10 +22,10 @@ export function ReleaseScore() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto items-center">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-center">
       {/* Left: Big Circular Release Readiness Score */}
-      <div className="flex flex-col items-center justify-center border border-white/5 rounded-xl bg-zinc-950/20 p-8 shadow-glass text-center relative overflow-hidden h-80">
-        <span className="text-[10px] font-bold text-accent uppercase tracking-wider mb-4">Release Readiness</span>
+      <div className="flex flex-col items-center justify-center border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md text-center relative overflow-hidden h-80">
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 font-mono">Release Readiness</span>
         
         <div className="relative w-44 h-44 flex items-center justify-center">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -34,8 +34,8 @@ export function ReleaseScore() {
               cx="50"
               cy="50"
               r="40"
-              className="stroke-zinc-800"
-              strokeWidth="6"
+              className="stroke-zinc-100"
+              strokeWidth="7"
               fill="transparent"
             />
             {/* Animated Gauge Ring */}
@@ -43,8 +43,9 @@ export function ReleaseScore() {
               cx="50"
               cy="50"
               r="40"
-              className="stroke-accent"
-              strokeWidth="6"
+              className="stroke-zinc-950"
+              strokeWidth="7"
+              strokeLinecap="round"
               fill="transparent"
               strokeDasharray="251.2"
               initial={{ strokeDashoffset: 251.2 }}
@@ -55,36 +56,36 @@ export function ReleaseScore() {
 
           {/* Absolute Center Text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl font-extrabold text-foreground">{score}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest mt-1">/ 100</span>
+            <span className="text-4xl font-extrabold text-zinc-900 tracking-tight">{score}</span>
+            <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest mt-1">/ 100</span>
           </div>
         </div>
 
-        <div className="mt-6 text-[10px] font-mono text-danger font-semibold bg-danger/10 px-3 py-1 border border-danger/15 rounded">
+        <div className="mt-6 text-[10px] font-mono text-red-700 font-bold bg-red-50 px-3 py-1 border border-red-200 rounded-full">
           ✕ Release Blocked: 2 high-impact issues need review
         </div>
       </div>
 
       {/* Right: Scores Breakdown List */}
-      <div className="border border-white/5 rounded-xl bg-zinc-950/40 p-8 shadow-glass space-y-5">
-        <h3 className="text-xs font-bold text-foreground uppercase tracking-widest border-b border-white/5 pb-2">
+      <div className="border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md space-y-5">
+        <h3 className="text-xs font-extrabold text-zinc-900 uppercase tracking-wider border-b border-zinc-100 pb-3">
           Quality Dimensions
         </h3>
 
         <div className="space-y-4">
           {categories.map((c, idx) => (
-            <div key={idx} className="space-y-1">
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="font-semibold text-foreground">{c.name}</span>
-                <span className="font-mono text-muted-foreground">{c.val}%</span>
+            <div key={idx} className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-zinc-800">{c.name}</span>
+                <span className="font-mono text-zinc-500 font-medium">{c.val}%</span>
               </div>
               
-              <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${c.val}%` }}
                   transition={{ duration: 1.2, delay: idx * 0.1, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${c.status === 'passed' ? 'bg-accent' : 'bg-warning'}`}
+                  className={`h-full rounded-full ${c.status === 'passed' ? 'bg-zinc-950' : 'bg-amber-500'}`}
                 />
               </div>
             </div>

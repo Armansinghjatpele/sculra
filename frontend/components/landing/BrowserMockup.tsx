@@ -25,23 +25,23 @@ export function BrowserMockup() {
   }, [prefersReducedMotion, workflowSteps.length]);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12">
+    <div className="max-w-5xl mx-auto space-y-8">
       {/* Workflow Step Selection Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {workflowSteps.map((ws, idx) => (
           <button
             key={idx}
             onClick={() => setStep(idx)}
-            className={`p-4 border rounded-lg text-left transition-all duration-300 cursor-pointer ${
+            className={`p-4 border rounded-xl text-left transition-all duration-300 cursor-pointer ${
               idx === step
-                ? 'border-accent/40 bg-accent/5'
-                : 'border-white/5 bg-zinc-950/20 hover:border-white/10'
+                ? 'border-zinc-950 bg-zinc-950 text-white shadow-md'
+                : 'border-zinc-200 bg-white hover:border-zinc-300 text-zinc-700 shadow-xs'
             }`}
           >
-            <div className={`text-[10px] font-mono font-bold tracking-wider ${idx === step ? 'text-accent' : 'text-muted-foreground'}`}>
+            <div className={`text-[11px] font-mono font-bold tracking-wider ${idx === step ? 'text-cyan-400' : 'text-zinc-500'}`}>
               {ws.title}
             </div>
-            <p className="text-4xs text-muted-foreground mt-2 leading-relaxed">
+            <p className={`text-xs mt-2 leading-relaxed ${idx === step ? 'text-zinc-300' : 'text-zinc-600'}`}>
               {ws.desc}
             </p>
           </button>
@@ -49,21 +49,21 @@ export function BrowserMockup() {
       </div>
 
       {/* Simulated Sandbox Browser Area */}
-      <div className="relative border border-white/8 rounded-xl bg-zinc-950/40 p-6 shadow-glass backdrop-blur-md min-h-[300px] flex flex-col justify-between overflow-hidden border-gradient-hover">
+      <div className="relative border border-zinc-200/90 rounded-2xl bg-white p-6 shadow-md min-h-[320px] flex flex-col justify-between overflow-hidden">
         {/* Browser Top */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4 text-[10px] text-muted-foreground font-mono">
+        <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 mb-4 text-[11px] text-zinc-500 font-mono">
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-red-500/60" />
-            <span className="h-2 w-2 rounded-full bg-yellow-500/60" />
-            <span className="h-2 w-2 rounded-full bg-green-500/60" />
-            <span className="ml-2">sculra-engine-inspect://sandbox-route</span>
+            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+            <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+            <span className="ml-2 font-medium text-zinc-700">sculra-engine-inspect://sandbox-route</span>
           </div>
 
           {/* Micro-interaction callout */}
-          <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 rounded border border-accent/20 bg-accent/5 text-[9px] text-accent">
-            <span>New PR</span>
-            <span className="text-muted-foreground">▸</span>
-            <span className="font-semibold">Release Readiness Score posted</span>
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border border-zinc-200 bg-zinc-50 text-[10px] text-zinc-800 font-mono">
+            <span className="font-semibold text-zinc-600">New PR</span>
+            <span className="text-zinc-400">▸</span>
+            <span className="font-bold text-zinc-950">Release Readiness Score posted</span>
           </div>
         </div>
 
@@ -78,10 +78,10 @@ export function BrowserMockup() {
                 exit={{ opacity: 0, y: -10 }}
                 className="w-full max-w-md text-center space-y-4"
               >
-                <div className="text-[10px] font-mono text-accent uppercase tracking-widest">Select Target Source</div>
+                <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest font-bold">Select Target Source</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {['Website URL', 'GitHub Repo', 'ZIP Archive', 'Desktop App'].map((target, tIdx) => (
-                    <div key={tIdx} className="p-3 border border-white/5 rounded bg-black/40 text-[10px] font-semibold text-foreground">
+                    <div key={tIdx} className="p-3 border border-zinc-200 rounded-xl bg-zinc-50 text-xs font-bold text-zinc-800 shadow-xs hover:border-zinc-400 transition-colors">
                       {target}
                     </div>
                   ))}
@@ -95,17 +95,17 @@ export function BrowserMockup() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="w-full max-w-lg space-y-4 font-mono text-[10px] text-muted-foreground bg-black/40 p-4 border border-white/5 rounded"
+                className="w-full max-w-lg space-y-3 font-mono text-xs text-zinc-300 bg-zinc-950 p-5 border border-zinc-800 rounded-xl shadow-inner"
               >
-                <div className="flex items-center justify-between border-b border-white/5 pb-2 text-[9px] text-accent">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2 text-[10px] text-cyan-400 font-bold">
                   <span>AGENT_CRAWLER</span>
                   <span className="animate-pulse">ACTIVE</span>
                 </div>
-                <div className="space-y-1.5 leading-relaxed">
-                  <div className="text-foreground">→ Scanning DOM: found 14 interactive inputs</div>
-                  <div>→ Filling input[type=email] values...</div>
-                  <div>→ Triggering click on form primary submit button...</div>
-                  <div className="text-green-400 font-bold">✓ Form action successfully executed (200 OK)</div>
+                <div className="space-y-1.5 leading-relaxed text-[11px]">
+                  <div className="text-white font-medium">→ Scanning DOM: found 14 interactive inputs</div>
+                  <div className="text-zinc-400">→ Filling input[type=email] values...</div>
+                  <div className="text-zinc-400">→ Triggering click on form primary submit button...</div>
+                  <div className="text-emerald-400 font-bold">✓ Form action successfully executed (200 OK)</div>
                 </div>
               </motion.div>
             )}
@@ -118,20 +118,20 @@ export function BrowserMockup() {
                 exit={{ opacity: 0, y: -10 }}
                 className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl"
               >
-                <div className="p-4 border border-white/5 rounded bg-black/40 text-center space-y-2">
-                  <div className="text-[9px] text-accent font-bold uppercase tracking-wider">Visual check</div>
-                  <div className="text-xs font-semibold text-foreground">Layout Fit</div>
-                  <div className="text-4xs text-muted-foreground">Checking margins, paddings, and alignment borders.</div>
+                <div className="p-4 border border-zinc-200 rounded-xl bg-zinc-50/60 text-center space-y-2 shadow-xs">
+                  <div className="inline-block text-[9px] text-cyan-700 bg-cyan-50 font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-cyan-200">Visual check</div>
+                  <div className="text-sm font-extrabold text-zinc-900">Layout Fit</div>
+                  <div className="text-2xs text-zinc-600">Checking margins, paddings, and alignment borders.</div>
                 </div>
-                <div className="p-4 border border-white/5 rounded bg-black/40 text-center space-y-2">
-                  <div className="text-[9px] text-accent font-bold uppercase tracking-wider">Performance</div>
-                  <div className="text-xs font-semibold text-foreground">LCP: 1.2s</div>
-                  <div className="text-4xs text-muted-foreground">Monitoring heavy asset payloads and script loads.</div>
+                <div className="p-4 border border-zinc-200 rounded-xl bg-zinc-50/60 text-center space-y-2 shadow-xs">
+                  <div className="inline-block text-[9px] text-purple-700 bg-purple-50 font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-purple-200">Performance</div>
+                  <div className="text-sm font-extrabold text-zinc-900">LCP: 1.2s</div>
+                  <div className="text-2xs text-zinc-600">Monitoring heavy asset payloads and script loads.</div>
                 </div>
-                <div className="p-4 border border-white/5 rounded bg-black/40 text-center space-y-2">
-                  <div className="text-[9px] text-accent font-bold uppercase tracking-wider">Accessibility</div>
-                  <div className="text-xs font-semibold text-foreground">Contrast</div>
-                  <div className="text-4xs text-muted-foreground">Auditing background text color brightness offsets.</div>
+                <div className="p-4 border border-zinc-200 rounded-xl bg-zinc-50/60 text-center space-y-2 shadow-xs">
+                  <div className="inline-block text-[9px] text-emerald-700 bg-emerald-50 font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-emerald-200">Accessibility</div>
+                  <div className="text-sm font-extrabold text-zinc-900">Contrast</div>
+                  <div className="text-2xs text-zinc-600">Auditing background text color brightness offsets.</div>
                 </div>
               </motion.div>
             )}
@@ -142,24 +142,24 @@ export function BrowserMockup() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="w-full max-w-md border border-white/5 bg-zinc-950/80 rounded-lg p-5 space-y-4"
+                className="w-full max-w-md border border-zinc-200 bg-white rounded-xl p-5 space-y-4 shadow-sm"
               >
-                <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                  <span className="text-xs font-bold text-foreground">Sculra Build PR Report</span>
-                  <span className="text-[10px] font-mono text-danger font-semibold bg-danger/10 px-2 py-0.5 rounded border border-danger/20">Not Ready</span>
+                <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
+                  <span className="text-xs font-bold text-zinc-900">Sculra Build PR Report</span>
+                  <span className="text-[10px] font-mono text-red-700 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-200">Not Ready</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-center">
-                  <div className="p-3 border border-white/5 rounded bg-black/20">
-                    <div className="text-[10px] text-muted-foreground">Release Score</div>
-                    <div className="text-xl font-bold text-foreground mt-1">83/100</div>
+                  <div className="p-3 border border-zinc-100 rounded-lg bg-zinc-50">
+                    <div className="text-[10px] text-zinc-500 font-medium">Release Score</div>
+                    <div className="text-xl font-extrabold text-zinc-900 mt-1">83/100</div>
                   </div>
-                  <div className="p-3 border border-white/5 rounded bg-black/20">
-                    <div className="text-[10px] text-muted-foreground">Exceptions</div>
-                    <div className="text-xl font-bold text-danger mt-1">2 Critical</div>
+                  <div className="p-3 border border-red-100 rounded-lg bg-red-50/50">
+                    <div className="text-[10px] text-red-600 font-medium">Exceptions</div>
+                    <div className="text-xl font-extrabold text-red-600 mt-1">2 Critical</div>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed text-center">
-                  Crawl sweep finished in 45s. Block merge due to visual regression exceptions.
+                <p className="text-[11px] text-zinc-600 leading-relaxed text-center">
+                  Crawl sweep finished in 45s. Merge blocked due to visual regression exceptions.
                 </p>
               </motion.div>
             )}

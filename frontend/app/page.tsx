@@ -6,10 +6,10 @@ import { motion, Variants } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/Card';
+import { Card, CardHeader, CardDescription, CardContent, CardFooter } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { Accordion, AccordionItem } from '@/components/Accordion';
-import { Container, Section, Grid, Flex, Stack, Divider } from '@/components/LayoutPrimitives';
+import { Container, Section, Grid, Stack } from '@/components/LayoutPrimitives';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 // Landing Page Modular Visual Components
@@ -38,9 +38,6 @@ function StatCounter({ value, duration = 2, suffix = '' }: { value: number; dura
       setCount(value);
       return;
     }
-    let observer: IntersectionObserver;
-    let startTimestamp: number | null = null;
-
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / (duration * 1000), 1);
@@ -50,7 +47,8 @@ function StatCounter({ value, duration = 2, suffix = '' }: { value: number; dura
       }
     };
 
-    observer = new IntersectionObserver(
+    let startTimestamp: number | null = null;
+    const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           window.requestAnimationFrame(step);
@@ -65,12 +63,12 @@ function StatCounter({ value, duration = 2, suffix = '' }: { value: number; dura
     }
 
     return () => {
-      if (observer) observer.disconnect();
+      observer.disconnect();
     };
   }, [value, duration, prefersReduced]);
 
   return (
-    <div ref={elementRef} className="text-xl sm:text-2xl font-extrabold text-foreground font-mono">
+    <div ref={elementRef} className="text-2xl sm:text-3xl font-black text-zinc-950 font-mono tracking-tight">
       {count.toLocaleString()}{suffix}
     </div>
   );
@@ -102,7 +100,7 @@ export default function Home() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
   };
 
-  // Scroll animations variants for alternating layout columns
+  // Scroll animation variants for alternating layout columns
   const slideLeftVariants: Variants = {
     hidden: { opacity: 0, x: prefersReduced ? 0 : -30 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: 'easeOut' } },
@@ -120,21 +118,15 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-background text-foreground overflow-hidden selection:bg-zinc-900 selection:text-white">
       <Navbar />
 
       <main className="flex-grow relative">
-        {/* Layered background radial mesh glow coordinates */}
-        <div className="absolute top-0 left-1/4 -z-10 h-[500px] w-[500px] bg-accent/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
-        <div className="absolute top-[25%] right-1/4 -z-10 h-[600px] w-[600px] bg-accent-2/10 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute bottom-[30%] left-1/3 -z-10 h-[550px] w-[550px] bg-accent/8 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute bottom-[5%] right-1/4 -z-10 h-[600px] w-[600px] bg-accent-2/10 rounded-full blur-[140px] pointer-events-none" />
-
-        {/* Ambient Grid Background */}
-        <div className="absolute inset-0 -z-20 bg-grid-ambient bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_80%,transparent_100%)]" />
+        {/* Subtle Ambient Grid Background */}
+        <div className="absolute inset-0 -z-20 bg-grid-ambient bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
 
         {/* HERO SECTION */}
-        <Section className="relative pt-28 pb-20 sm:pt-36">
+        <Section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24">
           <Container>
             <motion.div
               variants={containerVariants}
@@ -144,38 +136,42 @@ export default function Home() {
             >
               <motion.span
                 variants={itemVariants}
-                className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-3xs font-medium text-accent border border-accent/20 uppercase tracking-widest"
+                className="inline-flex items-center rounded-full bg-zinc-100 px-3.5 py-1 text-[11px] font-bold text-zinc-800 border border-zinc-200/80 uppercase tracking-widest font-mono shadow-xs"
               >
-                AI-Powered Quality Engineering
+                Autonomous QA Platform
               </motion.span>
               
               <motion.h1
                 variants={itemVariants}
-                className="text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground leading-[1.1] select-none"
+                className="text-4xl font-black tracking-tight sm:text-6xl text-zinc-950 leading-[1.1] select-none"
               >
                 Your AI QA Engineer.
                 <br />
-                <span className="text-gradient font-black">Test everything. Autonomously.</span>
+                <span className="text-zinc-500 font-extrabold">Test everything. Autonomously.</span>
               </motion.h1>
               
               <motion.p
                 variants={itemVariants}
-                className="mx-auto max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed"
+                className="mx-auto max-w-2xl text-base sm:text-lg text-zinc-600 leading-relaxed font-normal"
               >
                 Sculra crawls your application like a human QA engineer. Discover functional bugs, visual regressions, and responsive layout shifts with zero manual scripting required.
               </motion.p>
 
-              <motion.div variants={itemVariants} className="pt-4 flex flex-col items-center gap-3">
-                <div className="flex items-center gap-4">
+              <motion.div variants={itemVariants} className="pt-3 flex flex-col items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-4">
                   <Link href="/sign-up">
-                    <Button variant="accent" size="lg" className="hover:scale-105 transition-all">Start Testing Free</Button>
+                    <Button variant="default" size="lg" className="bg-zinc-950 text-white hover:bg-zinc-800 shadow-md font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3 rounded-lg hover:scale-105 transition-all">
+                      Start Testing Free
+                    </Button>
                   </Link>
                   <Link href="/docs">
-                    <Button variant="outline" size="lg" className="hover:bg-white/5 transition-all">See How It Works</Button>
+                    <Button variant="outline" size="lg" className="border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3 rounded-lg transition-all">
+                      See How It Works
+                    </Button>
                   </Link>
                 </div>
                 {/* Risk-reversal microcopy */}
-                <span className="text-5xs uppercase tracking-widest text-muted-foreground font-mono mt-1">
+                <span className="text-[11px] font-medium text-zinc-500 font-mono mt-1">
                   No credit card required • Free forever plan • Cancel anytime
                 </span>
               </motion.div>
@@ -185,7 +181,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.7 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
             >
               <HeroTestingVisualization />
             </motion.div>
@@ -193,33 +189,37 @@ export default function Home() {
         </Section>
 
         {/* LIVING STATS BAR UNDER HERO */}
-        <section className="py-8 border-y border-white/5 bg-zinc-950/40 relative">
+        <section className="py-10 border-y border-zinc-200/80 bg-zinc-50/80 relative">
           <Container>
-            <Grid cols={2} colsSm={4} gap={16} className="text-center">
+            <Grid cols={2} colsSm={4} gap={20} className="text-center">
               <div className="space-y-1">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Pages Scanned</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Pages Scanned</div>
                 <StatCounter value={24930} />
+                <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Regressions Blocked</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Regressions Blocked</div>
                 <StatCounter value={1498} />
+                <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Avg. Readiness Index</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Avg. Readiness Index</div>
                 <StatCounter value={91} suffix=".4%" />
+                <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">Time to First Bug</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Time to First Bug</div>
                 <StatCounter value={34} suffix="s" />
+                <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
             </Grid>
           </Container>
         </section>
 
         {/* INFINITE BRAND MARQUEE SECTION */}
-        <section className="py-6 bg-zinc-950/20 border-b border-white/5">
+        <section className="py-8 bg-white border-b border-zinc-100">
           <Container>
-            <p className="text-center text-5xs font-semibold text-muted-foreground uppercase tracking-widest mb-4 font-mono">
+            <p className="text-center text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-4 font-mono">
               Empowering active product developers worldwide
             </p>
             <BrandLogosMarquee />
@@ -237,12 +237,14 @@ export default function Home() {
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md">
-                  <span className="text-xs font-bold text-danger uppercase tracking-wider font-mono">The Complexity Dilemma</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-red-700 bg-red-50 px-2.5 py-1 rounded-full border border-red-200 uppercase tracking-wider font-mono w-fit">
+                    The Complexity Dilemma
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     A landscape too vast to test by hand.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Every user state, route branch, device model, and role variant creates a combinatoric explosion. Manual testing misses visual overflows and regression crashes on staging.
                   </p>
                 </Stack>
@@ -261,7 +263,7 @@ export default function Home() {
 
         {/* SECTION 3 - HOW IT WORKS */}
         {/* Layout rhythm: Right Copy, Left Visual */}
-        <Section className="py-24 bg-zinc-950/30 border-y border-white/5 relative overflow-hidden">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <Grid cols={1} colsMd={2} gap={40} className="items-center">
               <motion.div
@@ -280,12 +282,14 @@ export default function Home() {
                 variants={slideRightVariants}
                 className="order-1 md:order-2"
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md ml-auto">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">How Sculra Works</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    How Sculra Works
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Reads your UI from the outside in.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Sculra autonomously walks through forms, clicks interactable nodes, records traces, and checks DOM properties without any code integration required.
                   </p>
                 </Stack>
@@ -305,12 +309,14 @@ export default function Home() {
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Pixel Verification</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    Pixel Verification
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Checks what your users actually see.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Catch overlapping margins, text collisions, font weight mismatches, and element overflows automatically before merging a pull request.
                   </p>
                 </Stack>
@@ -329,7 +335,7 @@ export default function Home() {
 
         {/* SECTION 5 - RESPONSIVE TESTING */}
         {/* Layout rhythm: Right Copy, Left Visual */}
-        <Section className="py-24 bg-zinc-950/30 border-y border-white/5 relative overflow-hidden">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <Grid cols={1} colsMd={2} gap={40} className="items-center">
               <motion.div
@@ -348,12 +354,14 @@ export default function Home() {
                 variants={slideRightVariants}
                 className="order-1 md:order-2"
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md ml-auto">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Device Matrix</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    Device Matrix
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Verify layouts on every viewport.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Test your interface simultaneously across mobile, tablet, and widescreen frames, highlighting layout shifts that break specific breakpoints.
                   </p>
                 </Stack>
@@ -373,12 +381,14 @@ export default function Home() {
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Autonomous Reasoning</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    Autonomous Reasoning
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Reasoning logs that trace every flaw.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Sculra checks browser console dumps, network responses, and API payloads to reproduce the exact steps that caused a page validation crash.
                   </p>
                 </Stack>
@@ -397,7 +407,7 @@ export default function Home() {
 
         {/* SECTION 7 - RELEASE READINESS SCORECARD */}
         {/* Layout rhythm: Right Copy, Left Visual */}
-        <Section className="py-24 bg-zinc-950/30 border-y border-white/5 relative overflow-hidden">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <Grid cols={1} colsMd={2} gap={40} className="items-center">
               <motion.div
@@ -416,12 +426,14 @@ export default function Home() {
                 variants={slideRightVariants}
                 className="order-1 md:order-2"
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md ml-auto">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Readiness Check</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    Readiness Check
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Never guess if a build is safe to deploy.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Our release scorecard assigns a comprehensive index from 0 to 100 representing DOM stability, speed tolerances, accessibility compliance, and visual fit.
                   </p>
                 </Stack>
@@ -441,12 +453,14 @@ export default function Home() {
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">CI Integrations</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    CI Integrations
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Intercept bugs before they merge.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Block PR merges automatically if a code push drops your app readiness index. Sculra comments results directly inside your code branch logs.
                   </p>
                 </Stack>
@@ -465,7 +479,7 @@ export default function Home() {
 
         {/* SECTION 9 - MULTI-SOURCE DIAGRAM */}
         {/* Layout rhythm: Right Copy, Left Visual */}
-        <Section className="py-24 bg-zinc-950/30 border-y border-white/5 relative overflow-hidden">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <Grid cols={1} colsMd={2} gap={40} className="items-center">
               <motion.div
@@ -484,12 +498,14 @@ export default function Home() {
                 variants={slideRightVariants}
                 className="order-1 md:order-2"
               >
-                <Stack spacing={24} className="justify-center text-left max-w-md ml-auto">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Multi-Source Ingestion</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                    Multi-Source Ingestion
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
                     Any source format, ingested.
                   </h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-zinc-600 leading-relaxed">
                     Whether you test dynamic URLs, synced repositories, ZIP folders, or desktop executable binaries, our ingestion engine handles them cleanly.
                   </p>
                 </Stack>
@@ -507,50 +523,52 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center mb-12 space-y-3"
             >
-              <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Evaluation Matrix</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Manual QA vs Sculra</h2>
-              <p className="text-sm text-muted-foreground">See how autonomous quality sweeps compare to standard testing cycles.</p>
+              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+                Evaluation Matrix
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Manual QA vs Sculra</h2>
+              <p className="text-sm text-zinc-600">See how autonomous quality sweeps compare to standard manual testing cycles.</p>
             </motion.div>
             
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="overflow-x-auto border border-white/10 rounded-xl bg-zinc-900/60 shadow-glass border-gradient-hover"
+              className="overflow-x-auto border border-zinc-200/90 rounded-2xl bg-white shadow-md"
             >
               <table className="w-full text-left border-collapse text-xs font-mono">
                 <thead>
-                  <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase text-muted-foreground">
-                    <th className="p-4">Dimension</th>
-                    <th className="p-4">Manual / Scripted QA</th>
-                    <th className="p-4 text-accent">Sculra Autonomous QA</th>
+                  <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] uppercase text-zinc-600">
+                    <th className="p-4 font-bold">Dimension</th>
+                    <th className="p-4 font-bold">Manual / Scripted QA</th>
+                    <th className="p-4 font-bold text-zinc-950 bg-zinc-100/60">Sculra Autonomous QA</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-foreground">Coverage Area</td>
-                    <td className="p-4 text-muted-foreground">Manual check of major routes</td>
-                    <td className="p-4 text-accent font-semibold">Autonomous 100% path coverage</td>
+                <tbody className="divide-y divide-zinc-100">
+                  <tr className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4 font-bold text-zinc-900">Coverage Area</td>
+                    <td className="p-4 text-zinc-500">Manual check of major routes</td>
+                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Autonomous 100% path coverage</td>
                   </tr>
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-foreground">Execution Speed</td>
-                    <td className="p-4 text-muted-foreground">Hours to days per cycle</td>
-                    <td className="p-4 text-accent font-semibold">Minutes per build run</td>
+                  <tr className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4 font-bold text-zinc-900">Execution Speed</td>
+                    <td className="p-4 text-zinc-500">Hours to days per cycle</td>
+                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Minutes per build run</td>
                   </tr>
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-foreground">Setup Overhead</td>
-                    <td className="p-4 text-muted-foreground">Continuous selector script updates</td>
-                    <td className="p-4 text-accent font-semibold">Zero-script instant source sync</td>
+                  <tr className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4 font-bold text-zinc-900">Setup Overhead</td>
+                    <td className="p-4 text-zinc-500">Continuous selector script updates</td>
+                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Zero-script instant source sync</td>
                   </tr>
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-foreground">Consistency</td>
-                    <td className="p-4 text-muted-foreground">Flaky test selector failures</td>
-                    <td className="p-4 text-accent font-semibold">Adaptive DOM-aware updates</td>
+                  <tr className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4 font-bold text-zinc-900">Consistency</td>
+                    <td className="p-4 text-zinc-500">Flaky test selector failures</td>
+                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Adaptive DOM-aware updates</td>
                   </tr>
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-foreground">Availability</td>
-                    <td className="p-4 text-muted-foreground">Scheduled developer bandwidth</td>
-                    <td className="p-4 text-accent font-semibold">24/7 continuous triggers</td>
+                  <tr className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4 font-bold text-zinc-900">Availability</td>
+                    <td className="p-4 text-zinc-500">Scheduled developer bandwidth</td>
+                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">24/7 continuous triggers</td>
                   </tr>
                 </tbody>
               </table>
@@ -559,7 +577,7 @@ export default function Home() {
         </Section>
 
         {/* SECURITY & TRUST SECTION */}
-        <Section className="py-20 bg-zinc-950/30 border-y border-white/5 relative overflow-hidden">
+        <Section className="py-20 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -567,27 +585,29 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center mb-12 space-y-3"
             >
-              <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Tenant Boundaries</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Compact & Enforced Security</h2>
-              <p className="text-sm text-muted-foreground">Sculra leverages standard protocols to isolate code data and keys.</p>
+              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+                Tenant Boundaries
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Compact & Enforced Security</h2>
+              <p className="text-sm text-zinc-600">Sculra leverages standard protocols to isolate code data and keys.</p>
             </motion.div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto font-mono text-[10px] leading-relaxed">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto font-mono text-xs leading-relaxed">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-5 border border-white/10 bg-zinc-900/60 rounded-xl space-y-3 shadow-glass border-gradient-hover"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shadow-xs">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  <span className="text-accent font-bold uppercase">Clerk Authentication</span>
                 </div>
-                <p className="text-muted-foreground">Secure identities authentication and credentials handled by Clerk OAuth.</p>
+                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Clerk Authentication</div>
+                <p className="text-zinc-600 text-2xs font-sans leading-relaxed">Secure identities authentication and credentials handled by Clerk OAuth.</p>
               </motion.div>
 
               <motion.div
@@ -595,17 +615,17 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-5 border border-white/10 bg-zinc-900/60 rounded-xl space-y-3 shadow-glass border-gradient-hover"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-xs">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span className="text-accent font-bold uppercase">Supabase RLS Isolation</span>
                 </div>
-                <p className="text-muted-foreground">Strict multi-tenant security separation verified at database query layer using Supabase RLS.</p>
+                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Supabase RLS Isolation</div>
+                <p className="text-zinc-600 text-2xs font-sans leading-relaxed">Strict multi-tenant security separation verified at database query layer using Supabase RLS.</p>
               </motion.div>
 
               <motion.div
@@ -613,35 +633,37 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-5 border border-white/10 bg-zinc-900/60 rounded-xl space-y-3 shadow-glass border-gradient-hover"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <div className="h-9 w-9 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 shadow-xs">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
-                  <span className="text-accent font-bold uppercase">Sentry Diagnostics</span>
                 </div>
-                <p className="text-muted-foreground">Continuous diagnostics monitoring and bug trace audits powered by Sentry and PostHog.</p>
+                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Sentry Diagnostics</div>
+                <p className="text-zinc-600 text-2xs font-sans leading-relaxed">Continuous diagnostics monitoring and bug trace audits powered by Sentry and PostHog.</p>
               </motion.div>
             </div>
           </Container>
         </Section>
 
         {/* SOCIAL PROOF / TESTIMONIALS STRIP */}
-        <Section className="py-20 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden">
           <Container className="max-w-5xl">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="text-center mb-12 space-y-3"
+              className="text-center mb-14 space-y-3"
             >
-              <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Social Proof</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Built for teams that ship.</h2>
-              <p className="text-sm text-muted-foreground">Here is what active engineering leaders say about using Sculra.</p>
+              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+                Social Proof
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Built for teams that ship.</h2>
+              <p className="text-sm text-zinc-600">Here is what active engineering leaders say about using Sculra.</p>
             </motion.div>
             
-            <Grid cols={1} colsMd={3} gap={20}>
+            <Grid cols={1} colsMd={3} gap={24}>
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -649,15 +671,15 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="transition-all duration-300"
               >
-                <Card className="glass-panel p-5 space-y-3 bg-zinc-900/60 border border-white/10 rounded-xl border-gradient-hover shadow-glass h-full">
-                  <p className="text-xs text-muted-foreground italic leading-relaxed">
+                <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-sm hover:shadow-md h-full flex flex-col justify-between">
+                  <p className="text-xs text-zinc-700 italic leading-relaxed">
                     &quot;Sculra blocked a critical payment flow overflow regression in our staging build before we pushed it live. It&apos;s like having an extra QA engineer on every PR.&quot;
                   </p>
-                  <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
-                    <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 1]</span>
-                    <span className="text-muted-foreground">[PLACEHOLDER — Role 1, Company 1]</span>
+                  <div className="pt-3 border-t border-zinc-100 font-mono text-[10px]">
+                    <span className="text-zinc-900 font-bold block">[PLACEHOLDER — User Name 1]</span>
+                    <span className="text-zinc-500">[PLACEHOLDER — Role 1, Company 1]</span>
                   </div>
-                </Card>
+                </div>
               </motion.div>
               
               <motion.div
@@ -667,15 +689,15 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="transition-all duration-300"
               >
-                <Card className="glass-panel p-5 space-y-3 bg-zinc-900/60 border border-white/10 rounded-xl border-gradient-hover shadow-glass h-full">
-                  <p className="text-xs text-muted-foreground italic leading-relaxed">
+                <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-sm hover:shadow-md h-full flex flex-col justify-between">
+                  <p className="text-xs text-zinc-700 italic leading-relaxed">
                     &quot;Writing browser checks used to be an endless chore of updating selectors. Sculra spider-crawls autonomously and adapts to our DOM tweaks.&quot;
                   </p>
-                  <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
-                    <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 2]</span>
-                    <span className="text-muted-foreground">[PLACEHOLDER — Role 2, Company 2]</span>
+                  <div className="pt-3 border-t border-zinc-100 font-mono text-[10px]">
+                    <span className="text-zinc-900 font-bold block">[PLACEHOLDER — User Name 2]</span>
+                    <span className="text-zinc-500">[PLACEHOLDER — Role 2, Company 2]</span>
                   </div>
-                </Card>
+                </div>
               </motion.div>
               
               <motion.div
@@ -685,35 +707,37 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="transition-all duration-300"
               >
-                <Card className="glass-panel p-5 space-y-3 bg-zinc-900/60 border border-white/10 rounded-xl border-gradient-hover shadow-glass h-full">
-                  <p className="text-xs text-muted-foreground italic leading-relaxed">
+                <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-sm hover:shadow-md h-full flex flex-col justify-between">
+                  <p className="text-xs text-zinc-700 italic leading-relaxed">
                     &quot;We synced our codebase in under 2 minutes. The release readiness score is now our single source of truth before merge approvals.&quot;
                   </p>
-                  <div className="pt-2 border-t border-white/5 font-mono text-[9px]">
-                    <span className="text-foreground font-semibold block">[PLACEHOLDER — User Name 3]</span>
-                    <span className="text-muted-foreground">[PLACEHOLDER — Role 3, Company 3]</span>
+                  <div className="pt-3 border-t border-zinc-100 font-mono text-[10px]">
+                    <span className="text-zinc-900 font-bold block">[PLACEHOLDER — User Name 3]</span>
+                    <span className="text-zinc-500">[PLACEHOLDER — Role 3, Company 3]</span>
                   </div>
-                </Card>
+                </div>
               </motion.div>
             </Grid>
           </Container>
         </Section>
 
         {/* PRICING PREVIEW */}
-        <Section className="py-24 bg-zinc-950/30 border-t border-white/5 relative overflow-hidden">
+        <Section className="py-24 bg-zinc-50/50 border-t border-zinc-100 relative overflow-hidden">
           <Container>
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="text-center max-w-2xl mx-auto mb-16 space-y-4"
+              className="text-center max-w-2xl mx-auto mb-16 space-y-3"
             >
-              <span className="text-xs font-bold text-accent uppercase tracking-wider font-mono">Simple Pricing</span>
-              <h2 className="text-3xl font-extrabold tracking-tight">Based on how much you test.</h2>
-              <p className="text-sm text-muted-foreground">Start testing free, then scale up as your deployment quotas expand.</p>
+              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+                Simple Pricing
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Based on how much you test.</h2>
+              <p className="text-sm text-zinc-600">Start testing free, then scale up as your deployment quotas expand.</p>
             </motion.div>
 
-            <Grid cols={1} colsMd={3} gap={24} className="max-w-4xl mx-auto">
+            <Grid cols={1} colsMd={3} gap={24} className="max-w-4xl mx-auto items-stretch">
               {/* Free Plan */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -722,14 +746,14 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="h-full"
               >
-                <Card className="glass-panel flex flex-col justify-between p-6 bg-zinc-900/60 border border-white/10 rounded-xl border-gradient-hover shadow-glass h-full">
+                <Card className="flex flex-col justify-between p-6 bg-white border border-zinc-200/90 rounded-2xl shadow-sm hover:shadow-md h-full">
                   <CardHeader className="p-0 pb-4">
-                    <span className="text-xs font-bold text-foreground font-mono">Free Plan</span>
-                    <div className="text-2xl font-bold text-foreground mt-2 font-mono">$0</div>
-                    <CardDescription className="text-4xs text-muted-foreground mt-1">For exploring Sculra features</CardDescription>
+                    <span className="text-xs font-bold text-zinc-950 font-mono">Free Plan</span>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$0</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1">For exploring Sculra features</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-0 py-4 border-t border-b border-white/5 my-4">
-                    <ul className="space-y-2 text-4xs text-muted-foreground font-mono">
+                  <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
+                    <ul className="space-y-2 text-xs text-zinc-600 font-mono">
                       <li>✓ 1 Target Project limit</li>
                       <li>✓ 10 Test runs per month</li>
                       <li>✓ Standard trace logs</li>
@@ -737,7 +761,9 @@ export default function Home() {
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="outline" className="w-full text-4xs uppercase tracking-wider">Explore Free</Button>
+                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5">
+                        Explore Free
+                      </Button>
                     </Link>
                   </CardFooter>
                 </Card>
@@ -751,25 +777,30 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="h-full"
               >
-                <Card className="glass-panel border-accent/40 shadow-glass flex flex-col justify-between p-6 bg-zinc-900/60 rounded-xl border-gradient-hover h-full">
+                <Card className="border-2 border-zinc-950 shadow-lg flex flex-col justify-between p-6 bg-white rounded-2xl h-full relative">
+                  <div className="absolute -top-3 right-6">
+                    <Badge variant="accent" className="bg-zinc-950 text-white text-[10px] uppercase tracking-wider px-2.5 py-0.5 shadow-xs font-bold">
+                      Popular
+                    </Badge>
+                  </div>
                   <CardHeader className="p-0 pb-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-foreground font-mono">Pro Plan</span>
-                      <Badge variant="accent" className="text-5xs uppercase tracking-wider px-1.5 py-0">Popular</Badge>
-                    </div>
-                    <div className="text-2xl font-bold text-foreground mt-2 font-mono">$49</div>
-                    <CardDescription className="text-4xs text-muted-foreground mt-1">For serious development teams</CardDescription>
+                    <span className="text-xs font-bold text-zinc-950 font-mono">Pro Plan</span>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$49</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1">For active development teams</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-0 py-4 border-t border-b border-white/5 my-4">
-                    <ul className="space-y-2 text-4xs text-muted-foreground font-mono">
+                  <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
+                    <ul className="space-y-2 text-xs text-zinc-700 font-mono font-medium">
                       <li>✓ 3 Target Projects limit</li>
                       <li>✓ 100 Test runs per month</li>
                       <li>✓ Visual alignment checks</li>
+                      <li>✓ Priority agent swarm</li>
                     </ul>
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="accent" className="w-full text-4xs uppercase tracking-wider">Start Trial</Button>
+                      <Button variant="default" className="w-full text-xs uppercase tracking-wider font-mono bg-zinc-950 text-white hover:bg-zinc-800 font-bold py-2.5 shadow-xs">
+                        Start Trial
+                      </Button>
                     </Link>
                   </CardFooter>
                 </Card>
@@ -783,30 +814,33 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="h-full"
               >
-                <Card className="glass-panel flex flex-col justify-between p-6 bg-zinc-900/60 border border-white/10 rounded-xl border-gradient-hover shadow-glass h-full">
+                <Card className="flex flex-col justify-between p-6 bg-white border border-zinc-200/90 rounded-2xl shadow-sm hover:shadow-md h-full">
                   <CardHeader className="p-0 pb-4">
-                    <span className="text-xs font-bold text-foreground font-mono">Team Plan</span>
-                    <div className="text-2xl font-bold text-foreground mt-2 font-mono">$199</div>
-                    <CardDescription className="text-4xs text-muted-foreground mt-1">For teams shipping continuously</CardDescription>
+                    <span className="text-xs font-bold text-zinc-950 font-mono">Team Plan</span>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$199</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1">For teams shipping continuously</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-0 py-4 border-t border-b border-white/5 my-4">
-                    <ul className="space-y-2 text-4xs text-muted-foreground font-mono">
+                  <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
+                    <ul className="space-y-2 text-xs text-zinc-600 font-mono">
                       <li>✓ 10 Target Projects limit</li>
                       <li>✓ 1,000 Test runs per month</li>
                       <li>✓ Security & WCAG checks</li>
+                      <li>✓ Custom runner deployment</li>
                     </ul>
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="outline" className="w-full text-4xs uppercase tracking-wider">Upgrade Team</Button>
+                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5">
+                        Upgrade Team
+                      </Button>
                     </Link>
                   </CardFooter>
                 </Card>
               </motion.div>
             </Grid>
             
-            <div className="text-center mt-10">
-              <Link href="/pricing" className="text-xs text-accent hover:underline font-semibold font-mono">
+            <div className="text-center mt-12">
+              <Link href="/pricing" className="text-xs text-zinc-900 hover:text-cyan-700 font-bold font-mono transition-colors">
                 View all pricing plans & add-ons →
               </Link>
             </div>
@@ -822,8 +856,8 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="space-y-2"
             >
-              <h3 className="text-lg font-bold text-foreground">Get early updates on beta runs</h3>
-              <p className="text-xs text-muted-foreground">Subscribe to receive technical guides and release previews.</p>
+              <h3 className="text-xl font-extrabold text-zinc-950 tracking-tight">Get early updates on beta runs</h3>
+              <p className="text-xs text-zinc-600">Subscribe to receive technical guides and release previews.</p>
             </motion.div>
 
             <motion.div
@@ -832,7 +866,7 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
             >
               {waitlistSubmitted ? (
-                <div className="text-xs text-accent font-semibold bg-accent/5 p-3 border border-accent/20 rounded-lg font-mono">
+                <div className="text-xs text-cyan-800 font-bold bg-cyan-50 p-3.5 border border-cyan-200 rounded-xl font-mono">
                   ✓ You&apos;ve successfully subscribed to Sculra news!
                 </div>
               ) : (
@@ -843,9 +877,9 @@ export default function Home() {
                     required
                     value={waitlistEmail}
                     onChange={(e) => setWaitlistEmail(e.target.value)}
-                    className="flex-grow px-3 py-2 text-xs rounded bg-zinc-900 border border-white/10 text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="flex-grow px-3.5 py-2 text-xs rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                   />
-                  <Button type="submit" variant="accent" size="sm">
+                  <Button type="submit" variant="default" size="sm" className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold px-4">
                     Subscribe
                   </Button>
                 </form>
@@ -854,24 +888,24 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECTION 16 - DRAMATIC FINAL CTA */}
+        {/* SECTION 15 - DRAMATIC FINAL CTA (LANDMARK HIGH-CONTRAST SECTION) */}
         <FinalCTA />
 
         {/* FAQ ACCORDION SECTION */}
-        <Section className="py-20 border-t border-white/5 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-2xl">
             <motion.h2
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="text-3xl font-extrabold tracking-tight text-center mb-12"
+              className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center mb-12 text-zinc-950"
             >
               Frequently Asked Questions
             </motion.h2>
             <Accordion>
               {faqItems.map((faq, idx) => (
                 <AccordionItem key={idx} title={faq.title}>
-                  <p className="text-xs leading-relaxed text-muted-foreground">{faq.content}</p>
+                  <p className="text-xs leading-relaxed text-zinc-600">{faq.content}</p>
                 </AccordionItem>
               ))}
             </Accordion>
