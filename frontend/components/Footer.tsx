@@ -13,9 +13,17 @@ export function Footer({ className, ...props }: FooterProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center space-x-2">
-            <span className="h-5 w-5 rounded bg-muted flex items-center justify-center font-bold text-foreground text-3xs">
-              QP
-            </span>
+            <svg
+              className="h-5 w-5 text-accent"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
             <span className="text-sm font-semibold tracking-tight text-foreground">Sculra</span>
           </div>
 
