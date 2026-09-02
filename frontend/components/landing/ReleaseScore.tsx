@@ -24,7 +24,7 @@ export function ReleaseScore() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-center">
       {/* Left: Big Circular Release Readiness Score */}
-      <div className="flex flex-col items-center justify-center border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md text-center relative overflow-hidden h-80">
+      <div className="flex flex-col items-center justify-center border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-sm text-center relative overflow-hidden h-80">
         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 font-mono">Release Readiness</span>
         
         <div className="relative w-44 h-44 flex items-center justify-center">
@@ -43,7 +43,7 @@ export function ReleaseScore() {
               cx="50"
               cy="50"
               r="40"
-              className="stroke-zinc-950"
+              className="stroke-cyan-700"
               strokeWidth="7"
               strokeLinecap="round"
               fill="transparent"
@@ -56,7 +56,7 @@ export function ReleaseScore() {
 
           {/* Absolute Center Text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl font-extrabold text-zinc-900 tracking-tight">{score}</span>
+            <span className="text-4xl font-black text-zinc-950 tracking-tight">{score}</span>
             <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest mt-1">/ 100</span>
           </div>
         </div>
@@ -67,8 +67,8 @@ export function ReleaseScore() {
       </div>
 
       {/* Right: Scores Breakdown List */}
-      <div className="border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md space-y-5">
-        <h3 className="text-xs font-extrabold text-zinc-900 uppercase tracking-wider border-b border-zinc-100 pb-3">
+      <div className="border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-sm space-y-5">
+        <h3 className="text-xs font-extrabold text-zinc-950 uppercase tracking-wider border-b border-zinc-100 pb-3">
           Quality Dimensions
         </h3>
 
@@ -85,7 +85,7 @@ export function ReleaseScore() {
                   initial={{ width: 0 }}
                   animate={{ width: `${c.val}%` }}
                   transition={{ duration: 1.2, delay: idx * 0.1, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${c.status === 'passed' ? 'bg-zinc-950' : 'bg-amber-500'}`}
+                  className={`h-full rounded-full ${c.status === 'passed' ? 'bg-cyan-700' : 'bg-zinc-400'}`}
                 />
               </div>
             </div>

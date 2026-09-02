@@ -102,13 +102,13 @@ export default function Home() {
 
   // Scroll animation variants for alternating layout columns
   const slideLeftVariants: Variants = {
-    hidden: { opacity: 0, x: prefersReduced ? 0 : -30 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+    hidden: { opacity: 0, x: prefersReduced ? 0 : -25 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: 'easeOut' } },
   };
 
   const slideRightVariants: Variants = {
-    hidden: { opacity: 0, x: prefersReduced ? 0 : 30 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+    hidden: { opacity: 0, x: prefersReduced ? 0 : 25 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: 'easeOut' } },
   };
 
   const faqItems = [
@@ -118,15 +118,15 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground overflow-hidden selection:bg-zinc-900 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-white text-zinc-950 overflow-hidden selection:bg-zinc-900 selection:text-white">
       <Navbar />
 
-      <main className="flex-grow relative">
+      <main className="flex-grow relative bg-white">
         {/* Subtle Ambient Grid Background */}
         <div className="absolute inset-0 -z-20 bg-grid-ambient bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
 
         {/* HERO SECTION */}
-        <Section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24">
+        <Section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 bg-white">
           <Container>
             <motion.div
               variants={containerVariants}
@@ -136,7 +136,7 @@ export default function Home() {
             >
               <motion.span
                 variants={itemVariants}
-                className="inline-flex items-center rounded-full bg-zinc-100 px-3.5 py-1 text-[11px] font-bold text-zinc-800 border border-zinc-200/80 uppercase tracking-widest font-mono shadow-xs"
+                className="inline-flex items-center rounded-full bg-cyan-50 px-3.5 py-1 text-[11px] font-bold text-cyan-800 border border-cyan-200 uppercase tracking-widest font-mono shadow-xs"
               >
                 Autonomous QA Platform
               </motion.span>
@@ -189,26 +189,26 @@ export default function Home() {
         </Section>
 
         {/* LIVING STATS BAR UNDER HERO */}
-        <section className="py-10 border-y border-zinc-200/80 bg-zinc-50/80 relative">
+        <section className="py-10 border-y border-zinc-200/80 bg-zinc-50/60 relative">
           <Container>
             <Grid cols={2} colsSm={4} gap={20} className="text-center">
               <div className="space-y-1">
-                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Pages Scanned</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-bold">Pages Scanned</div>
                 <StatCounter value={24930} />
                 <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Regressions Blocked</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-bold">Regressions Blocked</div>
                 <StatCounter value={1498} />
                 <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Avg. Readiness Index</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-bold">Avg. Readiness Index</div>
                 <StatCounter value={91} suffix=".4%" />
                 <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
               <div className="space-y-1">
-                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-semibold">Time to First Bug</div>
+                <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-mono font-bold">Time to First Bug</div>
                 <StatCounter value={34} suffix="s" />
                 <span className="text-[9px] text-zinc-400 font-mono block">[PLACEHOLDER]</span>
               </div>
@@ -226,19 +226,20 @@ export default function Home() {
           </Container>
         </section>
 
-        {/* SECTION 2 - THE PROBLEM */}
+        {/* SECTION 2 - THE COMPLEXITY DILEMMA */}
         {/* Layout rhythm: Left Copy, Right Visual */}
-        <Section className="py-24 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
+                className="flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md">
-                  <span className="inline-block text-[10px] font-bold text-red-700 bg-red-50 px-2.5 py-1 rounded-full border border-red-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     The Complexity Dilemma
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -261,56 +262,50 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECTION 3 - HOW IT WORKS */}
-        {/* Layout rhythm: Right Copy, Left Visual */}
+        {/* SECTION 3 - HOW IT WORKS (BALANCED FULL-WIDTH WORKFLOW + DEMO) */}
         <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
-          <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-100px' }}
-                variants={slideLeftVariants}
-                className="order-2 md:order-1"
-              >
-                <BrowserMockup />
-              </motion.div>
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-100px' }}
-                variants={slideRightVariants}
-                className="order-1 md:order-2"
-              >
-                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
-                    How Sculra Works
-                  </span>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
-                    Reads your UI from the outside in.
-                  </h2>
-                  <p className="text-sm text-zinc-600 leading-relaxed">
-                    Sculra autonomously walks through forms, clicks interactable nodes, records traces, and checks DOM properties without any code integration required.
-                  </p>
-                </Stack>
-              </motion.div>
-            </Grid>
+          <Container className="max-w-6xl">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              className="text-center max-w-2xl mx-auto mb-12 space-y-3"
+            >
+              <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
+                How Sculra Works
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
+                Reads your UI from the outside in.
+              </h2>
+              <p className="text-sm text-zinc-600 leading-relaxed">
+                Sculra autonomously walks through forms, clicks interactable nodes, records traces, and checks DOM properties without any code integration required.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+            >
+              <BrowserMockup />
+            </motion.div>
           </Container>
         </Section>
 
         {/* SECTION 4 - VISUAL QA */}
         {/* Layout rhythm: Left Copy, Right Visual */}
-        <Section className="py-24 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
+                className="flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Pixel Verification
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -337,7 +332,7 @@ export default function Home() {
         {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
@@ -352,10 +347,10 @@ export default function Home() {
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideRightVariants}
-                className="order-1 md:order-2"
+                className="order-1 md:order-2 flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Device Matrix
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -372,17 +367,18 @@ export default function Home() {
 
         {/* SECTION 6 - THE AI QA MEMBER */}
         {/* Layout rhythm: Left Copy, Right Visual */}
-        <Section className="py-24 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
+                className="flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Autonomous Reasoning
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -409,7 +405,7 @@ export default function Home() {
         {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
@@ -424,10 +420,10 @@ export default function Home() {
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideRightVariants}
-                className="order-1 md:order-2"
+                className="order-1 md:order-2 flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Readiness Check
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -444,17 +440,18 @@ export default function Home() {
 
         {/* SECTION 8 - CI PIPELINE STATUS */}
         {/* Layout rhythm: Left Copy, Right Visual */}
-        <Section className="py-24 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideLeftVariants}
+                className="flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     CI Integrations
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -477,11 +474,11 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECTION 9 - MULTI-SOURCE DIAGRAM */}
+        {/* SECTION 9 - MULTI-SOURCE INGESTION */}
         {/* Layout rhythm: Right Copy, Left Visual */}
         <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
-            <Grid cols={1} colsMd={2} gap={40} className="items-center">
+            <Grid cols={1} colsMd={2} gap={40} className="items-stretch">
               <motion.div
                 initial="hidden"
                 whileInView="visible"
@@ -496,10 +493,10 @@ export default function Home() {
                 whileInView="visible"
                 viewport={{ once: true, margin: '-100px' }}
                 variants={slideRightVariants}
-                className="order-1 md:order-2"
+                className="order-1 md:order-2 flex flex-col justify-center"
               >
-                <Stack spacing={20} className="justify-center text-left max-w-md ml-auto">
-                  <span className="inline-block text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+                <Stack spacing={20} className="text-left max-w-md ml-auto">
+                  <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Multi-Source Ingestion
                   </span>
                   <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 leading-tight">
@@ -514,8 +511,8 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* MANUAL QA VS SCULRA COMPARISON TABLE */}
-        <Section className="py-24 relative overflow-hidden">
+        {/* MANUAL QA VS SCULRA COMPARISON TABLE (SINGLE CYAN ACCENT, NO RAINBOW) */}
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-4xl">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -523,7 +520,7 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center mb-12 space-y-3"
             >
-              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+              <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Evaluation Matrix
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Manual QA vs Sculra</h2>
@@ -534,41 +531,41 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.98 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="overflow-x-auto border border-zinc-200/90 rounded-2xl bg-white shadow-md"
+              className="overflow-x-auto border border-zinc-200/90 rounded-2xl bg-white shadow-sm"
             >
               <table className="w-full text-left border-collapse text-xs font-mono">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] uppercase text-zinc-600">
                     <th className="p-4 font-bold">Dimension</th>
                     <th className="p-4 font-bold">Manual / Scripted QA</th>
-                    <th className="p-4 font-bold text-zinc-950 bg-zinc-100/60">Sculra Autonomous QA</th>
+                    <th className="p-4 font-bold text-cyan-800 bg-cyan-50/50">Sculra Autonomous QA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Coverage Area</td>
                     <td className="p-4 text-zinc-500">Manual check of major routes</td>
-                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Autonomous 100% path coverage</td>
+                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Autonomous 100% path coverage</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Execution Speed</td>
                     <td className="p-4 text-zinc-500">Hours to days per cycle</td>
-                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Minutes per build run</td>
+                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Minutes per build run</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Setup Overhead</td>
                     <td className="p-4 text-zinc-500">Continuous selector script updates</td>
-                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Zero-script instant source sync</td>
+                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Zero-script instant source sync</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Consistency</td>
                     <td className="p-4 text-zinc-500">Flaky test selector failures</td>
-                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">Adaptive DOM-aware updates</td>
+                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Adaptive DOM-aware updates</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Availability</td>
                     <td className="p-4 text-zinc-500">Scheduled developer bandwidth</td>
-                    <td className="p-4 text-zinc-950 font-bold bg-zinc-50/40">24/7 continuous triggers</td>
+                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">24/7 continuous triggers</td>
                   </tr>
                 </tbody>
               </table>
@@ -576,7 +573,7 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECURITY & TRUST SECTION */}
+        {/* SECURITY & TRUST SECTION (SINGLE CYAN ACCENT, NO RAINBOW) */}
         <Section className="py-20 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <motion.div
@@ -585,7 +582,7 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center mb-12 space-y-3"
             >
-              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+              <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Tenant Boundaries
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Compact & Enforced Security</h2>
@@ -600,7 +597,7 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -617,7 +614,7 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
@@ -635,7 +632,7 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-sm hover:shadow-md transition-all"
               >
-                <div className="h-9 w-9 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 shadow-xs">
+                <div className="h-9 w-9 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
@@ -648,7 +645,7 @@ export default function Home() {
         </Section>
 
         {/* SOCIAL PROOF / TESTIMONIALS STRIP */}
-        <Section className="py-24 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-5xl">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -656,7 +653,7 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center mb-14 space-y-3"
             >
-              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+              <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Social Proof
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Built for teams that ship.</h2>
@@ -730,7 +727,7 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="text-center max-w-2xl mx-auto mb-16 space-y-3"
             >
-              <span className="inline-block text-[10px] font-bold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200 uppercase tracking-wider font-mono">
+              <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Simple Pricing
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">Based on how much you test.</h2>
@@ -848,7 +845,7 @@ export default function Home() {
         </Section>
 
         {/* WAITLIST REGISTRATION MINI-FORM */}
-        <Section className="py-16 relative overflow-hidden">
+        <Section className="py-16 relative overflow-hidden bg-white">
           <Container className="max-w-md text-center space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -888,7 +885,7 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECTION 15 - DRAMATIC FINAL CTA (LANDMARK HIGH-CONTRAST SECTION) */}
+        {/* SECTION 15 - DRAMATIC FINAL CTA (THE ONLY DARK SECTION ON THE ENTIRE PAGE) */}
         <FinalCTA />
 
         {/* FAQ ACCORDION SECTION */}

@@ -24,14 +24,14 @@ export function DevicePreview() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Device selector tabs */}
       <div className="flex justify-center gap-2">
         {devices.map((d) => (
           <button
             key={d.key}
             onClick={() => setActiveDevice(d.key)}
-            className={`px-3.5 py-1.5 rounded-full border text-[11px] font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer shadow-xs ${
+            className={`px-4 py-1.5 rounded-full border text-xs font-bold tracking-wider uppercase transition-all duration-300 cursor-pointer shadow-xs ${
               activeDevice === d.key
                 ? 'border-zinc-950 bg-zinc-950 text-white'
                 : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300'
@@ -43,7 +43,7 @@ export function DevicePreview() {
       </div>
 
       {/* Frame Container */}
-      <div className="border border-zinc-200/90 rounded-2xl bg-white p-6 shadow-md flex flex-col items-center justify-center min-h-[380px] overflow-hidden">
+      <div className="border border-zinc-200/90 rounded-2xl bg-white p-6 shadow-sm flex flex-col items-center justify-center min-h-[380px] overflow-hidden">
         {/* Dynamic device view mock */}
         <motion.div
           animate={{
@@ -54,10 +54,10 @@ export function DevicePreview() {
           className="border border-zinc-200 rounded-xl bg-zinc-50 shadow-sm flex flex-col justify-between overflow-hidden"
         >
           {/* Header Bar */}
-          <div className="px-3.5 py-2 border-b border-zinc-200 bg-white flex items-center justify-between text-[9px] font-mono text-zinc-500">
+          <div className="px-3.5 py-2 border-b border-zinc-200 bg-white flex items-center justify-between text-[10px] font-mono text-zinc-500">
             <span className="font-semibold text-zinc-700">acme-dashboard</span>
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${activeDevice === 'mobile' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`h-2 w-2 rounded-full ${activeDevice === 'mobile' ? 'bg-red-500 animate-pulse' : 'bg-cyan-600'}`} />
               <span className="font-medium text-zinc-700">{activeDevice === 'mobile' ? 'Layout Error' : 'Ready'}</span>
             </div>
           </div>
@@ -65,18 +65,18 @@ export function DevicePreview() {
           {/* Device Page Content */}
           <div className="flex-grow p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="font-extrabold text-[11px] text-zinc-900">Acme Dashboard</span>
+              <span className="font-extrabold text-xs text-zinc-900">Acme Dashboard</span>
 
               {/* Navigation Links */}
               {activeDevice !== 'mobile' ? (
-                <div className="flex items-center gap-3 text-[9px] font-medium text-zinc-600">
+                <div className="flex items-center gap-3 text-[10px] font-medium text-zinc-600">
                   <span>Overview</span>
                   <span>Analytics</span>
                   <span>Settings</span>
                 </div>
               ) : (
                 /* Mobile layout overflow */
-                <div className="relative border border-red-300 bg-red-50 px-2 py-0.5 rounded text-[8px] text-red-700 font-bold">
+                <div className="relative border border-red-300 bg-red-50 px-2 py-0.5 rounded text-[9px] text-red-700 font-bold">
                   <span>Overview Analytics Settings</span>
                   <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-600 ring-2 ring-white" />
                 </div>
@@ -97,9 +97,9 @@ export function DevicePreview() {
           </div>
 
           {/* Footer Diagnostic Panel */}
-          <div className="px-3.5 py-2 border-t border-zinc-200 bg-white flex items-center justify-between text-[9px] text-zinc-600 font-mono">
+          <div className="px-3.5 py-2 border-t border-zinc-200 bg-white flex items-center justify-between text-[10px] text-zinc-600 font-mono">
             <span>Viewport: <strong className="text-zinc-900">{activeDevice === 'desktop' ? '1440px' : activeDevice === 'tablet' ? '768px' : '390px'}</strong></span>
-            <span className={`font-bold ${activeDevice === 'mobile' ? 'text-red-600' : 'text-emerald-600'}`}>
+            <span className={`font-bold ${activeDevice === 'mobile' ? 'text-red-600' : 'text-cyan-800'}`}>
               {activeDevice === 'mobile' ? '✕ NAVIGATION_OVERFLOW' : '✓ PASSED'}
             </span>
           </div>

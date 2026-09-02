@@ -5,12 +5,14 @@ import { motion } from 'framer-motion';
 
 export function TestingJourney() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto items-center">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto items-stretch">
       {/* Left: The Complex App Problem */}
-      <div className="relative border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md overflow-hidden h-96 flex flex-col justify-between">
+      <div className="relative border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-sm overflow-hidden h-96 flex flex-col justify-between">
         <div className="space-y-1.5">
-          <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 uppercase tracking-wider font-mono">Complexity Explosion</span>
-          <h3 className="text-base font-extrabold text-zinc-900 tracking-tight">Paths Grow Exponentially</h3>
+          <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2.5 py-1 rounded-full border border-red-200 uppercase tracking-wider font-mono w-fit">
+            Complexity Explosion
+          </span>
+          <h3 className="text-base font-extrabold text-zinc-950 tracking-tight">Paths Grow Exponentially</h3>
           <p className="text-xs text-zinc-600">Every route branch introduces dozens of user states, devices, viewports, and roles.</p>
         </div>
 
@@ -70,10 +72,12 @@ export function TestingJourney() {
       </div>
 
       {/* Right: AI User Journeys */}
-      <div className="relative border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-md overflow-hidden h-96 flex flex-col justify-between">
+      <div className="relative border border-zinc-200/90 rounded-2xl bg-white p-8 shadow-sm overflow-hidden h-96 flex flex-col justify-between">
         <div className="space-y-1.5">
-          <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 uppercase tracking-wider font-mono">AI User Journeys</span>
-          <h3 className="text-base font-extrabold text-zinc-900 tracking-tight">Don&apos;t Test Pages. Test Experiences.</h3>
+          <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
+            AI User Journeys
+          </span>
+          <h3 className="text-base font-extrabold text-zinc-950 tracking-tight">Don&apos;t Test Pages. Test Experiences.</h3>
           <p className="text-xs text-zinc-600">Sculra tests state workflows, traversing routes sequentially to reproduce real user logic.</p>
         </div>
 
@@ -102,7 +106,7 @@ export function TestingJourney() {
               <span className="text-zinc-400 font-bold">→</span>
               <span className="px-2.5 py-1 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-900 font-semibold shadow-xs">Sync API Keys</span>
               <span className="text-zinc-400 font-bold">→</span>
-              <span className="px-2.5 py-1 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 font-bold shadow-xs">Ready to Ship</span>
+              <span className="px-2.5 py-1 rounded-md border border-cyan-300 bg-cyan-50 text-cyan-800 font-bold shadow-xs">Ready to Ship</span>
             </div>
           </div>
         </div>

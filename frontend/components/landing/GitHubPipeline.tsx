@@ -20,9 +20,9 @@ export function GitHubPipeline() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Node connectors timeline */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative">
         {flow.map((f, idx) => (
           <div
             key={idx}
@@ -47,13 +47,13 @@ export function GitHubPipeline() {
       </div>
 
       {/* Simulated GitHub Pull Request Status Checks Component */}
-      <div className="border border-zinc-200/90 rounded-2xl bg-white p-6 shadow-md space-y-4">
+      <div className="border border-zinc-200/90 rounded-2xl bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div className="flex items-center gap-2">
-            <svg className="h-4 w-4 text-emerald-600" viewBox="0 0 16 16" fill="currentColor">
+            <svg className="h-4 w-4 text-cyan-700" viewBox="0 0 16 16" fill="currentColor">
               <path d="M5 3.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm0 2.122a2.25 2.25 0 1 0-1.5 0v5.256a2.251 2.251 0 1 0 1.5 0V5.372Zm8-.122a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm0 2.122a2.25 2.25 0 1 0-1.5 0v1.256a2.251 2.251 0 1 0 1.5 0V7.372ZM11.5 11.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
             </svg>
-            <span className="text-xs font-bold text-zinc-900">Pull Request #42: Feature / Checkout Auth Fix</span>
+            <span className="text-xs font-bold text-zinc-950">Pull Request #42: Feature / Checkout Auth Fix</span>
           </div>
           <span className="font-mono text-[10px] text-zinc-400">Updated 2m ago</span>
         </div>
@@ -62,18 +62,18 @@ export function GitHubPipeline() {
         <div className="space-y-2.5 font-mono text-[10px]">
           <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-cyan-600" />
               <span className="text-zinc-800 font-medium">github-actions / test-build</span>
             </div>
-            <span className="text-emerald-700 font-bold">✓ Successful</span>
+            <span className="text-cyan-800 font-bold">✓ Successful</span>
           </div>
 
           <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${pipelineStep === 3 ? 'bg-red-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`} />
+              <span className={`h-2 w-2 rounded-full ${pipelineStep === 3 ? 'bg-red-500 animate-pulse' : 'bg-cyan-600 animate-pulse'}`} />
               <span className="text-zinc-800 font-medium">sculra-qa-engine / run-verification</span>
             </div>
-            <span className={pipelineStep === 3 ? 'text-red-600 font-bold' : 'text-amber-700 font-bold'}>
+            <span className={pipelineStep === 3 ? 'text-red-600 font-bold' : 'text-cyan-800 font-bold'}>
               {pipelineStep === 3 ? '✕ Failed (Score: 83%)' : 'Processing checks...'}
             </span>
           </div>
@@ -82,7 +82,7 @@ export function GitHubPipeline() {
         {/* Merge Button status */}
         <div className="border-t border-zinc-100 pt-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-zinc-500">
-            <span className={`h-2 w-2 rounded-full ${pipelineStep === 3 ? 'bg-red-500' : 'bg-amber-500'}`} />
+            <span className={`h-2 w-2 rounded-full ${pipelineStep === 3 ? 'bg-red-500' : 'bg-cyan-600'}`} />
             <span>{pipelineStep === 3 ? '1 critical check failed' : 'Reviewing diagnostics'}</span>
           </div>
           <button

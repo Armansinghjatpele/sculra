@@ -16,30 +16,26 @@ export default function RootLayout({
     <ClerkProvider
       appearance={{
         variables: {
-          colorPrimary: '#00D4FF', // Accent cyan color
-          colorBackground: '#09090b', // Neutral dark background
-          colorInputBackground: '#18181b', // Input background
-          colorText: '#f4f4f5', // High-contrast text
-          colorTextSecondary: '#a1a1aa', // Secondary text
-          colorBorder: 'rgba(255, 255, 255, 0.08)', // Thin slate borders
+          colorPrimary: '#0284c7', // Cyan accent
+          colorBackground: '#ffffff', // Clean white background
+          colorInputBackground: '#f4f4f5', // Input background
+          colorText: '#09090b', // High-contrast text
+          colorTextSecondary: '#71717a', // Secondary text
+          colorBorder: '#e4e4e7', // Thin slate borders
         },
         elements: {
-          card: 'border border-white/8 bg-zinc-950/45 shadow-glass backdrop-blur-md',
-          headerTitle: 'font-semibold text-foreground',
-          headerSubtitle: 'text-xs text-muted-foreground',
-          socialButtonsBlockButton: 'border border-white/8 hover:bg-muted text-foreground bg-zinc-900',
+          card: 'border border-zinc-200 bg-white shadow-md rounded-2xl',
+          headerTitle: 'font-bold text-zinc-950',
+          headerSubtitle: 'text-xs text-zinc-500',
+          socialButtonsBlockButton: 'border border-zinc-200 hover:bg-zinc-50 text-zinc-900 bg-white shadow-xs',
           socialButtonsBlockButtonText: 'font-medium',
-          socialButtonsProviderIcon__apple: 'dark:invert',
-          socialButtonsProviderIcon__github: 'dark:invert',
-          socialButtonsBlockButtonIcon__apple: 'dark:invert',
-          socialButtonsBlockButtonIcon__github: 'dark:invert',
-          formButtonPrimary: 'bg-accent hover:bg-accent/80 text-background font-semibold',
-          footerActionText: 'text-muted-foreground',
-          footerActionLink: 'text-accent hover:underline',
+          formButtonPrimary: 'bg-zinc-950 hover:bg-zinc-800 text-white font-semibold',
+          footerActionText: 'text-zinc-500',
+          footerActionLink: 'text-cyan-700 hover:underline font-semibold',
         }
       }}
     >
-      <html lang="en" className="h-full antialiased dark">
+      <html lang="en" className="h-full antialiased" suppressHydrationWarning>
         <body className="min-h-full flex flex-col bg-background text-foreground">
           {children}
         </body>
