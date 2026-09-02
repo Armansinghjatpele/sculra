@@ -444,7 +444,7 @@ export default function NewProjectPage() {
                 <div className="space-y-2">
                   <h2 className="text-lg font-extrabold text-foreground">Project Target Connected</h2>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    "{projectName}" has been registered successfully. QA agents can now target this endpoint for automated regression runs.
+                    &quot;{projectName}&quot; has been registered successfully. QA agents can now target this endpoint for automated regression runs.
                   </p>
                 </div>
 

@@ -28,6 +28,7 @@ Sculra instruments Sentry across the monorepo to isolate errors and compile late
 ## 3. Analytics Layer (PostHog)
 
 We restrict direct PostHog SDK dependencies using a central singleton wrapper (`frontend/lib/analytics.ts`). This allows us to:
+
 - Toggle tracking on/off dynamically based on environment keys presence.
 - Avoid tracking user authentication credentials.
 - Handle mock analytics console tracking logs in local developer runs.
@@ -46,5 +47,6 @@ Cloudflare acts as the edge entrypoint layer for the Sculra SaaS platform:
 
 ## 5. Application Rate Limiting (Redis)
 
-If application-level rate limits are required (e.g., token-based API key rate limits), we leverage **Redis** to store request counters. 
-- *NOTE: Redis is not a mandatory dependency for basic local development. If missing, local dev servers revert to memory-based limits.*
+If application-level rate limits are required (e.g., token-based API key rate limits), we leverage **Redis** to store request counters.
+
+- _NOTE: Redis is not a mandatory dependency for basic local development. If missing, local dev servers revert to memory-based limits._

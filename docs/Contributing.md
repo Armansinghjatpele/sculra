@@ -7,13 +7,14 @@ We are glad you are contributing to Sculra! To maintain high code quality and ar
 ## 1. Branch Naming Conventions
 
 Always name development branches according to the change purpose:
+
 - **Features**: `feat/description-of-feature`
 - **Bug Fixes**: `fix/description-of-bug`
 - **Documentation**: `docs/topic-name`
 - **Performance**: `perf/description`
 - **Refactoring**: `refactor/description`
 
-*Example: `feat/stripe-subscription-portal` or `fix/jwt-expiration-race-condition`.*
+_Example: `feat/stripe-subscription-portal` or `fix/jwt-expiration-race-condition`._
 
 ---
 
@@ -30,6 +31,7 @@ Sculra uses the **Conventional Commits** standard. Commit messages must be struc
 ```
 
 ### Types
+
 - `feat`: A new user-facing feature.
 - `fix`: A bug fix.
 - `docs`: Documentation updates.
@@ -38,7 +40,7 @@ Sculra uses the **Conventional Commits** standard. Commit messages must be struc
 - `test`: Adding or correcting tests.
 - `chore`: Infrastructure updates, package bumps, dependencies.
 
-*Example: `feat(billing): configure Stripe checkout endpoint hook`.*
+_Example: `feat(billing): configure Stripe checkout endpoint hook`._
 
 ---
 
@@ -66,4 +68,3 @@ Sculra uses the **Conventional Commits** standard. Commit messages must be struc
    ```
 6. **Submit PR**:
    Open a pull request describing the changes, adding links to related issue tickets, and detailing the testing steps performed.
-

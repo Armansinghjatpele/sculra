@@ -48,25 +48,28 @@ To run Sculra locally, follow this one-command workflow:
 
 All core commands must be run from the **repository root** using pnpm workspace filtering, or inside specific subdirectories if developing a single package independently:
 
-| Script | Root Directory Command | Local Package Subdirectory Command |
-|---|---|---|
-| **Install** | `pnpm install` | - |
-| **Dev Mode** | `pnpm dev` | `pnpm dev` (inside `/frontend` or `/backend`) |
-| **Build** | `pnpm build` | `pnpm build` (inside `/frontend` or `/backend`) |
-| **Lint** | `pnpm lint` | `pnpm lint` (inside `/frontend` or `/backend`) |
-| **Type Check** | `pnpm typecheck` | `pnpm typecheck` (inside `/frontend` or `/backend`) |
-| **Formatting** | `pnpm format` | `prettier --write .` |
-| **Clean Build** | `pnpm clean` | - |
+| Script          | Root Directory Command | Local Package Subdirectory Command                  |
+| --------------- | ---------------------- | --------------------------------------------------- |
+| **Install**     | `pnpm install`         | -                                                   |
+| **Dev Mode**    | `pnpm dev`             | `pnpm dev` (inside `/frontend` or `/backend`)       |
+| **Build**       | `pnpm build`           | `pnpm build` (inside `/frontend` or `/backend`)     |
+| **Lint**        | `pnpm lint`            | `pnpm lint` (inside `/frontend` or `/backend`)      |
+| **Type Check**  | `pnpm typecheck`       | `pnpm typecheck` (inside `/frontend` or `/backend`) |
+| **Formatting**  | `pnpm format`          | `prettier --write .`                                |
+| **Clean Build** | `pnpm clean`           | -                                                   |
 
 ---
 
 ## 4. Docker Compose Environment
 
 We provide a local Docker stack for background services and sandbox queues. To boot them:
+
 ```bash
 docker-compose -f docker-compose.dev.yml up -d
 ```
+
 Services included:
+
 - **Redis (`sculra-redis-dev`)**: Event Queue and Cache grid on port `6379`.
 - **Browser Worker (`sculra-browser-worker-dev`)**: Isolated Playwright Chromium runner on port `3005`.
 - **AI Worker (`sculra-ai-worker-dev`)**: Local model inference loop.
@@ -96,4 +99,5 @@ To keep our repository lightweight, portable, and clean, strict Git check-in pol
   - `.env` and `.env.local` files containing secrets.
 
 ### 5.2 Strict File Size Rule
+
 Never check in binary formats, weights files, compressed archives, or compiled applications. Keep files strictly under `5MB`. Large debugging files must be hosted in object storage buckets.

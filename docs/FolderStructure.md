@@ -67,4 +67,3 @@ Sculra/
 2. **`backend/`**: Follows a clean architecture separation: routing defines HTTP endpoints -> middleware performs auth and validation -> controller parses arguments -> service processes business rules -> repository queries the database. Heavy-lifting background tasks are deferred to `workers/` via `queue/`.
 3. **`database/`**: Fully reflects Supabase structure. SQL schemas are version-controlled inside `migrations/`. Access control rules are documented inside `policies/`.
 4. **`shared/`**: Contains pure TypeScript and configuration tools that prevent duplicate type definition files or format helpers between the frontend and backend.
-

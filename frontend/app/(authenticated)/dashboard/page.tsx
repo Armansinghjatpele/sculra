@@ -58,7 +58,7 @@ export default async function DashboardPage() {
             {greeting}, {userName}.
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Here's what's happening across your applications.
+            Here&apos;s what&apos;s happening across your applications.
           </p>
         </div>
         <Flex className="gap-3">

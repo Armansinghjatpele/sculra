@@ -13,13 +13,15 @@
     "test": "pnpm -r run test",
     "clean": "rimraf node_modules **/node_modules **/.next **/dist",
     "prepare": "husky",
-    "analyze": "pnpm --filter sculra-frontend run analyze"
+    "analyze": "pnpm --filter sculra-frontend run analyze",
+    "maintenance:daily": "tsx scripts/maintenance/daily-maintenance.ts"
   },
   "devDependencies": {
     "husky": "^9.0.11",
     "prettier": "^3.3.2",
     "prettier-plugin-tailwindcss": "^0.6.5",
-    "rimraf": "^5.0.7"
+    "rimraf": "^5.0.7",
+    "tsx": "^4.19.0"
   },
   "engines": {
     "node": ">=18.0.0",

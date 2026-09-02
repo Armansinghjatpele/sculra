@@ -1,0 +1,76 @@
+name: Sculra Daily Maintenance
+
+on:
+  schedule:
+    # Runs daily at 03:00 UTC (once per day)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (inspect, apply, and test without committing or pushing)'
+        type: boolean
+        required: false
+        default: false
+      category:
+        description: 'Maintenance category filter'
+        type: choice
+        required: false
+        default: 'auto'
+        options:
+          - auto
+          - docs
+          - types
+          - tests
+          - lint
+          - validation
+
+permissions:
+  contents: write
+
+jobs:
+  maintenance:
+    name: Daily Maintenance & Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 50 # Fetch history to check for prior daily commits
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Get pnpm cache directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Execute Daily Maintenance
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          CATEGORY_FLAG="--category=${{ github.event.inputs.category || 'auto' }}"
+          pnpm maintenance:daily $DRY_RUN_FLAG $CATEGORY_FLAG

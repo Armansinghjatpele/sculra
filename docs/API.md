@@ -19,7 +19,9 @@ This document details the REST API specifications and Webhook structures for the
 Supabase Auth is used directly on the client. The backend API verifies tokens but also implements several auxiliary session management hooks:
 
 ### POST `/auth/sync`
+
 Syncs Supabase user profile details to the main Postgres workspace profile upon initial registration.
+
 - **Request Body**:
   ```json
   {
@@ -35,7 +37,9 @@ Syncs Supabase user profile details to the main Postgres workspace profile upon 
 ## 3. Projects & Testing Endpoints
 
 ### GET `/projects`
+
 Retrieves a list of all active projects the user has access to.
+
 - **Response (`200 OK`)**:
   ```json
   [
@@ -50,7 +54,9 @@ Retrieves a list of all active projects the user has access to.
   ```
 
 ### POST `/projects`
+
 Creates a new project.
+
 - **Request Body**:
   ```json
   {
@@ -62,7 +68,9 @@ Creates a new project.
 - **Response (`201 Created`)**.
 
 ### POST `/projects/:projectId/test-runs`
+
 Triggers an automated QA test run against the configured website or repository url.
+
 - **Request Body**:
   ```json
   {
@@ -85,13 +93,16 @@ Triggers an automated QA test run against the configured website or repository u
 ## 4. Webhook Ingestions
 
 ### POST `/webhooks/stripe`
+
 Handles Stripe events. Webhook authentication is verified using the Stripe SDK webhook signature (`stripe-signature`).
+
 - **Required Events**:
   - `checkout.session.completed`
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
 
 ### POST `/webhooks/github`
-Handles GitHub webhook integration events (e.g. PR open, release tag created) to trigger automatic testing workflows.
-- **Header**: `X-Hub-Signature-256`
 
+Handles GitHub webhook integration events (e.g. PR open, release tag created) to trigger automatic testing workflows.
+
+- **Header**: `X-Hub-Signature-256`

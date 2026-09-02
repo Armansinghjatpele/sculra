@@ -23,6 +23,7 @@ erDiagram
 ```
 
 ### Table Definitions (Metadata Summary)
+
 - `users`: Extends Supabase authentication profiles. Holds display names and configuration preferences.
 - `organizations`: Groups users under a unified workspace billing entity.
 - `members`: Maps users to organizations using RBAC roles (`owner`, `admin`, `member`).
@@ -56,12 +57,15 @@ USING (
 ## 3. Database Triggers & Stored Procedures
 
 ### Sync User Profile
+
 Triggers automatic record insertion into the `public.users` table whenever a new authentication entry is added to `auth.users`.
+
 - **Function**: `handle_new_user()`
 - **Trigger**: `on_auth_user_created`
 
 ### Updated Timestamp Guard
+
 Ensures matching tables update the `updated_at` column automatically.
+
 - **Function**: `update_modified_column()`
 - **Trigger**: `set_updated_timestamp`
-

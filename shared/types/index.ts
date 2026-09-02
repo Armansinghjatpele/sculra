@@ -112,3 +112,12 @@ export interface BillingDetails {
   updatedAt: string;
 }
 
+/**
+ * Generic API response envelope used across Sculra services.
+ */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  timestamp: string;
+}

@@ -9,7 +9,7 @@ Sculra is a production-ready, enterprise-grade automated QA testing SaaS. It all
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, TailwindCSS v4, Framer Motion, Radix UI.
 - **Backend API & Queue**: Node.js, TypeScript, Express, BullMQ, Redis.
 - **Database & Auth**: Supabase PostgreSQL (Row-Level Security enabled) + **Clerk Authentication**.
-  *IMPORTANT: Supabase Auth is NOT used. Clerk manages all identity, OAuth, and sessions.*
+  _IMPORTANT: Supabase Auth is NOT used. Clerk manages all identity, OAuth, and sessions._
 - **Error Tracking & Analytics**: Sentry (monitoring), PostHog (analytics).
 - **Security**: Cloudflare (edge routing/rate-limiting/headers).
 
@@ -18,9 +18,10 @@ Sculra is a production-ready, enterprise-grade automated QA testing SaaS. It all
 ## 2. High-Level Architecture
 
 Sculra utilizes a decoupled architecture designed for high availability and low latency:
+
 1. **Next.js 15 Client**: Leverages React Server Components for fast initial paint and client components for real-time dashboard updates.
 2. **Express API Server**: Handles Stripe checkout, webhook integrations, and pushes browser test jobs to a Redis-backed queue.
-3. **Distributed Worker Nodes**: 
+3. **Distributed Worker Nodes**:
    - **Browser Runner**: Uses Playwright to navigate pages, capture viewport screenshots, intercept console error logs, and record test runs.
    - **AI Agents Orchestration**: Independent reasoning agents (Tester, Designer, PM, Security, Accessibility) that interact with OpenAI/Anthropic APIs and database history.
 

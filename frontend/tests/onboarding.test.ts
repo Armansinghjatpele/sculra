@@ -162,4 +162,12 @@ describe('Project Data Integrity & Connection Health Spec', () => {
     expect(org1Projects).toHaveLength(1);
     expect(personalProjects).toHaveLength(1);
   });
+
+  // Automated maintenance test assertion: URL edge cases
+  it('should correctly handle URL validation for port numbers and trailing slashes', () => {
+    expect(validateWebsiteUrl('http://localhost:3000/')).toBe('');
+    expect(validateWebsiteUrl('https://app.sculra.com/dashboard/')).toBe('');
+    expect(validateWebsiteUrl('invalid://url')).toBe('Website target URL must start with http:// or https://');
+  });
+
 });

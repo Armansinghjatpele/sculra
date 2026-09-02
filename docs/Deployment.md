@@ -23,7 +23,9 @@ Supabase setups are tracked using the Supabase CLI (`supabase/` folder containin
 ## 3. Deployment Pipelines (CI/CD via GitHub Actions)
 
 ### 3.1 Pull Request Checks
+
 Every pull request targeting `main` or `staging` branches must satisfy the following pipeline conditions:
+
 1. **Linting & Formatting**: Ensure ESLint, Prettier, and TypeScript compilation pass:
    ```bash
    npm run lint
@@ -43,7 +45,7 @@ sequenceDiagram
     participant DB as Supabase Production
     participant FE as Vercel Deployment
     participant BE as Container Registry / ECS
-    
+
     Git->>CI: Merge to main
     activate CI
     CI->>DB: Apply database migrations (supabase db push)
@@ -60,4 +62,3 @@ sequenceDiagram
 - **Error Verification**: Sentry alerts for unexpected exceptions occurring immediately post-deploy.
 - **Synthetics**: Synthetic test flows triggered against `https://Sculra.io/health` to confirm gateway routing.
 - **Rollback Procedure**: In the event of high latency or error counts, Vercel deployments can be instantly reverted via the dashboard, and ECS tasks can fall back to the previous stable Docker image tag.
-

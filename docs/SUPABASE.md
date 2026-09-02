@@ -1,8 +1,8 @@
 # Supabase Local Development Guide
 
-Sculra utilizes Supabase for database schemas, database functions/triggers, object storage, and Row Level Security (RLS) data isolation. 
+Sculra utilizes Supabase for database schemas, database functions/triggers, object storage, and Row Level Security (RLS) data isolation.
 
-*IMPORTANT: Supabase Auth is NOT used. User accounts and sessions management are handled exclusively by Clerk.*
+_IMPORTANT: Supabase Auth is NOT used. User accounts and sessions management are handled exclusively by Clerk._
 
 ---
 

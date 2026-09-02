@@ -9,6 +9,7 @@ This document serves as the master specification for **Sculra**'s brand identity
 Sculra is a professional, developer-first, AI-native software quality platform. It represents confidence, high velocity, and engineering precision.
 
 ### Personality Pillars
+
 - **Technical & Confident**: Speaking directly to engineers using clear, logical assertions. No marketing fluff.
 - **Minimalist & Clean**: Embracing ample whitespace, light border layouts, and clean typographic grids.
 - **Calm & Reliable**: Functioning like a senior developer who undercovers security issues, regression bugs, and accessibility flaws without inducing panic.
@@ -21,10 +22,11 @@ Sculra is a professional, developer-first, AI-native software quality platform. 
 The Sculra logo represents geometric order, compiler precision, and automated quality scans.
 
 ### Concept & Shape Symbolism
+
 - **The Concept**: The logo features the letter **S** combined with a clean, geometric **Checkmark** (representing QA) and an outer **Scanning Reticle** (representing automation).
 - ** Favicon**: High-contrast outline version of the checkmark logo, optimized for 16x16 and 32x32 viewports.
-- **Logo Animation**: 
-  - *Interaction*: Draw-in SVG path tracing the reticle outline (duration: 300ms), followed by a soft glass-shimmer highlight across the checkmark face.
+- **Logo Animation**:
+  - _Interaction_: Draw-in SVG path tracing the reticle outline (duration: 300ms), followed by a soft glass-shimmer highlight across the checkmark face.
 - **Clear Space**: The minimum clear space surrounding the logo must be equivalent to `50%` of the width of the logo mark.
 
 ---
@@ -35,21 +37,21 @@ Sculra features a dark-first color palette with sharp, functional colors indicat
 
 ### Palette Specifications
 
-| Name | Hue Range (HSL/HEX) | Rationale |
-|---|---|---|
-| **Primary** | `#2563EB` (blue-600 base) | Communicates reliability, confidence, and enterprise-grade strength. |
-| **Accent** | `#00D4FF` (cyan-500 base) | Represents AI scanning, interactivity highlights, and terminal focal points. |
-| **Success** | `#22C55E` (green-500 base) | Indicates passed test steps, stable builds, and security verification. |
-| **Warning** | `#F59E0B` (amber-500 base) | Highlights warning logs, accessibility issues, or minor DOM flaws. |
-| **Danger** | `#EF4444` (red-500 base) | Represents critical errors, runtime page crashes, or validation failures. |
-| **Information** | `#8B5CF6` (violet-500 base) | Indicates network metrics info, system updates, and tips. |
+| Name            | Hue Range (HSL/HEX)         | Rationale                                                                    |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------- |
+| **Primary**     | `#2563EB` (blue-600 base)   | Communicates reliability, confidence, and enterprise-grade strength.         |
+| **Accent**      | `#00D4FF` (cyan-500 base)   | Represents AI scanning, interactivity highlights, and terminal focal points. |
+| **Success**     | `#22C55E` (green-500 base)  | Indicates passed test steps, stable builds, and security verification.       |
+| **Warning**     | `#F59E0B` (amber-500 base)  | Highlights warning logs, accessibility issues, or minor DOM flaws.           |
+| **Danger**      | `#EF4444` (red-500 base)    | Represents critical errors, runtime page crashes, or validation failures.    |
+| **Information** | `#8B5CF6` (violet-500 base) | Indicates network metrics info, system updates, and tips.                    |
 
 ### Color Ranges (100 - 900)
 
 ```text
 Neutral (Zinc-slate premium dark surface base):
-- 100: #F4F4F5 | 200: #E4E4E7 | 300: #D4D4D8 | 400: #A1A1AA 
-- 500: #71717A | 600: #52525B | 700: #3F3F46 | 800: #27272A 
+- 100: #F4F4F5 | 200: #E4E4E7 | 300: #D4D4D8 | 400: #A1A1AA
+- 500: #71717A | 600: #52525B | 700: #3F3F46 | 800: #27272A
 - 900: #18181B | 950: #09090B | Background: #030303
 
 Primary Blue:
@@ -84,6 +86,7 @@ Sculra uses **Geist** for sans-serif UI elements and **Geist Mono** for code ove
 ## 5. Iconography (Lucide System)
 
 Icons must follow a strict, unified visual layout:
+
 - **Stroke Width**: `1.75px` (light, premium lines).
 - **Corner Radius**: `0.5px` to `1px` (slight rounding, avoiding round/childish bubble look).
 - **Consistency**: Keep icon scales uniform (typically `16px / 1rem` for buttons/tabs; `20px` for headers).
@@ -93,14 +96,16 @@ Icons must follow a strict, unified visual layout:
 ## 6. Illustration & Photography Styles
 
 ### Custom Illustration Style
+
 - **No Stock Graphics**: Strictly forbid cartoon office vectors or generic 3D shapes.
-- **Visual Direction**: 
+- **Visual Direction**:
   - Abstract node charts detailing API interactions.
   - Wireframe overlays with scanning cyan indicators.
   - Blueprint grids showcasing visual alignment tolerances.
   - Minimal line drawings showcasing developer workspaces and code blocks.
 
 ### Photography Direction (If Used)
+
 - High contrast, dark themes.
 - Clean development setups, close-ups of monitors, and code viewports.
 - No forced, smiling stock office group poses.
@@ -130,6 +135,7 @@ Motion must feel responsive, clean, and fast.
 ## 9. Copywriting, Voice & Tone Guide
 
 ### The Sculra Voice
+
 Sculra writes like a peer developer: technical, direct, clear, and confident.
 
 - **Assertive & Value-Driven**: Explain what happened immediately.
@@ -137,18 +143,19 @@ Sculra writes like a peer developer: technical, direct, clear, and confident.
 
 ### Copywriting Examples
 
-| Context | Preferred (Do Use) | Avoid (Do Not Use) |
-|---|---|---|
-| **Buttons** | `Start Testing`, `Run Analysis`, `View Report` | `Click Here`, `Submit`, `Proceed` |
-| **Hero Text** | `Release with certainty.`, `Know what is broken.` | `Revolutionary AI platform for maximum synergy.` |
+| Context            | Preferred (Do Use)                                                            | Avoid (Do Not Use)                                               |
+| ------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Buttons**        | `Start Testing`, `Run Analysis`, `View Report`                                | `Click Here`, `Submit`, `Proceed`                                |
+| **Hero Text**      | `Release with certainty.`, `Know what is broken.`                             | `Revolutionary AI platform for maximum synergy.`                 |
 | **Error Messages** | `Connection failed: Port 5432 timed out. Verify your database is accessible.` | `Error 500: An unexpected error occurred. Please contact admin.` |
-| **Empty States** | `No tests executed yet. Connect a target URL to start scanning.` | `It looks quiet here! Try launching your first test.` |
+| **Empty States**   | `No tests executed yet. Connect a target URL to start scanning.`              | `It looks quiet here! Try launching your first test.`            |
 
 ---
 
 ## 10. AI Personality
 
 The AI analyzer inside Sculra acts as a **Senior Staff QA Engineer**:
+
 - **Analytical**: Backs up every diagnostic recommendation with runtime trace logs or DOM nodes.
 - **Calm & Helpful**: Focuses on explaining the problem, the regression cause, and the exact code/CSS fix.
 - **Objective**: Does not use exclamation marks or apologetic phrases.
@@ -166,6 +173,7 @@ The AI analyzer inside Sculra acts as a **Senior Staff QA Engineer**:
 ## 12. Asset Organization & Structure
 
 All brand assets must reside in structured root directories:
+
 - `assets/logo/`: Logo marks, favicon, app icon, monochrome/outline SVG files.
 - `assets/banners/`: OG/social cards.
 - `assets/templates/`: Email templates, slide presentations.
