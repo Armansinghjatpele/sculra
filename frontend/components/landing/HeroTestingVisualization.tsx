@@ -58,7 +58,7 @@ export function HeroTestingVisualization() {
           <div className="space-y-3">
             <div className="flex justify-between items-center pb-2 border-b border-zinc-200/80">
               <span className="text-cyan-800 font-bold tracking-wider uppercase text-[10px]">Sculra Agent Swarm</span>
-              <span className="text-[10px] text-zinc-500 font-medium">Session #4821</span>
+              <span className="text-[10px] text-zinc-500 font-medium tabular-nums">Session #4821</span>
             </div>
             
             <div className="space-y-2">
@@ -89,7 +89,7 @@ export function HeroTestingVisualization() {
             </div>
           </div>
           
-          <div className="border-t border-zinc-200 pt-3 mt-4 text-[10px] text-zinc-500 flex justify-between items-center">
+          <div className="border-t border-zinc-200 pt-3 mt-4 text-[10px] text-zinc-500 flex justify-between items-center tabular-nums">
             <span>DOM Node Count:</span>
             <span className="text-zinc-900 font-bold">142 elements audited</span>
           </div>
@@ -117,7 +117,7 @@ export function HeroTestingVisualization() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="border border-zinc-200 rounded-xl bg-white p-4 space-y-1.5 shadow-xs">
                   <div className="text-[10px] uppercase font-bold text-zinc-400 font-mono">Invoice Total</div>
-                  <div className="text-xl font-black text-zinc-950 font-mono">$149.00 USD</div>
+                  <div className="text-xl font-black text-zinc-950 font-mono tabular-nums">$149.00 USD</div>
                   <div className="text-[11px] text-zinc-500 font-medium">Due in 14 days • Pro Plan</div>
                 </div>
                 <div className="border border-zinc-200 rounded-xl bg-white p-4 space-y-1.5 shadow-xs">
@@ -129,11 +129,11 @@ export function HeroTestingVisualization() {
 
               {/* Order breakdown */}
               <div className="border border-zinc-200/80 rounded-xl bg-white p-3.5 space-y-2 text-xs">
-                <div className="flex justify-between text-zinc-700 font-medium pb-1.5 border-b border-zinc-100">
+                <div className="flex justify-between text-zinc-700 font-medium pb-1.5 border-b border-zinc-100 tabular-nums">
                   <span>Sculra Pro License (Monthly)</span>
                   <span className="font-bold text-zinc-900">$129.00</span>
                 </div>
-                <div className="flex justify-between text-zinc-700 font-medium">
+                <div className="flex justify-between text-zinc-700 font-medium tabular-nums">
                   <span>Priority Agent Runners Addon</span>
                   <span className="font-bold text-zinc-900">$20.00</span>
                 </div>
@@ -147,7 +147,7 @@ export function HeroTestingVisualization() {
                     activeStep === 1 ? 'scale-105 ring-2 ring-zinc-950/30 shadow-md' : ''
                   }`}
                 >
-                  <span>Pay $149.00 Invoice</span>
+                  <span className="tabular-nums">Pay $149.00 Invoice</span>
                   <span className="text-zinc-400">→</span>
                 </div>
 
@@ -192,7 +192,7 @@ export function HeroTestingVisualization() {
             <span className="text-xs text-zinc-600 font-mono">Stability recommendation: <strong className="text-zinc-950 font-bold">READY TO DEPLOY</strong></span>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-zinc-700">Release Score:</span>
-              <span className="text-xs font-extrabold text-cyan-900 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 font-mono">94/100</span>
+              <span className="text-xs font-extrabold text-cyan-900 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 font-mono tabular-nums">94/100</span>
             </div>
           </div>
         </div>

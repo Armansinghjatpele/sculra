@@ -1,10 +1,25 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+  weight: ['400', '500', '600', '700', '800', '900'],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
+});
 
 export const metadata: Metadata = {
   title: 'Sculra - Your AI QA Engineer',
-  description: 'Automated website, repo, and desktop app testing powered by AI agents.',
+  description: 'Autonomous QA agent for functional testing, visual regressions, responsive layout verification, and release readiness scoring.',
 };
 
 export default function RootLayout({
@@ -19,7 +34,7 @@ export default function RootLayout({
           colorPrimary: '#0284c7', // Cyan accent
           colorBackground: '#ffffff', // Clean white background
           colorInputBackground: '#f4f4f5', // Input background
-          colorText: '#09090b', // High-contrast text
+          colorText: '#0a0a0f', // High-contrast text
           colorTextSecondary: '#71717a', // Secondary text
           colorBorder: '#e4e4e7', // Thin slate borders
         },
@@ -35,8 +50,8 @@ export default function RootLayout({
         }
       }}
     >
-      <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-        <body className="min-h-full flex flex-col bg-background text-foreground">
+      <html lang="en" className={`h-full antialiased ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+        <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-zinc-900 selection:text-white">
           {children}
         </body>
       </html>

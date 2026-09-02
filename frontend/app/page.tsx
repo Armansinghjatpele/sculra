@@ -68,7 +68,7 @@ function StatCounter({ value, duration = 2, suffix = '' }: { value: number; dura
   }, [value, duration, prefersReduced]);
 
   return (
-    <div ref={elementRef} className="text-2xl sm:text-3xl font-black text-zinc-950 font-mono tracking-tight">
+    <div ref={elementRef} className="text-2xl sm:text-3xl font-black text-zinc-950 font-mono tracking-tight tabular-nums">
       {count.toLocaleString()}{suffix}
     </div>
   );
@@ -127,7 +127,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-zinc-950 overflow-hidden selection:bg-zinc-900 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-white text-zinc-950 overflow-hidden selection:bg-zinc-900 selection:text-white font-sans">
       <Navbar />
 
       <main className="flex-grow relative bg-white">
@@ -155,7 +155,7 @@ export default function Home() {
               
               <motion.h1
                 variants={itemVariants}
-                className="text-4xl font-black tracking-tight sm:text-6xl text-zinc-950 leading-[1.1] select-none"
+                className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl text-zinc-950 leading-[1.05] select-none font-sans"
               >
                 Your AI QA Engineer.
                 <br />
@@ -172,12 +172,12 @@ export default function Home() {
               <motion.div variants={itemVariants} className="pt-3 flex flex-col items-center gap-3">
                 <div className="flex flex-wrap items-center justify-center gap-4">
                   <Link href="/sign-up">
-                    <Button variant="default" size="lg" className="bg-zinc-950 text-white hover:bg-zinc-800 shadow-md font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3.5 rounded-lg hover:scale-105 transition-all">
+                    <Button variant="default" size="lg" className="bg-zinc-950 text-white hover:bg-zinc-800 shadow-md font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3.5 rounded-xl hover:scale-105 transition-all">
                       Start Testing Free
                     </Button>
                   </Link>
                   <Link href="/docs">
-                    <Button variant="outline" size="lg" className="border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3.5 rounded-lg transition-all">
+                    <Button variant="outline" size="lg" className="border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold text-xs font-mono uppercase tracking-wider px-8 py-3.5 rounded-xl transition-all">
                       See How It Works
                     </Button>
                   </Link>
@@ -264,10 +264,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     The Complexity Dilemma
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     A landscape too vast to test by hand.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Every user state, route branch, device model, and role variant creates a combinatoric explosion. Manual testing misses visual overflows and regression crashes on staging.
                   </p>
                 </Stack>
@@ -297,10 +297,10 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 How Sculra Works
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                 Reads your UI from the outside in.
               </h2>
-              <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+              <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                 Sculra autonomously walks through forms, clicks interactable nodes, records traces, and checks DOM properties without any code integration required.
               </p>
             </motion.div>
@@ -322,10 +322,10 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 uppercase tracking-wider font-mono">
                 Interactive Studio
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 font-sans">
                 Explore Autonomous Capabilities
               </h2>
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-zinc-600 font-sans">
                 Select a verification engine vector to preview live automated testing mockups.
               </p>
             </div>
@@ -431,10 +431,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Pixel Verification
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Checks what your users actually see.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Catch overlapping margins, text collisions, font weight mismatches, and element overflows automatically before merging a pull request.
                   </p>
                 </Stack>
@@ -477,10 +477,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Device Matrix
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Verify layouts on every viewport.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Test your interface simultaneously across mobile, tablet, and widescreen frames, highlighting layout shifts that break specific breakpoints.
                   </p>
                 </Stack>
@@ -505,10 +505,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Autonomous Reasoning
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Reasoning logs that trace every flaw.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Sculra checks browser console dumps, network responses, and API payloads to reproduce the exact steps that caused a page validation crash.
                   </p>
                 </Stack>
@@ -551,10 +551,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Readiness Check
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Never guess if a build is safe to deploy.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Our release scorecard assigns a comprehensive index from 0 to 100 representing DOM stability, speed tolerances, accessibility compliance, and visual fit.
                   </p>
                 </Stack>
@@ -579,10 +579,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     CI Integrations
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Intercept bugs before they merge.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Block PR merges automatically if a code push drops your app readiness index. Sculra comments results directly inside your code branch logs.
                   </p>
                 </Stack>
@@ -625,10 +625,10 @@ export default function Home() {
                   <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono w-fit">
                     Multi-Source Ingestion
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight">
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-tight font-sans">
                     Any source format, ingested.
                   </h2>
-                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                  <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-sans">
                     Whether you test dynamic URLs, synced repositories, ZIP folders, or desktop executable binaries, our ingestion engine handles them cleanly.
                   </p>
                 </Stack>
@@ -649,8 +649,8 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Evaluation Matrix
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">Manual QA vs Sculra</h2>
-              <p className="text-sm sm:text-base text-zinc-600">See how autonomous quality sweeps compare to standard manual testing cycles.</p>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 font-sans">Manual QA vs Sculra</h2>
+              <p className="text-sm sm:text-base text-zinc-600 font-sans">See how autonomous quality sweeps compare to standard manual testing cycles.</p>
             </motion.div>
             
             <motion.div
@@ -711,8 +711,8 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Tenant Boundaries
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">Compact & Enforced Security</h2>
-              <p className="text-sm sm:text-base text-zinc-600">Sculra leverages standard protocols to isolate code data and keys.</p>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 font-sans">Compact & Enforced Security</h2>
+              <p className="text-sm sm:text-base text-zinc-600 font-sans">Sculra leverages standard protocols to isolate code data and keys.</p>
             </motion.div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto font-mono text-xs leading-relaxed">
@@ -806,8 +806,8 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Social Proof
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">Built for teams that ship.</h2>
-              <p className="text-sm sm:text-base text-zinc-600">Here is what active engineering leaders say about using Sculra.</p>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 font-sans">Built for teams that ship.</h2>
+              <p className="text-sm sm:text-base text-zinc-600 font-sans">Here is what active engineering leaders say about using Sculra.</p>
             </motion.div>
             
             <Grid cols={1} colsMd={3} gap={24}>
@@ -823,9 +823,9 @@ export default function Home() {
                     <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded font-mono border border-cyan-200">
                       Payment Flows
                     </span>
-                    <span className="text-[10px] font-mono text-emerald-700 font-bold">100% Blocked</span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold tabular-nums">100% Blocked</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
+                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed font-sans">
                     &quot;Sculra blocked a critical payment flow overflow regression in our staging build before we pushed it live. It&apos;s like having an extra QA engineer on every PR.&quot;
                   </p>
                   <div className="pt-3 border-t border-zinc-100 font-mono text-[11px]">
@@ -847,9 +847,9 @@ export default function Home() {
                     <span className="text-[10px] font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded font-mono border border-indigo-200">
                       SPA Crawling
                     </span>
-                    <span className="text-[10px] font-mono text-cyan-800 font-bold">34s Avg Crawl</span>
+                    <span className="text-[10px] font-mono text-cyan-800 font-bold tabular-nums">34s Avg Crawl</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
+                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed font-sans">
                     &quot;Writing browser checks used to be an endless chore of updating selectors. Sculra spider-crawls autonomously and adapts to our DOM tweaks.&quot;
                   </p>
                   <div className="pt-3 border-t border-zinc-100 font-mono text-[11px]">
@@ -871,9 +871,9 @@ export default function Home() {
                     <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-mono border border-emerald-200">
                       CI Pipeline
                     </span>
-                    <span className="text-[10px] font-mono text-emerald-700 font-bold">99.4% Accuracy</span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold tabular-nums">99.4% Accuracy</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
+                  <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed font-sans">
                     &quot;We synced our codebase in under 2 minutes. The release readiness score is now our single source of truth before merge approvals.&quot;
                   </p>
                   <div className="pt-3 border-t border-zinc-100 font-mono text-[11px]">
@@ -898,8 +898,8 @@ export default function Home() {
               <span className="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 uppercase tracking-wider font-mono">
                 Simple Pricing
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">Based on how much you test.</h2>
-              <p className="text-sm sm:text-base text-zinc-600">Start testing free, then scale up as your deployment quotas expand.</p>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 font-sans">Based on how much you test.</h2>
+              <p className="text-sm sm:text-base text-zinc-600 font-sans">Start testing free, then scale up as your deployment quotas expand.</p>
             </motion.div>
 
             <Grid cols={1} colsMd={3} gap={24} className="max-w-4xl mx-auto items-stretch">
@@ -914,8 +914,8 @@ export default function Home() {
                 <Card className="flex flex-col justify-between p-6 bg-white border border-zinc-200/90 rounded-2xl shadow-md hover:shadow-lg h-full">
                   <CardHeader className="p-0 pb-4">
                     <span className="text-xs font-bold text-zinc-950 font-mono">Free Plan</span>
-                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$0</div>
-                    <CardDescription className="text-xs text-zinc-500 mt-1">For exploring Sculra features</CardDescription>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono tabular-nums">$0</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1 font-sans">For exploring Sculra features</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
                     <ul className="space-y-2 text-xs text-zinc-600 font-mono">
@@ -926,7 +926,7 @@ export default function Home() {
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5">
+                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5 rounded-xl">
                         Explore Free
                       </Button>
                     </Link>
@@ -944,14 +944,14 @@ export default function Home() {
               >
                 <Card className="border-2 border-zinc-950 shadow-xl flex flex-col justify-between p-6 bg-white rounded-2xl h-full relative">
                   <div className="absolute -top-3 right-6">
-                    <Badge variant="accent" className="bg-zinc-950 text-white text-[10px] uppercase tracking-wider px-2.5 py-0.5 shadow-xs font-bold">
+                    <Badge variant="accent" className="bg-zinc-950 text-white text-[10px] uppercase tracking-wider px-2.5 py-0.5 shadow-xs font-bold font-mono">
                       Popular
                     </Badge>
                   </div>
                   <CardHeader className="p-0 pb-4">
                     <span className="text-xs font-bold text-zinc-950 font-mono">Pro Plan</span>
-                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$49</div>
-                    <CardDescription className="text-xs text-zinc-500 mt-1">For active development teams</CardDescription>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono tabular-nums">$49</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1 font-sans">For active development teams</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
                     <ul className="space-y-2 text-xs text-zinc-700 font-mono font-medium">
@@ -963,7 +963,7 @@ export default function Home() {
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="default" className="w-full text-xs uppercase tracking-wider font-mono bg-zinc-950 text-white hover:bg-zinc-800 font-bold py-2.5 shadow-xs">
+                      <Button variant="default" className="w-full text-xs uppercase tracking-wider font-mono bg-zinc-950 text-white hover:bg-zinc-800 font-bold py-2.5 shadow-xs rounded-xl">
                         Start Trial
                       </Button>
                     </Link>
@@ -982,8 +982,8 @@ export default function Home() {
                 <Card className="flex flex-col justify-between p-6 bg-white border border-zinc-200/90 rounded-2xl shadow-md hover:shadow-lg h-full">
                   <CardHeader className="p-0 pb-4">
                     <span className="text-xs font-bold text-zinc-950 font-mono">Team Plan</span>
-                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono">$199</div>
-                    <CardDescription className="text-xs text-zinc-500 mt-1">For teams shipping continuously</CardDescription>
+                    <div className="text-3xl font-black text-zinc-950 mt-2 font-mono tabular-nums">$199</div>
+                    <CardDescription className="text-xs text-zinc-500 mt-1 font-sans">For teams shipping continuously</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0 py-4 border-t border-b border-zinc-100 my-4">
                     <ul className="space-y-2 text-xs text-zinc-600 font-mono">
@@ -995,7 +995,7 @@ export default function Home() {
                   </CardContent>
                   <CardFooter className="p-0">
                     <Link href="/sign-up" className="w-full">
-                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5">
+                      <Button variant="outline" className="w-full text-xs uppercase tracking-wider font-mono border-zinc-300 text-zinc-800 hover:bg-zinc-100 font-semibold py-2.5 rounded-xl">
                         Upgrade Team
                       </Button>
                     </Link>
@@ -1021,8 +1021,8 @@ export default function Home() {
               viewport={{ once: true, margin: '-100px' }}
               className="space-y-2"
             >
-              <h3 className="text-xl font-black text-zinc-950 tracking-tight">Get early updates on beta runs</h3>
-              <p className="text-xs text-zinc-600">Subscribe to receive technical guides and release previews.</p>
+              <h3 className="text-xl font-black text-zinc-950 tracking-tight font-sans">Get early updates on beta runs</h3>
+              <p className="text-xs text-zinc-600 font-sans">Subscribe to receive technical guides and release previews.</p>
             </motion.div>
 
             <motion.div
@@ -1042,9 +1042,9 @@ export default function Home() {
                     required
                     value={waitlistEmail}
                     onChange={(e) => setWaitlistEmail(e.target.value)}
-                    className="flex-grow px-3.5 py-2 text-xs rounded-lg bg-white border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                    className="flex-grow px-3.5 py-2 text-xs rounded-xl bg-white border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 font-sans"
                   />
-                  <Button type="submit" variant="default" size="sm" className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold px-4">
+                  <Button type="submit" variant="default" size="sm" className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold px-4 rounded-xl">
                     Subscribe
                   </Button>
                 </form>
@@ -1063,14 +1063,14 @@ export default function Home() {
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
-              className="text-3xl sm:text-4xl font-black tracking-tight text-center mb-12 text-zinc-950"
+              className="text-3xl sm:text-4xl font-black tracking-tight text-center mb-12 text-zinc-950 font-sans"
             >
               Frequently Asked Questions
             </motion.h2>
             <Accordion>
               {faqItems.map((faq, idx) => (
                 <AccordionItem key={idx} title={faq.title}>
-                  <p className="text-xs leading-relaxed text-zinc-600">{faq.content}</p>
+                  <p className="text-xs leading-relaxed text-zinc-600 font-sans">{faq.content}</p>
                 </AccordionItem>
               ))}
             </Accordion>

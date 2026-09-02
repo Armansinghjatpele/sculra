@@ -59,7 +59,7 @@ export function ReleaseScore() {
 
           {/* Absolute Center Text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-black text-zinc-950 tracking-tight font-mono">{score}</span>
+            <span className="text-5xl font-black text-zinc-950 tracking-tight font-mono tabular-nums">{score}</span>
             <span className="text-[11px] text-zinc-500 uppercase font-mono tracking-widest mt-1 font-bold">/ 100 PTS</span>
           </div>
         </div>
@@ -94,7 +94,7 @@ export function ReleaseScore() {
                   }`}>
                     {c.status === 'passed' ? 'PASSED' : 'NEEDS REVIEW'}
                   </span>
-                  <span className="font-mono text-zinc-900 font-extrabold w-10 text-right">{c.val}%</span>
+                  <span className="font-mono text-zinc-900 font-extrabold w-10 text-right tabular-nums">{c.val}%</span>
                 </div>
               </div>
               
@@ -111,7 +111,7 @@ export function ReleaseScore() {
         </div>
 
         <div className="pt-3 border-t border-zinc-100 text-[11px] text-zinc-500 flex justify-between items-center font-mono">
-          <span>Target Score Threshold: <strong className="text-zinc-950">90%</strong></span>
+          <span>Target Score Threshold: <strong className="text-zinc-950 tabular-nums">90%</strong></span>
           <span className="text-cyan-800 font-bold">Auto-posted to PR #42</span>
         </div>
       </div>
