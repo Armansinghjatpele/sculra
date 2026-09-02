@@ -124,9 +124,9 @@ export default function Home() {
       <main className="flex-grow relative bg-white">
         {/* Subtle Ambient Texture & Soft Restrained Glows */}
         <div className="absolute inset-0 -z-20 bg-grid-ambient bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 -z-10 h-[450px] w-[700px] bg-cyan-500/6 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute top-[35%] right-10 -z-10 h-[500px] w-[500px] bg-cyan-500/5 rounded-full blur-[160px] pointer-events-none" />
-        <div className="absolute top-[65%] left-10 -z-10 h-[500px] w-[500px] bg-cyan-500/5 rounded-full blur-[160px] pointer-events-none" />
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 -z-10 h-[450px] w-[700px] bg-cyan-500/8 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute top-[35%] right-10 -z-10 h-[500px] w-[500px] bg-indigo-500/6 rounded-full blur-[160px] pointer-events-none" />
+        <div className="absolute top-[65%] left-10 -z-10 h-[500px] w-[500px] bg-cyan-500/6 rounded-full blur-[160px] pointer-events-none" />
 
         {/* HERO SECTION */}
         <Section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 bg-white">
@@ -150,7 +150,7 @@ export default function Home() {
               >
                 Your AI QA Engineer.
                 <br />
-                <span className="text-zinc-500 font-extrabold">Test everything. Autonomously.</span>
+                <span className="text-gradient-brand font-black">Test everything. Autonomously.</span>
               </motion.h1>
               
               <motion.p
@@ -518,7 +518,7 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* MANUAL QA VS SCULRA COMPARISON TABLE (SINGLE CYAN ACCENT, NO RAINBOW) */}
+        {/* MANUAL QA VS SCULRA COMPARISON TABLE (FUNCTIONAL SEMANTIC COMPARISON) */}
         <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-4xl">
             <motion.div
@@ -545,34 +545,34 @@ export default function Home() {
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] uppercase text-zinc-600">
                     <th className="p-4 font-bold">Dimension</th>
                     <th className="p-4 font-bold">Manual / Scripted QA</th>
-                    <th className="p-4 font-bold text-cyan-800 bg-cyan-50/50">Sculra Autonomous QA</th>
+                    <th className="p-4 font-bold text-emerald-800 bg-emerald-50/50">Sculra Autonomous QA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Coverage Area</td>
-                    <td className="p-4 text-zinc-500">Manual check of major routes</td>
-                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Autonomous 100% path coverage</td>
+                    <td className="p-4 text-zinc-500">✕ Manual check of major routes only</td>
+                    <td className="p-4 text-emerald-800 font-bold bg-emerald-50/30">✓ Autonomous 100% path coverage</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Execution Speed</td>
-                    <td className="p-4 text-zinc-500">Hours to days per cycle</td>
-                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Minutes per build run</td>
+                    <td className="p-4 text-zinc-500">✕ Hours to days per release cycle</td>
+                    <td className="p-4 text-emerald-800 font-bold bg-emerald-50/30">✓ Under 3 minutes per build run</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Setup Overhead</td>
-                    <td className="p-4 text-zinc-500">Continuous selector script updates</td>
-                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Zero-script instant source sync</td>
+                    <td className="p-4 text-zinc-500">✕ Continuous selector script maintenance</td>
+                    <td className="p-4 text-emerald-800 font-bold bg-emerald-50/30">✓ Zero-script instant source sync</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Consistency</td>
-                    <td className="p-4 text-zinc-500">Flaky test selector failures</td>
-                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">Adaptive DOM-aware updates</td>
+                    <td className="p-4 text-zinc-500">✕ Flaky test selector failures</td>
+                    <td className="p-4 text-emerald-800 font-bold bg-emerald-50/30">✓ Adaptive DOM-aware auto-updates</td>
                   </tr>
                   <tr className="hover:bg-zinc-50 transition-colors">
                     <td className="p-4 font-bold text-zinc-900">Availability</td>
-                    <td className="p-4 text-zinc-500">Scheduled developer bandwidth</td>
-                    <td className="p-4 text-cyan-800 font-bold bg-cyan-50/30">24/7 continuous triggers</td>
+                    <td className="p-4 text-zinc-500">✕ Limited developer bandwidth</td>
+                    <td className="p-4 text-emerald-800 font-bold bg-emerald-50/30">✓ 24/7 continuous commit triggers</td>
                   </tr>
                 </tbody>
               </table>
@@ -580,7 +580,7 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECURITY & TRUST SECTION (SINGLE CYAN ACCENT, NO RAINBOW) */}
+        {/* SECURITY & TRUST SECTION (BRAND & SEMANTIC ICON TINTS) */}
         <Section className="py-20 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container>
             <motion.div
@@ -621,7 +621,7 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all"
               >
-                <div className="h-10 w-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
+                <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-xs">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
@@ -639,7 +639,7 @@ export default function Home() {
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
                 className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all"
               >
-                <div className="h-10 w-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-xs">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>

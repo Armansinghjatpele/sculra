@@ -4,64 +4,81 @@ import * as React from 'react';
 
 export function SystemArchitecture() {
   const sources = [
-    { label: 'Website URL', type: 'HTTPS Endpoint' },
-    { label: 'GitHub PR', type: 'Repository Webhook' },
-    { label: 'ZIP Archive', type: 'Local Code Upload' },
-    { label: 'Desktop App', type: 'Binary Sandbox' },
+    { title: 'Website URL', sub: 'Production / Staging' },
+    { title: 'GitHub Repo', sub: 'Auto-PR Webhook' },
+    { title: 'ZIP Folder', sub: 'Local build upload' },
+    { title: 'Desktop App', sub: 'Windows / Mac EXE' },
   ];
 
-  const outputs = [
-    { label: 'Test Runs', note: 'Trace logs' },
-    { label: 'Exceptions', note: 'Console errors' },
-    { label: 'Visual Diffs', note: 'Screenshots' },
-    { label: 'Ready Scores', note: 'Release index' },
+  const artifacts = [
+    { name: 'Video Traces', status: 'Recorded (MP4)' },
+    { name: 'Visual Diffs', status: 'Bounding Overflows' },
+    { name: 'JUnit XML Logs', status: 'CI Compatible' },
+    { name: 'Readiness Score', status: '0–100 Scale' },
   ];
 
   return (
-    <div className="w-full max-w-4xl mx-auto border border-zinc-200/90 rounded-2xl bg-white p-6 sm:p-8 shadow-sm overflow-hidden">
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4 sm:gap-6 items-center text-center font-mono">
-        
-        {/* Left Inputs (2 cols) */}
-        <div className="md:col-span-2 space-y-2.5">
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold pb-1 text-left">Target Sources</div>
+    <div className="w-full border border-zinc-200/90 rounded-2xl bg-white p-6 sm:p-7 shadow-lg space-y-6">
+      <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
+        <span className="text-xs font-bold text-zinc-950 uppercase tracking-wider font-mono">
+          Sculra Multi-Source Ingestion Engine
+        </span>
+        <span className="text-[10px] text-cyan-800 font-bold bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200 font-mono">
+          Parallel Execution
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center font-mono text-xs">
+        {/* Left Inputs (4 cols) */}
+        <div className="md:col-span-4 space-y-2.5">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Input Sources</div>
           {sources.map((s, idx) => (
-            <div key={idx} className="p-3 border border-zinc-200 bg-zinc-50/60 rounded-xl text-left shadow-xs hover:border-zinc-300 transition-colors">
-              <div className="text-xs font-bold text-zinc-900">{s.label}</div>
-              <span className="text-[10px] text-zinc-500 uppercase font-medium">{s.type}</span>
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-zinc-200 bg-zinc-50/70 flex items-center justify-between shadow-xs hover:bg-white hover:border-zinc-300 transition-all"
+            >
+              <div className="space-y-0.5">
+                <span className="font-bold text-zinc-900 block text-xs">{s.title}</span>
+                <span className="text-[10px] text-zinc-500 font-sans">{s.sub}</span>
+              </div>
+              <span className="text-[10px] text-cyan-800 font-bold">READY</span>
             </div>
           ))}
         </div>
 
-        {/* Center Connection (1 col) */}
-        <div className="md:col-span-1 flex items-center justify-center py-2 md:py-0">
-          <div className="text-zinc-400 text-lg hidden md:block font-bold">→</div>
-          <div className="text-zinc-400 text-lg block md:hidden font-bold">↓</div>
+        {/* Center Processing Engine Node (3 cols) */}
+        <div className="md:col-span-3 flex flex-col items-center justify-center p-4 border-2 border-zinc-950 rounded-2xl bg-zinc-50 text-center space-y-2 shadow-md relative">
+          <div className="h-8 w-8 rounded-full bg-zinc-950 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            ⚡
+          </div>
+          <div className="font-black text-xs text-zinc-950 uppercase">Sculra Core Engine</div>
+          <div className="text-[10px] text-zinc-600 font-sans">
+            Crawls, asserts viewports, executes clicks & records DOM traces.
+          </div>
+          <div className="text-[9px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            ✓ Cluster Active
+          </div>
         </div>
 
-        {/* Center Engine (1 col) */}
-        <div className="md:col-span-1 border-2 border-zinc-950 bg-white text-zinc-950 p-4 rounded-2xl flex flex-col items-center justify-center space-y-2 min-h-[140px] shadow-sm">
-          <span className="h-3 w-3 rounded-full bg-cyan-600 animate-pulse" />
-          <div className="text-[11px] font-extrabold text-zinc-950 uppercase tracking-wider text-center leading-tight">Sculra Engine</div>
-          <span className="text-[9px] text-zinc-600 font-bold bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">V3.5 CORE</span>
-        </div>
-
-        {/* Center Connection (1 col) */}
-        <div className="md:col-span-1 flex items-center justify-center py-2 md:py-0">
-          <div className="text-zinc-400 text-lg hidden md:block font-bold">→</div>
-          <div className="text-zinc-400 text-lg block md:hidden font-bold">↓</div>
-        </div>
-
-        {/* Right Outputs (2 cols) */}
-        <div className="md:col-span-2 space-y-2.5">
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold pb-1 text-left">Report Outputs</div>
-          {outputs.map((o, idx) => (
-            <div key={idx} className="p-3 border border-zinc-200 bg-zinc-50/60 rounded-xl text-left shadow-xs hover:border-zinc-300 transition-colors">
-              <div className="text-xs font-bold text-zinc-900">{o.label}</div>
-              <span className="text-[10px] text-zinc-500 font-medium">{o.note}</span>
+        {/* Right Output Artifacts (4 cols) */}
+        <div className="md:col-span-4 space-y-2.5">
+          <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Generated Artifacts</div>
+          {artifacts.map((a, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-zinc-200 bg-zinc-50/70 flex items-center justify-between shadow-xs hover:bg-white hover:border-zinc-300 transition-all"
+            >
+              <span className="font-bold text-zinc-900 text-xs">{a.name}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                idx === 1
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              }`}>
+                {a.status}
+              </span>
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );
