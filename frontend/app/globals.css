@@ -154,15 +154,15 @@
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* --- Shadow Scale --- */
+  /* --- Shadow Scale (Rich Real Depth) --- */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-  --shadow-glass: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
-  --shadow-floating-card: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.09), 0 4px 10px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 32px -6px rgba(0, 0, 0, 0.10), 0 8px 16px -6px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 28px 60px -12px rgba(0, 0, 0, 0.16);
+  --shadow-glass: 0 4px 24px 0 rgba(0, 0, 0, 0.07);
+  --shadow-floating-card: 0 24px 48px -12px rgba(0, 0, 0, 0.10);
 
   /* --- Motion Systems --- */
   --transition-very-fast: 100ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -170,26 +170,6 @@
   --transition-normal: 300ms cubic-bezier(0.16, 1, 0.3, 1);
   --transition-slow: 500ms cubic-bezier(0.16, 1, 0.3, 1);
   --transition-very-slow: 800ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Optional Dark Class Override */
-.dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --card-border: #27272a;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
-  --popover-border: #27272a;
-  --primary: #fafafa;
-  --primary-foreground: #09090b;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
-  --input: #27272a;
-  --sidebar-bg: #09090b;
-  --sidebar-border: #27272a;
 }
 
 @theme {
@@ -345,13 +325,18 @@
 
 .border-gradient-hover:hover {
   border-color: #a1a1aa;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.10);
 }
 
 .bg-grid-ambient {
   background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+}
+
+.bg-dots-ambient {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 @keyframes marquee {
