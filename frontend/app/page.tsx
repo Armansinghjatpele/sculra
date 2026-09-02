@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { motion, Variants } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/Button';
@@ -78,6 +78,7 @@ export default function Home() {
   const prefersReduced = usePrefersReducedMotion();
   const [waitlistEmail, setWaitlistEmail] = React.useState('');
   const [waitlistSubmitted, setWaitlistSubmitted] = React.useState(false);
+  const [activeCapabilityTab, setActiveCapabilityTab] = React.useState<'crawl' | 'visual' | 'device' | 'reasoning' | 'score'>('crawl');
 
   const handleWaitlistSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +111,14 @@ export default function Home() {
     hidden: { opacity: 0, x: prefersReduced ? 0 : 25 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: 'easeOut' } },
   };
+
+  const capabilityTabs = [
+    { key: 'crawl' as const, label: 'Functional Crawl', tag: 'DOM Explorer' },
+    { key: 'visual' as const, label: 'Visual Regression', tag: 'Pixel Inspector' },
+    { key: 'device' as const, label: 'Device Matrix', tag: 'Responsive Audit' },
+    { key: 'reasoning' as const, label: 'AI Diagnostic Logs', tag: 'Root Cause' },
+    { key: 'score' as const, label: 'Release Readiness', tag: 'Quality Gate' },
+  ];
 
   const faqItems = [
     { title: 'How does Sculra discover website pages?', content: 'Sculra deploys an automated crawler that spider-crawls the DOM, discovering links, form inputs, button elements, and overlays without requiring manual routing maps.' },
@@ -191,9 +200,19 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* LIVING STATS BAR UNDER HERO */}
+        {/* LIVING STATS BAR WITH MCP-MARKET STYLE REAL-TIME FRESHNESS INDICATOR */}
         <section className="py-10 border-y border-zinc-200/80 bg-zinc-50/60 relative">
           <Container>
+            {/* Live Freshness Microcopy Badge */}
+            <div className="flex items-center justify-center gap-2 mb-6 text-xs font-mono font-bold text-zinc-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-emerald-800 font-extrabold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                LIVE SWARM ACTIVE
+              </span>
+              <span className="text-zinc-400">·</span>
+              <span className="text-zinc-500 font-sans font-medium">Updated moments ago across global cloud runners</span>
+            </div>
+
             <Grid cols={2} colsSm={4} gap={20} className="text-center">
               <div className="space-y-1">
                 <div className="text-xs text-zinc-500 uppercase tracking-wider font-mono font-bold">Pages Scanned</div>
@@ -296,9 +315,109 @@ export default function Home() {
           </Container>
         </Section>
 
+        {/* MCP-MARKET STYLE TABBED CAPABILITY EXPLORER STUDIO */}
+        <Section className="py-20 relative overflow-hidden bg-white">
+          <Container className="max-w-6xl">
+            <div className="text-center max-w-2xl mx-auto mb-10 space-y-3">
+              <span className="inline-block text-[10px] font-bold text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 uppercase tracking-wider font-mono">
+                Interactive Studio
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+                Explore Autonomous Capabilities
+              </h2>
+              <p className="text-sm text-zinc-600">
+                Select a verification engine vector to preview live automated testing mockups.
+              </p>
+            </div>
+
+            {/* Horizontal Pill Tabs */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
+              {capabilityTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveCapabilityTab(tab.key)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-2 shadow-xs ${
+                    activeCapabilityTab === tab.key
+                      ? 'bg-zinc-950 text-white shadow-md ring-1 ring-zinc-950'
+                      : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                    activeCapabilityTab === tab.key ? 'bg-zinc-800 text-cyan-300' : 'bg-zinc-200 text-zinc-600'
+                  }`}>
+                    {tab.tag}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Swappable Content Area */}
+            <div className="w-full">
+              <AnimatePresence mode="wait">
+                {activeCapabilityTab === 'crawl' && (
+                  <motion.div
+                    key="crawl-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <BrowserMockup />
+                  </motion.div>
+                )}
+                {activeCapabilityTab === 'visual' && (
+                  <motion.div
+                    key="visual-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <IssueDetection />
+                  </motion.div>
+                )}
+                {activeCapabilityTab === 'device' && (
+                  <motion.div
+                    key="device-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <DevicePreview />
+                  </motion.div>
+                )}
+                {activeCapabilityTab === 'reasoning' && (
+                  <motion.div
+                    key="reasoning-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AIEngineerPanel />
+                  </motion.div>
+                )}
+                {activeCapabilityTab === 'score' && (
+                  <motion.div
+                    key="score-tab"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ReleaseScore />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </Container>
+        </Section>
+
         {/* SECTION 4 - VISUAL QA */}
         {/* Layout rhythm: Left Copy (40%), Right Visual (60%) */}
-        <Section className="py-24 relative overflow-hidden bg-white">
+        <Section className="py-24 relative overflow-hidden bg-zinc-50/50 border-y border-zinc-100">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -335,7 +454,7 @@ export default function Home() {
 
         {/* SECTION 5 - RESPONSIVE TESTING */}
         {/* Layout rhythm: Visual Left (60%), Right Copy (40%) */}
-        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -372,7 +491,7 @@ export default function Home() {
 
         {/* SECTION 6 - THE AI QA MEMBER */}
         {/* Layout rhythm: Left Copy (40%), Right Visual (60%) */}
-        <Section className="py-24 relative overflow-hidden bg-white">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -409,7 +528,7 @@ export default function Home() {
 
         {/* SECTION 7 - RELEASE READINESS SCORECARD */}
         {/* Layout rhythm: Visual Left (60%), Right Copy (40%) */}
-        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -446,7 +565,7 @@ export default function Home() {
 
         {/* SECTION 8 - CI PIPELINE STATUS */}
         {/* Layout rhythm: Left Copy (40%), Right Visual (60%) */}
-        <Section className="py-24 relative overflow-hidden bg-white">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -483,7 +602,7 @@ export default function Home() {
 
         {/* SECTION 9 - MULTI-SOURCE INGESTION */}
         {/* Layout rhythm: Visual Left (60%), Right Copy (40%) */}
-        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container className="max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               <motion.div
@@ -519,7 +638,7 @@ export default function Home() {
         </Section>
 
         {/* MANUAL QA VS SCULRA COMPARISON TABLE (FUNCTIONAL SEMANTIC COMPARISON) */}
-        <Section className="py-24 relative overflow-hidden bg-white">
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container className="max-w-4xl">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -580,8 +699,8 @@ export default function Home() {
           </Container>
         </Section>
 
-        {/* SECURITY & TRUST SECTION (BRAND & SEMANTIC ICON TINTS) */}
-        <Section className="py-20 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
+        {/* SECURITY & TRUST SECTION (DENSE INFO-CARDS WITH CORNER TAGS + STATS) */}
+        <Section className="py-20 relative overflow-hidden bg-white">
           <Container>
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -602,16 +721,24 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all relative flex flex-col justify-between"
               >
-                <div className="h-10 w-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
+                <div className="flex items-center justify-between">
+                  <div className="h-10 w-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700 shadow-xs">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                    SOC-2 Type II
+                  </span>
                 </div>
-                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Clerk Authentication</div>
-                <p className="text-zinc-600 text-xs font-sans leading-relaxed">Secure identities authentication and credentials handled by Clerk OAuth.</p>
+                <div>
+                  <div className="text-zinc-950 font-bold uppercase text-xs pt-2">Clerk Authentication</div>
+                  <p className="text-zinc-600 text-xs font-sans leading-relaxed mt-1">Secure identities authentication and credentials handled by Clerk OAuth.</p>
+                </div>
+                <div className="pt-2 border-t border-zinc-100 text-[10px] text-zinc-400">Zero Credential Storage</div>
               </motion.div>
 
               <motion.div
@@ -619,17 +746,25 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all relative flex flex-col justify-between"
               >
-                <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-xs">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
+                <div className="flex items-center justify-between">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-xs">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    100% Isolation
+                  </span>
                 </div>
-                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Supabase RLS Isolation</div>
-                <p className="text-zinc-600 text-xs font-sans leading-relaxed">Strict multi-tenant security separation verified at database query layer using Supabase RLS.</p>
+                <div>
+                  <div className="text-zinc-950 font-bold uppercase text-xs pt-2">Supabase RLS Isolation</div>
+                  <p className="text-zinc-600 text-xs font-sans leading-relaxed mt-1">Strict multi-tenant security separation verified at database query layer using Supabase RLS.</p>
+                </div>
+                <div className="pt-2 border-t border-zinc-100 text-[10px] text-zinc-400">Row Level Security Verified</div>
               </motion.div>
 
               <motion.div
@@ -637,22 +772,30 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 whileHover={prefersReduced ? {} : { y: -4, scale: 1.01 }}
-                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all"
+                className="p-6 border border-zinc-200/90 bg-white rounded-2xl space-y-3 shadow-md hover:shadow-lg transition-all relative flex flex-col justify-between"
               >
-                <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-xs">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                  </svg>
+                <div className="flex items-center justify-between">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-xs">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Real-Time Trace
+                  </span>
                 </div>
-                <div className="text-zinc-950 font-bold uppercase text-xs pt-1">Sentry Diagnostics</div>
-                <p className="text-zinc-600 text-xs font-sans leading-relaxed">Continuous diagnostics monitoring and bug trace audits powered by Sentry and PostHog.</p>
+                <div>
+                  <div className="text-zinc-950 font-bold uppercase text-xs pt-2">Sentry Diagnostics</div>
+                  <p className="text-zinc-600 text-xs font-sans leading-relaxed mt-1">Continuous diagnostics monitoring and bug trace audits powered by Sentry and PostHog.</p>
+                </div>
+                <div className="pt-2 border-t border-zinc-100 text-[10px] text-zinc-400">24/7 Exception Monitoring</div>
               </motion.div>
             </div>
           </Container>
         </Section>
 
-        {/* SOCIAL PROOF / TESTIMONIALS STRIP */}
-        <Section className="py-24 relative overflow-hidden bg-white">
+        {/* SOCIAL PROOF / TESTIMONIALS STRIP (DENSE INFO-CARDS WITH CORNER TAGS + STATS) */}
+        <Section className="py-24 bg-zinc-50/50 border-y border-zinc-100 relative overflow-hidden">
           <Container className="max-w-5xl">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -676,6 +819,12 @@ export default function Home() {
                 className="transition-all duration-300"
               >
                 <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-md hover:shadow-lg h-full flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded font-mono border border-cyan-200">
+                      Payment Flows
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold">100% Blocked</span>
+                  </div>
                   <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
                     &quot;Sculra blocked a critical payment flow overflow regression in our staging build before we pushed it live. It&apos;s like having an extra QA engineer on every PR.&quot;
                   </p>
@@ -694,6 +843,12 @@ export default function Home() {
                 className="transition-all duration-300"
               >
                 <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-md hover:shadow-lg h-full flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded font-mono border border-indigo-200">
+                      SPA Crawling
+                    </span>
+                    <span className="text-[10px] font-mono text-cyan-800 font-bold">34s Avg Crawl</span>
+                  </div>
                   <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
                     &quot;Writing browser checks used to be an endless chore of updating selectors. Sculra spider-crawls autonomously and adapts to our DOM tweaks.&quot;
                   </p>
@@ -712,6 +867,12 @@ export default function Home() {
                 className="transition-all duration-300"
               >
                 <div className="p-6 space-y-4 bg-white border border-zinc-200/90 rounded-2xl shadow-md hover:shadow-lg h-full flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-mono border border-emerald-200">
+                      CI Pipeline
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold">99.4% Accuracy</span>
+                  </div>
                   <p className="text-xs sm:text-sm text-zinc-700 italic leading-relaxed">
                     &quot;We synced our codebase in under 2 minutes. The release readiness score is now our single source of truth before merge approvals.&quot;
                   </p>
@@ -726,7 +887,7 @@ export default function Home() {
         </Section>
 
         {/* PRICING PREVIEW */}
-        <Section className="py-24 bg-zinc-50/50 border-t border-zinc-100 relative overflow-hidden">
+        <Section className="py-24 relative overflow-hidden bg-white">
           <Container>
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -852,7 +1013,7 @@ export default function Home() {
         </Section>
 
         {/* WAITLIST REGISTRATION MINI-FORM */}
-        <Section className="py-16 relative overflow-hidden bg-white">
+        <Section className="py-16 relative overflow-hidden bg-zinc-50/50 border-t border-zinc-100">
           <Container className="max-w-md text-center space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -881,7 +1042,7 @@ export default function Home() {
                     required
                     value={waitlistEmail}
                     onChange={(e) => setWaitlistEmail(e.target.value)}
-                    className="flex-grow px-3.5 py-2 text-xs rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                    className="flex-grow px-3.5 py-2 text-xs rounded-lg bg-white border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                   />
                   <Button type="submit" variant="default" size="sm" className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold px-4">
                     Subscribe
