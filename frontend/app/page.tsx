@@ -138,7 +138,24 @@ export default function Home() {
         <div className="absolute top-[65%] left-10 -z-10 h-[500px] w-[500px] bg-cyan-500/6 rounded-full blur-[160px] pointer-events-none" />
 
         {/* HERO SECTION */}
-        <Section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 bg-white">
+        <Section className="relative pt-24 pb-16 sm:pt-32 sm:pb-24 bg-white overflow-hidden">
+          {/* Subtle Hero-Specific Dot-Grid Texture with Masked Bottom Fade */}
+          <div
+            className="absolute inset-0 -z-10 pointer-events-none [mask-image:radial-gradient(ellipse_80%_60%_at_50%_20%,#000_50%,transparent_100%)] opacity-[0.045]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #0a0a0f 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
+            }}
+          />
+
+          {/* Soft Centered Color Fade Behind Headline (Cyan-to-Indigo Brand Pair) */}
+          <div
+            className="absolute top-10 left-1/2 -translate-x-1/2 -z-10 h-[400px] w-[640px] max-w-full rounded-full blur-3xl pointer-events-none opacity-[0.07]"
+            style={{
+              background: 'radial-gradient(circle, #0284c7 0%, #4f46e5 60%, transparent 100%)',
+            }}
+          />
+
           <Container>
             <motion.div
               variants={containerVariants}

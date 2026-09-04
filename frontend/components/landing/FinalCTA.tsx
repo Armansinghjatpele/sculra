@@ -18,6 +18,15 @@ export function FinalCTA() {
 
   return (
     <section className="relative py-24 sm:py-32 overflow-hidden bg-zinc-950 text-white border-t border-zinc-900">
+      {/* Subtle inverse dot-grid texture on dark surface */}
+      <div 
+        className="absolute inset-0 -z-10 pointer-events-none opacity-[0.05]"
+        style={{
+          backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+
       {/* Soft blurred accent glow behind text */}
       <div 
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 h-[450px] w-[600px] bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" 
@@ -51,11 +60,11 @@ export function FinalCTA() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="flex-grow px-4 py-2.5 text-xs rounded-lg bg-zinc-900 border border-zinc-800 text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
+                  className="flex-grow px-4 py-2.5 text-xs rounded-xl bg-zinc-900 border border-zinc-800 text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-white text-zinc-950 hover:bg-zinc-100 transition-colors text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap cursor-pointer shadow-xs"
+                  className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100 transition-colors text-xs font-mono font-bold uppercase tracking-wider whitespace-nowrap cursor-pointer shadow-xs"
                 >
                   Join Waitlist
                 </button>
@@ -65,12 +74,12 @@ export function FinalCTA() {
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
             <Link href="/sign-up" className="w-full sm:w-auto">
-              <button className="w-full sm:w-auto px-8 py-3 rounded-lg bg-white text-zinc-950 hover:bg-zinc-100 transition-all font-mono uppercase tracking-wider text-xs font-bold cursor-pointer shadow-md hover:scale-105 active:scale-95">
+              <button className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100 transition-all font-mono uppercase tracking-wider text-xs font-bold cursor-pointer shadow-md hover:scale-105 active:scale-95">
                 Start Testing Free
               </button>
             </Link>
             <Link href="/docs" className="w-full sm:w-auto">
-              <button className="w-full sm:w-auto px-8 py-3 rounded-lg border border-zinc-700 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800 transition-all font-mono uppercase tracking-wider text-xs font-semibold cursor-pointer">
+              <button className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-zinc-700 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800 transition-all font-mono uppercase tracking-wider text-xs font-semibold cursor-pointer">
                 Explore Docs
               </button>
             </Link>
