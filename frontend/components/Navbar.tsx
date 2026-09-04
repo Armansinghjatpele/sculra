@@ -20,23 +20,23 @@ export function Navbar({ className, ...props }: NavbarProps) {
   }, []);
 
   return (
-    <header
-      className={cn(
-        'sticky top-0 z-40 w-full border-b transition-all duration-200',
-        scrolled
-          ? 'border-border/80 bg-background/80 backdrop-blur-md shadow-xs'
-          : 'border-transparent bg-background/60 backdrop-blur-sm',
-        className
-      )}
-      {...props}
-    >
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded-md bg-zinc-950 flex items-center justify-center text-white shadow-xs">
+    <header className="sticky top-4 sm:top-5 z-50 w-full px-3 sm:px-6 pointer-events-none flex justify-center">
+      <div
+        className={cn(
+          'pointer-events-auto mx-auto w-full max-w-5xl rounded-full border transition-all duration-300 flex h-14 items-center justify-between px-4 sm:px-6 shadow-md',
+          scrolled
+            ? 'bg-white/90 backdrop-blur-md border-zinc-200/90 shadow-lg'
+            : 'bg-white/80 backdrop-blur-sm border-zinc-200/70 shadow-sm',
+          className
+        )}
+        {...props}
+      >
+        {/* Left: Logo + Wordmark */}
+        <div className="flex items-center gap-6 sm:gap-8">
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="h-7 w-7 rounded-lg bg-zinc-950 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
               <svg
-                className="h-3.5 w-3.5 text-cyan-400"
+                className="h-4 w-4 text-cyan-400"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -47,58 +47,72 @@ export function Navbar({ className, ...props }: NavbarProps) {
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <span className="font-extrabold tracking-tight text-foreground sm:inline-block text-base">
+            <span className="font-black tracking-tight text-zinc-950 sm:inline-block text-base font-sans">
               Sculra
             </span>
           </Link>
 
-          {/* Navigation Links */}
-          <nav className="hidden gap-6 md:flex">
+          {/* Centered / Left-of-center Nav Links */}
+          <nav className="hidden md:flex items-center gap-5 lg:gap-7">
             <Link
               href="/features"
-              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-bold text-zinc-600 transition-colors hover:text-zinc-950 font-mono tracking-tight"
             >
               Features
             </Link>
             <Link
               href="/pricing"
-              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-bold text-zinc-600 transition-colors hover:text-zinc-950 font-mono tracking-tight"
             >
               Pricing
             </Link>
             <Link
               href="/enterprise"
-              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-bold text-zinc-600 transition-colors hover:text-zinc-950 font-mono tracking-tight"
             >
               Enterprise
             </Link>
             <Link
               href="/docs"
-              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-bold text-zinc-600 transition-colors hover:text-zinc-950 font-mono tracking-tight"
             >
               Docs
             </Link>
           </nav>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Right-side action group: two-tier button pair mirroring MCP Market */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <SignedOut>
             <Link href="/sign-in">
-              <Button variant="ghost" size="sm" className="text-xs font-semibold">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs font-bold text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 rounded-full px-3.5 py-1.5 font-mono"
+              >
                 Sign In
               </Button>
             </Link>
             <Link href="/sign-up">
-              <Button variant="default" size="sm" className="text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800 shadow-xs">
-                Get Started
+              <Button
+                variant="default"
+                size="sm"
+                className="inline-flex items-center gap-1.5 text-xs font-bold bg-zinc-950 text-white hover:bg-zinc-800 rounded-full px-4 py-1.5 shadow-xs font-mono transition-transform hover:scale-105"
+              >
+                <svg className="h-3 w-3 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                </svg>
+                <span>Start Testing Free</span>
               </Button>
             </Link>
           </SignedOut>
 
           <SignedIn>
-            <div className="flex items-center gap-3.5">
-              <Link href="/dashboard" className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="text-xs font-bold text-zinc-600 hover:text-zinc-950 transition-colors font-mono"
+              >
                 Dashboard
               </Link>
               <OrganizationSwitcher
@@ -107,8 +121,8 @@ export function Navbar({ className, ...props }: NavbarProps) {
                 afterSelectOrganizationUrl="/dashboard"
                 appearance={{
                   elements: {
-                    rootBox: 'text-xs text-foreground bg-zinc-100 border border-zinc-200 rounded p-1 shadow-xs',
-                  }
+                    rootBox: 'text-xs text-zinc-900 bg-zinc-100 border border-zinc-200 rounded-full px-2 py-0.5 shadow-xs',
+                  },
                 }}
               />
               <UserButton afterSignOutUrl="/" />

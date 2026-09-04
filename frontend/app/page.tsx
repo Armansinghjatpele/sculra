@@ -146,12 +146,15 @@ export default function Home() {
               animate="visible"
               className="text-center max-w-4xl mx-auto space-y-6 mb-16"
             >
-              <motion.span
+              <motion.div
                 variants={itemVariants}
-                className="inline-flex items-center rounded-full bg-cyan-50 px-4 py-1.5 text-xs font-bold text-cyan-800 border border-cyan-200 uppercase tracking-widest font-mono shadow-xs"
+                className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-1.5 text-xs font-bold text-cyan-900 border border-cyan-200 font-mono shadow-xs select-none"
               >
-                Autonomous QA Platform
-              </motion.span>
+                <span className="h-2 w-2 rounded-full bg-cyan-600 animate-pulse" />
+                <span className="font-extrabold uppercase tracking-widest text-[11px]">Autonomous QA Platform</span>
+                <span className="text-cyan-300">·</span>
+                <span className="text-cyan-700 font-medium text-[11px] tabular-nums">v2.4 Live Swarm</span>
+              </motion.div>
               
               <motion.h1
                 variants={itemVariants}
