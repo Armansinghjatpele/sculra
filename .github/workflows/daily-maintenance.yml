@@ -2,12 +2,19 @@ name: Sculra Daily Maintenance
 
 on:
   schedule:
-    # Runs daily at 03:00 UTC (once per day)
+    # Runs daily at 08:30 AM India Standard Time (IST)
+    # India Standard Time (IST) = UTC + 05:30
+    # 08:30 IST - 05:30 = 03:00 UTC
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run mode (inspect, apply, and test without committing or pushing)'
+        description: 'Dry run mode (test and verify without committing or pushing)'
+        type: boolean
+        required: false
+        default: false
+      force:
+        description: 'Force execution even if a daily commit already exists for today'
         type: boolean
         required: false
         default: false
@@ -36,6 +43,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 50 # Fetch history to check for prior daily commits
 
       - name: Setup Node.js
@@ -46,7 +54,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
 
       - name: Get pnpm cache directory
         shell: bash
@@ -63,6 +71,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Configure Git Bot Identity
+        run: |
+          git config user.name "sculra-bot"
+          git config user.email "sculra-bot@users.noreply.github.com"
+          echo "Verified Git User: $(git config user.name) <$(git config user.email)>"
+          echo "Current Branch: $(git branch --show-current)"
+
       - name: Execute Daily Maintenance
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -72,5 +87,9 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             DRY_RUN_FLAG="--dry-run"
           fi
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
           CATEGORY_FLAG="--category=${{ github.event.inputs.category || 'auto' }}"
-          pnpm maintenance:daily $DRY_RUN_FLAG $CATEGORY_FLAG
+          pnpm maintenance:daily $DRY_RUN_FLAG $FORCE_FLAG $CATEGORY_FLAG
