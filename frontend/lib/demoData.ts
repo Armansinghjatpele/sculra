@@ -55,7 +55,9 @@ export interface TestEvidence {
     | 'visual_snapshot'
     | 'visual_baseline'
     | 'ai_qa_plan'
-    | 'ai_qa_result';
+    | 'ai_qa_result'
+    | 'ai_qa_state_summary'
+    | 'ai_qa_stop';
   title: string;
   url?: string;
   message?: string;

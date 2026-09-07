@@ -171,3 +171,75 @@ export interface AIQAPlan {
 
 In production mode (`NODE_ENV === 'production'`), the background worker (`WorkerDaemon` and `JobExecutor`) strictly requires `SUPABASE_SERVICE_ROLE_KEY` and will fail fast on startup if missing. It does not fall back to anon keys in production.
 
+---
+
+## 8. Adaptive AI QA Reasoning & Autonomous Exploration
+
+Prompt 19 extends the orchestration foundation into a fully adaptive, multi-iteration reasoning loop.
+
+```mermaid
+flowchart TD
+    InitState[Initialize AIQAState & Coverage Counts] --> CtxBuild[Build Context with Compact StateSummary]
+    CtxBuild --> ProviderCall[AI Provider: Formulate Plan & Hypotheses]
+    ProviderCall --> SafetyVal[Deterministic Safety Validator]
+    
+    SafetyVal -- "Approved Actions" --> DetExec[Deterministic JourneyExecutor]
+    SafetyVal -- "All Rejected" --> TermEval{Evaluate Termination}
+    
+    DetExec --> Telemetry[Step Telemetry & Observations]
+    Telemetry --> StateUpdate[AIQAStateManager: Update State, Hypotheses & Coverage]
+    StateUpdate --> TermEval
+    
+    TermEval -- "Budget Remaining & Uncovered Targets" --> NextIter[Next Iteration N+1]
+    NextIter --> CtxBuild
+    
+    TermEval -- "Stop Condition / Budget Exhausted / Blocked" --> StopLoop[Persist ai_qa_state_summary & ai_qa_stop]
+```
+
+### 1. Evolving QA State Machine (`AIQAState`)
+Across iterations within a test run, `AIQAStateManager` maintains:
+- `testedPages`: Visited routes with attempt counts and status.
+- `testedInteractions`: Specific selector-level clicks, inputs, and form fills.
+- `testedForms`: Evaluated forms and fields tested.
+- `testedNavigationPaths`: Internal route transitions traversed.
+- `hypotheses`: Map of formulated hypotheses and their experimental verification status.
+- `uncoveredAreas`: Real-time inventory of unvisited pages, unexercised forms, and untested primary CTAs.
+- `highRiskAreas`: Pages with prior console errors, network failures, or click no-ops.
+- `coverageSummary`: Deterministic counts of discovered vs tested elements.
+
+### 2. Bounded Hypothesis Lifecycle
+Every plan formulates explicit, falsifiable test hypotheses:
+- `id`: Stable identifier (e.g. `hyp-1-1`).
+- `description`: Plain-English test hypothesis describing what failure condition is being tested.
+- `targetUrl`: Target route under investigation.
+- `suspectedBugType`: Expected bug classification if the hypothesis confirms.
+- `supportingEvidence`: Specific prior observations or structural discoveries justifying the test.
+- `confidence`: `high` | `medium` | `low`.
+- `status`: `PENDING` $\rightarrow$ `TESTING` $\rightarrow$ `CONFIRMED` | `DISPROVEN` | `INCONCLUSIVE`.
+- `outcomeReason`: Concrete explanation based on actual execution telemetry.
+
+### 3. Deterministic Coverage Model (No Fake Percentages)
+The coverage summary (`CoverageSummary`) tracks strict integer counts:
+- Pages: `discovered` vs `visited`.
+- Forms: `discovered` vs `exercised`.
+- Buttons: `discovered` vs `exercised`.
+- Links: `discovered` vs `exercised`.
+- Navigation Paths: `discovered` vs `exercised`.
+- Hypotheses: `formulated`, `tested`, `confirmed`, `disproven`, `inconclusive`.
+
+### 4. Failure-Driven Adaptive Exploration
+When an iteration encounters a step failure, console exception, or `CLICK_NO_OP` observation:
+1. `AIQAStateManager` indexes the route as a `HighRiskArea`.
+2. The context sanitizer injects the failure telemetry into the next iteration's `stateSummary.recentFailures`.
+3. The provider (OpenAI or Mock) prioritizes investigating the defective control or route boundary rather than blind sequential traversal.
+
+### 5. Deterministic Termination Rules
+The loop terminates cleanly upon any of the following conditions:
+1. `BUDGET_EXHAUSTED`: Reached `maxIterations`, `maxCalls`, `maxTotalActions`, or timeout.
+2. `GOAL_ACHIEVED` / `NO_USEFUL_ACTIONS`: Explicitly requested by model when all high-value paths are covered.
+3. `ALL_ACTIONS_REJECTED`: Safety validator rejected all candidate actions in a plan.
+4. `NO_UNTESTED_HIGH_VALUE_PATHS`: All discovered routes, forms, and primary buttons have been systematically tested.
+5. `CRITICAL_BUG_FOUND`: Multiple severe blockers (page crashes, runtime exceptions) detected.
+6. `CANCELLED`: User or system cancellation token tripped.
+
+

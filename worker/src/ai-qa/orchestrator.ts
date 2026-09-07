@@ -1,7 +1,7 @@
 // ==============================================================================
-// Sculra AI QA Orchestrator (worker/src/ai-qa/orchestrator.ts)
+// Sculra Adaptive AI QA Orchestrator (worker/src/ai-qa/orchestrator.ts)
 // ==============================================================================
-// Orchestrates multi-iteration, bounded, provider-agnostic AI QA test loops.
+// Orchestrates multi-iteration, bounded, adaptive AI QA test loops.
 // THE AI NEVER DIRECTLY CONTROLS THE BROWSER. The AI generates structured plans,
 // which pass through the strict Safety Validator before execution by the
 // existing deterministic JourneyExecutor.
@@ -18,6 +18,8 @@ import {
   AIQAStopReason,
   DEFAULT_AI_QA_CONFIG,
 } from './types';
+import { AIQAState, AIQAStateSummary } from './state';
+import { AIQAStateManager } from './state-manager';
 import { AIQAProvider } from './provider';
 import { createAIQAProvider } from './factory';
 import { AIQAContextBuilder } from './context';
@@ -43,6 +45,8 @@ export interface AIQAOrchestratorExecutionResult {
   issuesIdentified: AIQAIssueAssessment[];
   finalStopReason: AIQAStopReason;
   iterationsCount: number;
+  finalState?: AIQAState;
+  stateSummary?: AIQAStateSummary;
 }
 
 export class AIQAOrchestrator {
@@ -73,7 +77,7 @@ export class AIQAOrchestrator {
   }
 
   /**
-   * Executes the bounded AI QA feedback loop.
+   * Executes the bounded adaptive AI QA feedback loop.
    */
   async execute(
     testRunId: string,
@@ -103,13 +107,25 @@ export class AIQAOrchestrator {
     const accumulatedJourneys = [...initialJourneys];
     const accumulatedObservations: JourneyObservation[] = [];
 
+    // Initialize Adaptive QA State
+    let state = AIQAStateManager.initializeState({
+      testRunId,
+      targetUrl: this.targetUrl,
+      applicationMap,
+      initialIssues,
+      initialJourneys,
+      initialObservations: accumulatedObservations,
+      budget: budgetTracker.getBudgetState(),
+    });
+
     let finalStopReason: AIQAStopReason = 'GOAL_ACHIEVED';
 
-    // Multi-iteration Bounded AI QA Loop
+    // Multi-iteration Bounded Adaptive AI QA Loop
     while (true) {
       // 1. Check Cancellation
       if (cancellationToken?.isCancelled) {
         finalStopReason = 'CANCELLED';
+        state.terminationReason = 'CANCELLED';
         this.logger?.log('ai_qa_loop_cancelled');
         break;
       }
@@ -118,6 +134,7 @@ export class AIQAOrchestrator {
       const budgetCheck = budgetTracker.canStartNextIteration();
       if (!budgetCheck.allowed) {
         finalStopReason = budgetCheck.reason || 'BUDGET_EXHAUSTED';
+        state.terminationReason = finalStopReason;
         this.logger?.log('ai_qa_budget_exhausted', { reason: budgetCheck.message });
         break;
       }
@@ -126,7 +143,8 @@ export class AIQAOrchestrator {
       const iterStartTime = Date.now();
       this.logger?.log('ai_qa_iteration_started', { iteration });
 
-      // 3. Build Sanitized Context
+      // 3. Generate Compact State Summary & Build Sanitized Context
+      const stateSummary = AIQAStateManager.generateCompactStateSummary(state);
       const context: AIQAContext = AIQAContextBuilder.build({
         testRunId,
         projectId,
@@ -138,6 +156,7 @@ export class AIQAOrchestrator {
         recentObservations: accumulatedObservations,
         previousPlans,
         previousResults,
+        stateSummary,
         iteration,
         budget: budgetTracker.getBudgetState(),
       });
@@ -149,12 +168,14 @@ export class AIQAOrchestrator {
         rawPlan = await this.provider.generatePlan(context, cancellationToken);
       } catch (providerErr: any) {
         this.logger?.error('ai_qa_provider_error', providerErr.message);
-        finalStopReason = 'TERMINAL_FAILURE';
+        finalStopReason = 'PROVIDER_FAILURE';
+        state.terminationReason = 'PROVIDER_FAILURE';
         break;
       }
 
       if (cancellationToken?.isCancelled) {
         finalStopReason = 'CANCELLED';
+        state.terminationReason = 'CANCELLED';
         break;
       }
 
@@ -174,17 +195,12 @@ export class AIQAOrchestrator {
         validationErrors: validationResult.validationErrors,
       });
 
-      // 6. Check if actions exist or stop conditions triggered
-      if (
-        validationResult.approvedActions.length === 0 ||
-        rawPlan.stopConditions.length > 0
-      ) {
-        const stopReason: AIQAStopReason =
-          rawPlan.stopConditions.length > 0
-            ? 'GOAL_ACHIEVED'
-            : validationResult.rejectedActions.length > 0
-            ? 'ALL_ACTIONS_REJECTED'
-            : 'NO_FURTHER_ACTIONS';
+      // 6. Check Termination Conditions Prior to Browser Actuation
+      const terminationCheck = AIQAStateManager.evaluateTerminationCondition(state, rawPlan, validationResult);
+      if (terminationCheck.terminate || validationResult.approvedActions.length === 0) {
+        const stopReason: AIQAStopReason = terminationCheck.reason || (
+          validationResult.rejectedActions.length > 0 ? 'ALL_ACTIONS_REJECTED' : 'NO_FURTHER_ACTIONS'
+        );
 
         const result: AIQAResult = {
           testRunId,
@@ -205,6 +221,20 @@ export class AIQAOrchestrator {
 
         results.push(result);
         finalStopReason = stopReason;
+        state.terminationReason = stopReason;
+
+        // Update state with rejected plan
+        state = AIQAStateManager.updateAfterIteration(
+          state,
+          iteration,
+          rawPlan,
+          validationResult,
+          undefined,
+          [],
+          [],
+          budgetTracker.getBudgetState(),
+          applicationMap
+        );
         break;
       }
 
@@ -279,7 +309,20 @@ export class AIQAOrchestrator {
 
       issuesIdentified.push(...iterIssues);
 
-      // 10. Record Iteration Result
+      // 10. Update Adaptive State
+      state = AIQAStateManager.updateAfterIteration(
+        state,
+        iteration,
+        rawPlan,
+        validationResult,
+        journeyResult,
+        iterObservations,
+        iterIssues,
+        budgetTracker.getBudgetState(),
+        applicationMap
+      );
+
+      // 11. Record Iteration Result
       const iterResult: AIQAResult = {
         testRunId,
         projectId,
@@ -318,6 +361,14 @@ export class AIQAOrchestrator {
         rejectedActionsCount: validationResult.rejectedActions.length,
         observationsCount: iterObservations.length,
       });
+
+      // Check for critical defect threshold early stop
+      const postIterTermination = AIQAStateManager.evaluateTerminationCondition(state, undefined, undefined);
+      if (postIterTermination.terminate) {
+        finalStopReason = postIterTermination.reason || 'GOAL_ACHIEVED';
+        state.terminationReason = finalStopReason;
+        break;
+      }
     }
 
     this.logger?.log('ai_qa_orchestration_completed', {
@@ -327,6 +378,8 @@ export class AIQAOrchestrator {
       durationMs: Date.now() - startTime,
     });
 
+    const finalStateSummary = AIQAStateManager.generateCompactStateSummary(state);
+
     return {
       plans,
       results,
@@ -335,6 +388,8 @@ export class AIQAOrchestrator {
       issuesIdentified,
       finalStopReason,
       iterationsCount: plans.length,
+      finalState: state,
+      stateSummary: finalStateSummary,
     };
   }
 }

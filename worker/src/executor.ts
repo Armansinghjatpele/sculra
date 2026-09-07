@@ -308,6 +308,41 @@ export class JobExecutor {
         }
       }
 
+      // 5j. Persist AI QA State Summary
+      if (result.aiQaStateSummary) {
+        const summary = result.aiQaStateSummary;
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'ai_qa_state_summary',
+          title: `Adaptive AI QA State Summary (Iter ${summary.iteration})`,
+          url: result.finalUrl || targetUrl,
+          message: `Coverage: ${summary.coverage.pages.visited}/${summary.coverage.pages.discovered} pages, ${summary.coverage.forms.exercised}/${summary.coverage.forms.discovered} forms, ${summary.coverage.buttons.exercised}/${summary.coverage.buttons.discovered} buttons. Hypotheses: ${summary.coverage.hypotheses.confirmed} confirmed, ${summary.coverage.hypotheses.disproven} disproven.`,
+          metadata: {
+            stateSummary: summary,
+          },
+        });
+      }
+
+      // 5k. Persist AI QA Stop Summary
+      if (result.aiQaResults && result.aiQaResults.length > 0) {
+        const lastResult = result.aiQaResults[result.aiQaResults.length - 1];
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'ai_qa_stop',
+          title: `AI QA Execution Stopped: ${lastResult.stopReason}`,
+          url: result.finalUrl || targetUrl,
+          message: `Orchestration concluded after ${result.aiQaResults.length} iterations with reason: ${lastResult.stopReason}.`,
+          metadata: {
+            stopReason: lastResult.stopReason,
+            totalIterations: result.aiQaResults.length,
+            provider: lastResult.provider,
+            model: lastResult.model,
+          },
+        });
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }

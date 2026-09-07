@@ -326,22 +326,27 @@ flowchart TD
    - `MockAIQAProvider`: Deterministic offline provider for fast unit tests, regression suites, and CI/CD without API keys.
    - `OpenAIQAProvider`: Production provider using OpenAI's Structured Outputs API (`json_schema` response format) with strict JSON schema compliance.
    - Factory pattern (`createAIQAProvider`) enabling zero-code runtime switching via `SCULRA_AI_PROVIDER=openai|mock`.
-2. **Context Sanitization & Prompt Injection Defense (`AIQAContextSanitizer`)**:
+2. **Adaptive State Management & Coverage Engine (`AIQAStateManager`)**:
+   - Tracks evolving state across iterations: tested routes, interactions, forms, and navigation paths.
+   - Discovers uncovered high-value targets (unvisited pages, unexercised forms, primary CTAs).
+   - Manages bounded hypothesis lifecycles (`PENDING` $\rightarrow$ `TESTING` $\rightarrow$ `CONFIRMED` / `DISPROVEN` / `INCONCLUSIVE`).
+   - Computes deterministic coverage integer counts (no fake percentages).
+3. **Context Sanitization & Prompt Injection Defense (`AIQAContextSanitizer`)**:
    - Treats all browser DOM text, titles, button labels, form labels, and errors as **untrusted data**.
    - Redacts JWTs, bearer tokens, API keys, passwords, and private credentials.
    - Quarantines prompt injection patterns (e.g. `Ignore previous instructions...`) to prevent malicious page content from redefining safety rules or budgets.
    - Uses strict system prompt delimiters (`=== TRUSTED QA SYSTEM INSTRUCTIONS ===` and `=== UNTRUSTED APPLICATION EVIDENCE ===`).
-3. **Strict Safety Validator (`AIQASafetyValidator`)**:
+4. **Strict Safety Validator (`AIQASafetyValidator`)**:
    - Validates allowlisted action vocabulary: `NAVIGATE`, `CLICK`, `FILL`, `SELECT`, `CHECK`, `UNCHECK`, `PRESS`, `WAIT_FOR_NAVIGATION`, `ASSERT_VISIBLE`, `ASSERT_URL`, `ASSERT_TITLE`, `VALIDATE_FORM`.
    - Enforces SSRF and scope boundaries: blocks cross-origin navigations, loopback addresses, and cloud metadata endpoints.
    - Blocks dangerous operations: `delete`, `checkout`, `cancel subscription`, `logout`, etc.
    - Blocks sensitive fields: passwords, payment cards, SSNs, OTPs.
-4. **Bounded Budgets & Feedback Loops (`AIQABudgetTracker`)**:
+5. **Bounded Budgets & Adaptive Feedback Loops (`AIQABudgetTracker`)**:
    - Enforces configurable bounds: `MAX_AI_ITERATIONS = 3`, `MAX_AI_CALLS = 5`, `MAX_TOTAL_ACTIONS = 30`, `MAX_AI_TIME_MS = 60000`.
-   - Feeds observations and results from Iteration $N$ into the context for Iteration $N+1$.
-5. **Issue Intelligence & Evidence Integration**:
+   - Feeds state summaries, recent observations, and failures from Iteration $N$ into the context for Iteration $N+1$.
+6. **Issue Intelligence & Evidence Integration**:
    - Distinguishes `CONFIRMED` defects (directly verified by deterministic failure/observation) from `SUSPECTED` anomalies.
-   - Persists `ai_qa_plan` and `ai_qa_result` evidence rows into `public.test_evidence`.
+   - Persists `ai_qa_plan`, `ai_qa_result`, `ai_qa_state_summary`, and `ai_qa_stop` evidence rows into `public.test_evidence`.
    - Authoritative issue deduplication via SHA-256 fingerprinting.
 
 

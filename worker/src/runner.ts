@@ -99,6 +99,7 @@ export class BrowserRunner {
     let visualResult: ResponsiveExecutionResult | undefined;
     let aiQaPlans: AIQAPlan[] | undefined;
     let aiQaResults: AIQAResult[] | undefined;
+    let aiQaStateSummary: import('./ai-qa/state').AIQAStateSummary | undefined;
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -410,6 +411,7 @@ export class BrowserRunner {
 
             aiQaPlans = aiOutput.plans;
             aiQaResults = aiOutput.results;
+            aiQaStateSummary = aiOutput.stateSummary;
 
             // Merge executed journeys into telemetry
             if (aiOutput.executedJourneys.length > 0) {
@@ -526,6 +528,7 @@ export class BrowserRunner {
       visualResult,
       aiQaPlans,
       aiQaResults,
+      aiQaStateSummary,
       failureReason,
     };
   }

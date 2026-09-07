@@ -61,12 +61,20 @@ export const AI_QA_PLAN_JSON_SCHEMA = {
                 'NONE',
               ],
             },
+            supportingEvidence: { type: ['string', 'null'] },
             confidence: {
               type: 'string',
               enum: ['high', 'medium', 'low'],
             },
           },
-          required: ['id', 'description', 'targetUrl', 'suspectedBugType', 'confidence'],
+          required: [
+            'id',
+            'description',
+            'targetUrl',
+            'suspectedBugType',
+            'supportingEvidence',
+            'confidence',
+          ],
           additionalProperties: false,
         },
       },
@@ -149,6 +157,9 @@ export const AI_QA_PLAN_JSON_SCHEMA = {
                 'NO_USEFUL_ACTIONS',
                 'UNRECOVERABLE_DEFECT',
                 'BUDGET_LIMIT',
+                'NO_UNTESTED_HIGH_VALUE_PATHS',
+                'CRITICAL_BUG_FOUND',
+                'BLOCKED',
               ],
             },
             reason: { type: 'string' },
@@ -230,7 +241,8 @@ export function validateAndNormalizeRawPlan(
         id: String(h.id || `hyp-${i + 1}`),
         description: String(h.description || ''),
         targetUrl: String(h.targetUrl || ''),
-        suspectedBugType: h.suspectedBugType === 'NONE' ? undefined : h.suspectedBugType,
+        suspectedBugType: h.suspectedBugType === 'NONE' || !h.suspectedBugType ? undefined : h.suspectedBugType,
+        supportingEvidence: h.supportingEvidence || undefined,
         confidence: ['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium',
       }))
     : [];
@@ -282,7 +294,15 @@ export function validateAndNormalizeRawPlan(
     : [];
 
   // Stop Conditions
-  const validStopTypes = ['GOAL_ACHIEVED', 'NO_USEFUL_ACTIONS', 'UNRECOVERABLE_DEFECT', 'BUDGET_LIMIT'];
+  const validStopTypes = [
+    'GOAL_ACHIEVED',
+    'NO_USEFUL_ACTIONS',
+    'UNRECOVERABLE_DEFECT',
+    'BUDGET_LIMIT',
+    'NO_UNTESTED_HIGH_VALUE_PATHS',
+    'CRITICAL_BUG_FOUND',
+    'BLOCKED',
+  ];
   const stopConditions: AIQAStopCondition[] = Array.isArray(raw.stopConditions)
     ? raw.stopConditions
         .filter((sc: any) => validStopTypes.includes(sc.type))

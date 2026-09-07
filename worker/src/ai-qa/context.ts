@@ -13,6 +13,7 @@ import {
   AIQAResultSummary,
   AIQABudget,
 } from './types';
+import { AIQAStateSummary } from './state';
 import { AIQAContextSanitizer } from './sanitizer';
 import { ApplicationMap } from '../types';
 import { BugObservation } from '../issues/types';
@@ -29,6 +30,7 @@ export interface BuildContextOptions {
   recentObservations?: JourneyObservation[];
   previousPlans?: AIQAPlanSummary[];
   previousResults?: AIQAResultSummary[];
+  stateSummary?: AIQAStateSummary;
   iteration: number;
   budget: AIQABudget;
 }
@@ -120,6 +122,7 @@ export class AIQAContextBuilder {
       recentObservations,
       previousPlans: options.previousPlans || [],
       previousResults: options.previousResults || [],
+      stateSummary: options.stateSummary,
       iteration: options.iteration,
       budget: options.budget,
       untrustedPageDataNotice:

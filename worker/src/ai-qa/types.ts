@@ -18,7 +18,12 @@ export type AIQAStopReason =
   | 'ALL_ACTIONS_REJECTED'
   | 'CANCELLED'
   | 'TERMINAL_FAILURE'
-  | 'GOAL_ACHIEVED';
+  | 'GOAL_ACHIEVED'
+  | 'NO_UNTESTED_HIGH_VALUE_PATHS'
+  | 'CRITICAL_BUG_FOUND'
+  | 'BLOCKED'
+  | 'MANUAL_STOP'
+  | 'PROVIDER_FAILURE';
 
 // -----------------------------------------------------------------------------
 // 1. Context Models (Sanitized, Untrusted Data Explicitly Flagged)
@@ -129,6 +134,7 @@ export interface AIQAContext {
   recentObservations: SanitizedObservationSummary[];
   previousPlans: AIQAPlanSummary[];
   previousResults: AIQAResultSummary[];
+  stateSummary?: import('./state').AIQAStateSummary;
   iteration: number;
   budget: AIQABudget;
   untrustedPageDataNotice: string;
@@ -143,6 +149,7 @@ export interface AIQAHypothesis {
   description: string;
   targetUrl: string;
   suspectedBugType?: BugType;
+  supportingEvidence?: string;
   confidence: 'high' | 'medium' | 'low';
 }
 
@@ -170,7 +177,14 @@ export interface AIQAExpectation {
 }
 
 export interface AIQAStopCondition {
-  type: 'GOAL_ACHIEVED' | 'NO_USEFUL_ACTIONS' | 'UNRECOVERABLE_DEFECT' | 'BUDGET_LIMIT';
+  type:
+    | 'GOAL_ACHIEVED'
+    | 'NO_USEFUL_ACTIONS'
+    | 'UNRECOVERABLE_DEFECT'
+    | 'BUDGET_LIMIT'
+    | 'NO_UNTESTED_HIGH_VALUE_PATHS'
+    | 'CRITICAL_BUG_FOUND'
+    | 'BLOCKED';
   reason: string;
 }
 

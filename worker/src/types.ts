@@ -165,6 +165,7 @@ export interface TestExecutionResult {
   visualResult?: ResponsiveExecutionResult;
   aiQaPlans?: AIQAPlan[];
   aiQaResults?: AIQAResult[];
+  aiQaStateSummary?: import('./ai-qa/state').AIQAStateSummary;
   failureReason?: string;
 }
 

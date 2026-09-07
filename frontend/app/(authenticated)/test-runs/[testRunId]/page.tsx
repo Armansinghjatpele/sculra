@@ -120,6 +120,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
     .filter((e) => e.type === 'ai_qa_result')
     .map((e) => e.metadata?.result)
     .filter(Boolean);
+  const aiQaStateEvidence = evidence.find((e) => e.type === 'ai_qa_state_summary');
+  const aiQaStateSummary = aiQaStateEvidence?.metadata?.stateSummary;
+  const aiQaStopEvidence = evidence.find((e) => e.type === 'ai_qa_stop');
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -1056,29 +1059,86 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
 
         {/* Tab: AI QA */}
         <TabsContent value="aiqa">
-          <div className="space-y-6">
+          <div className="space-y-6 font-mono">
             {/* Banner */}
-            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 font-mono text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">AI QA Orchestration Foundation</span>
+                  <span className={`h-2 w-2 rounded-full ${isTerminal ? 'bg-success' : 'bg-accent animate-pulse'}`} />
+                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">
+                    Adaptive AI QA Reasoning Engine
+                  </span>
                   <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent text-[10px] uppercase font-bold">
-                    {aiQaResults[0]?.provider || 'Mock / Deterministic'}
+                    {aiQaResults[0]?.provider || 'mock-deterministic'}
+                  </span>
+                  {aiQaResults[0]?.model && (
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground text-[10px]">
+                      {aiQaResults[0].model}
+                    </span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                    isTerminal ? 'bg-success/10 text-success border border-success/20' : 'bg-accent/10 text-accent border border-accent/20'
+                  }`}>
+                    {testRun.status === 'running' ? 'Exploring & Testing' : isTerminal ? 'Completed' : 'Planning'}
                   </span>
                 </div>
                 <p className="text-muted-foreground text-3xs max-w-2xl">
-                  Provider-agnostic orchestration loop. The AI operates as a structured planner and reasoner while the deterministic JourneyExecutor remains the sole browser actuator.
+                  Evidence-driven adaptive exploration loop. The AI formulates test hypotheses, analyzes step telemetry, updates its internal application state, and chooses the next best test within strict budgets.
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Bounded Iterations</span>
+                <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Executed Iterations</span>
                 <span className="text-sm font-bold text-foreground font-mono">
-                  {aiQaPlans.length} / 3 Iterations Executed
+                  {aiQaPlans.length} / 3 Iterations
                 </span>
               </div>
             </div>
 
+            {/* Coverage Summary Cards (if state summary is available) */}
+            {aiQaStateSummary?.coverage && (
+              <div>
+                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                  Deterministic QA Coverage Metrics
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Pages Visited</span>
+                    <span className="text-lg font-bold text-foreground">
+                      {aiQaStateSummary.coverage.pages.visited} / {aiQaStateSummary.coverage.pages.discovered}
+                    </span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-accent/20 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-accent block">Forms Exercised</span>
+                    <span className="text-lg font-bold text-accent">
+                      {aiQaStateSummary.coverage.forms.exercised} / {aiQaStateSummary.coverage.forms.discovered}
+                    </span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Buttons Exercised</span>
+                    <span className="text-lg font-bold text-foreground">
+                      {aiQaStateSummary.coverage.buttons.exercised} / {aiQaStateSummary.coverage.buttons.discovered}
+                    </span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Navigation Paths</span>
+                    <span className="text-lg font-bold text-foreground">
+                      {aiQaStateSummary.coverage.navigationPaths.exercised} / {aiQaStateSummary.coverage.navigationPaths.discovered}
+                    </span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-success/20 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-success block">Hypotheses Tested</span>
+                    <span className="text-lg font-bold text-success">
+                      {aiQaStateSummary.coverage.hypotheses.tested} / {aiQaStateSummary.coverage.hypotheses.formulated}
+                    </span>
+                    <span className="text-4xs text-muted-foreground block mt-0.5">
+                      {aiQaStateSummary.coverage.hypotheses.confirmed} confirmed · {aiQaStateSummary.coverage.hypotheses.disproven} disproven
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI QA Iterations Timeline */}
             {aiQaPlans.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground font-mono text-xs border border-white/5 rounded-2xl bg-zinc-950/40">
                 No AI QA plans recorded for this execution run.
@@ -1090,7 +1150,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                   return (
                     <div
                       key={plan.planId || idx}
-                      className="border border-white/10 bg-zinc-950/50 rounded-2xl p-6 font-mono space-y-5"
+                      className="border border-white/10 bg-zinc-950/50 rounded-2xl p-6 space-y-5"
                     >
                       {/* Iteration Header */}
                       <div className="flex items-center justify-between border-b border-white/5 pb-4">
@@ -1116,10 +1176,10 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                         </span>
                       </div>
 
-                      {/* Reasoning Summary */}
+                      {/* Reasoning Summary & Strategy */}
                       <div>
                         <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1">
-                          Reasoning & Strategy
+                          Adaptive Next-Best-Test Strategy & Hypothesis
                         </span>
                         <p className="text-foreground text-xs leading-relaxed bg-zinc-900/60 p-3 rounded-lg border border-white/5">
                           {plan.reasoningSummary}
@@ -1130,7 +1190,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                       {plan.hypotheses && plan.hypotheses.length > 0 && (
                         <div>
                           <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-2">
-                            Hypotheses Formulated ({plan.hypotheses.length})
+                            Formulated Hypotheses ({plan.hypotheses.length})
                           </span>
                           <div className="space-y-2">
                             {plan.hypotheses.map((hyp: any, hIdx: number) => (
@@ -1140,8 +1200,16 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                               >
                                 <span className="text-accent font-bold">H{hIdx + 1}:</span>
                                 <div className="flex-1">
-                                  <p>{hyp.description}</p>
-                                  <span className="text-muted-foreground text-3xs mt-0.5 block">Target: {hyp.targetUrl}</span>
+                                  <p className="font-semibold text-foreground">{hyp.description}</p>
+                                  <div className="flex items-center gap-3 text-3xs text-muted-foreground mt-1">
+                                    <span>Target: {hyp.targetUrl}</span>
+                                    {hyp.suspectedBugType && hyp.suspectedBugType !== 'NONE' && (
+                                      <span className="text-warning">Suspected: {hyp.suspectedBugType}</span>
+                                    )}
+                                    {hyp.supportingEvidence && (
+                                      <span className="text-muted-foreground">Evidence: {hyp.supportingEvidence}</span>
+                                    )}
+                                  </div>
                                 </div>
                                 <span className="text-3xs uppercase px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
                                   {hyp.confidence} confidence
