@@ -19,7 +19,7 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^26.4.1",
     "@types/pngjs": "^6.0.5",
     "typescript": "^5.9.3",
     "vitest": "^1.6.1"
