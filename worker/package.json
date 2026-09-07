@@ -1,0 +1,25 @@
+{
+  "name": "@sculra/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sculra Autonomous Browser Test Execution Worker",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.50.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  }
+}

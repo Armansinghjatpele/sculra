@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -368,3 +368,123 @@ export async function getNotifications(clerkToken: string) {
     type: n.type as any,
   })) as Notification[];
 }
+
+export async function getTestRun(clerkToken: string, id: string): Promise<TestRun | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('test_runs')
+    .select('*, projects(name, source_url, repository_url, source_type)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (useFallback(error)) {
+    const mock = mockTestRuns.find((r) => r.id === id);
+    return mock || null;
+  }
+
+  if (!data) return null;
+
+  const proj = data.projects;
+  return {
+    id: data.id,
+    projectId: data.project_id,
+    projectName: proj?.name || 'Synced Project',
+    status: data.status,
+    issuesCount: 0,
+    releaseScore: data.overall_score ?? null,
+    durationMs: data.duration_ms || 0,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : 'Synced',
+    startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
+    completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
+    url: proj?.source_url || proj?.repository_url,
+  };
+}
+
+export async function getTestEvidence(clerkToken: string, testRunId: string): Promise<TestEvidence[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('test_evidence')
+    .select('*')
+    .eq('test_run_id', testRunId)
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error)) {
+    return mockTestEvidence.filter((e) => e.testRunId === testRunId);
+  }
+
+  return (data || []).map((e: any) => ({
+    id: e.id,
+    testRunId: e.test_run_id,
+    projectId: e.project_id,
+    type: e.type,
+    title: e.title,
+    url: e.url,
+    message: e.message,
+    metadata: e.metadata,
+    storagePath: e.storage_path,
+    createdAt: e.created_at ? new Date(e.created_at).toLocaleTimeString() : 'Synced',
+  }));
+}
+
+export async function createTestRun(
+  clerkToken: string,
+  runData: {
+    projectId: string;
+    clerkUserId: string;
+    clerkOrgId?: string | null;
+    triggerType?: 'manual' | 'github' | 'scheduled' | 'api';
+  }
+): Promise<{ id: string; status: string }> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let internalOrgId: string | null = null;
+
+  if (runData.clerkOrgId) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('clerk_organization_id', runData.clerkOrgId)
+      .maybeSingle();
+    if (org) {
+      internalOrgId = org.id;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('test_runs')
+    .insert({
+      project_id: runData.projectId,
+      organization_id: internalOrgId,
+      status: 'queued',
+      trigger_type: runData.triggerType || 'manual',
+      created_by: runData.clerkUserId,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    status: data.status,
+  };
+}
+
+export async function cancelTestRun(clerkToken: string, testRunId: string): Promise<boolean> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('test_runs')
+    .update({
+      status: 'cancelled',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', testRunId);
+
+  if (error) {
+    throw error;
+  }
+
+  return true;
+}
+

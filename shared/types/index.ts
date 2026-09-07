@@ -35,32 +35,71 @@ export interface Membership {
 }
 
 // Project Definitions
-export type ProjectStatus = 'active' | 'archived';
+export type ProjectSourceType = 'website' | 'github' | 'zip' | 'desktop' | 'api';
+export type ProjectStatus = 'active' | 'archived' | 'paused';
 
 export interface Project {
   id: string;
-  organizationId: string;
+  organizationId?: string | null;
   name: string;
-  url: string;
+  slug?: string;
+  description?: string;
+  sourceType: ProjectSourceType;
+  sourceUrl?: string;
+  repositoryUrl?: string;
   status: ProjectStatus;
+  createdBy: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
-// Test Runs
-export type TestRunStatus = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
-export type TriggerType = 'manual' | 'webhook' | 'schedule';
+// Test Runs Lifecycle
+export type TestRunStatus = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled' | 'needs_review';
+export type TriggerType = 'manual' | 'github' | 'scheduled' | 'api' | 'future_ai_agent';
 
 export interface TestRun {
   id: string;
   projectId: string;
+  organizationId?: string | null;
   status: TestRunStatus;
   triggerType: TriggerType;
-  commitHash?: string;
-  releaseVersion?: string;
-  score?: number;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  overallScore?: number;
+  createdBy: string;
   createdAt: string;
-  finishedAt?: string;
+  updatedAt?: string;
+}
+
+// Test Evidence
+export type TestEvidenceType = 'screenshot' | 'console_error' | 'network_error' | 'dom_snapshot' | 'navigation';
+
+export interface TestEvidence {
+  id: string;
+  testRunId: string;
+  projectId: string;
+  type: TestEvidenceType;
+  title: string;
+  url?: string;
+  message?: string;
+  metadata?: Record<string, any>;
+  storagePath?: string;
+  createdAt: string;
+}
+
+// Structured Test Run Results
+export interface TestRunResult {
+  status: 'passed' | 'failed' | 'cancelled';
+  pageTitle?: string;
+  finalUrl?: string;
+  statusCode?: number;
+  durationMs: number;
+  consoleErrors: number;
+  networkErrors: number;
+  screenshots: number;
+  evidence: Omit<TestEvidence, 'id' | 'createdAt'>[];
+  failureReason?: string;
 }
 
 // Test Step

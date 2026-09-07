@@ -17,14 +17,32 @@ export interface Project {
   createdAt?: string;
 }
 
+export type TestRunStatus = 'passed' | 'running' | 'failed' | 'needs_review' | 'queued' | 'cancelled';
+
 export interface TestRun {
   id: string;
   projectId: string;
   projectName: string;
-  status: 'passed' | 'running' | 'failed' | 'needs_review';
+  status: TestRunStatus;
   issuesCount: number;
-  releaseScore: number;
+  releaseScore: number | null;
   durationMs: number;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  url?: string;
+}
+
+export interface TestEvidence {
+  id: string;
+  testRunId: string;
+  projectId: string;
+  type: 'screenshot' | 'console_error' | 'network_error' | 'dom_snapshot' | 'navigation';
+  title: string;
+  url?: string;
+  message?: string;
+  metadata?: Record<string, any>;
+  storagePath?: string;
   createdAt: string;
 }
 
@@ -70,6 +88,32 @@ export const mockTestRuns: TestRun[] = [
   { id: 'run-2', projectId: 'proj-2', projectName: 'sculra-monorepo', status: 'needs_review', issuesCount: 3, releaseScore: 82, durationMs: 125000, createdAt: '2h ago' },
   { id: 'run-3', projectId: 'proj-3', projectName: 'React 19 Sandbox Bundle', status: 'failed', issuesCount: 7, releaseScore: 58, durationMs: 82000, createdAt: '1d ago' },
   { id: 'run-4', projectId: 'proj-4', projectName: 'Desktop App Electron Wrapper', status: 'running', issuesCount: 1, releaseScore: 90, durationMs: 18000, createdAt: 'Just now' },
+];
+
+export const mockTestEvidence: TestEvidence[] = [
+  {
+    id: 'ev-1',
+    testRunId: 'run-1',
+    projectId: 'proj-1',
+    type: 'screenshot',
+    title: 'Initial Viewport Capture — Sculra',
+    url: 'https://sculra.com',
+    message: '',
+    storagePath: 'screenshots/run-1/screenshot_1.png',
+    createdAt: '10m ago',
+    metadata: { width: 1280, height: 720 },
+  },
+  {
+    id: 'ev-2',
+    testRunId: 'run-1',
+    projectId: 'proj-1',
+    type: 'navigation',
+    title: 'Initial Page Navigation',
+    url: 'https://sculra.com',
+    message: 'Sculra — Autonomous AI QA Engineer',
+    createdAt: '10m ago',
+    metadata: { statusCode: 200, pageTitle: 'Sculra — Autonomous AI QA Engineer', durationMs: 1200 },
+  },
 ];
 
 export const mockIssues: Issue[] = [

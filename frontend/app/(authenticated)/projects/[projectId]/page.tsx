@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { use } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import { Grid, Stack, Flex } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -20,6 +21,7 @@ interface ProjectDetailPageProps {
 }
 
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const projectId = resolvedParams.projectId;
 
@@ -38,8 +40,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [lastChecked, setLastChecked] = React.useState<string | null>(null);
 
-  // Trigger feedback state for "Run Test" action
-  const [testEngineAlert, setTestEngineAlert] = React.useState(false);
+  // Trigger state for "Run Test" action
+  const [runLoading, setRunLoading] = React.useState(false);
+  const [runError, setRunError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const loadProjectData = async () => {
@@ -94,6 +97,28 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
     }
   };
 
+  const handleRunTest = async () => {
+    try {
+      setRunLoading(true);
+      setRunError(null);
+      const res = await fetch('/api/test-runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.testRunId) {
+        router.push(`/test-runs/${data.testRunId}`);
+      } else {
+        setRunError(data.error || 'Failed initiating test execution.');
+      }
+    } catch (e: any) {
+      setRunError(e.message || 'Network error triggering test run.');
+    } finally {
+      setRunLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-12 text-center text-xs text-muted-foreground font-mono">
@@ -132,8 +157,29 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
         action={
           <div className="flex items-center gap-3">
             <StatusBadge status={project.status} />
-            <Button variant="accent" size="sm" onClick={() => setTestEngineAlert(true)}>
-              Run Test
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={handleRunTest}
+              disabled={runLoading}
+              className="inline-flex items-center gap-1.5"
+            >
+              {runLoading ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Queuing Run...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  <span>Run Test</span>
+                </>
+              )}
             </Button>
             <Link href="/projects">
               <Button variant="outline" size="sm">Back</Button>
@@ -142,14 +188,14 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
         }
       />
 
-      {testEngineAlert && (
-        <div className="p-4 border border-accent/25 bg-accent/5 rounded-xl flex items-center justify-between gap-4 font-mono text-xs">
+      {runError && (
+        <div className="p-4 border border-danger/25 bg-danger/5 rounded-xl flex items-center justify-between gap-4 font-mono text-xs">
           <div className="space-y-1">
-            <span className="text-accent font-bold uppercase tracking-wider block">🚀 On-Demand Testing</span>
-            <p className="text-muted-foreground">Testing engine coming next. We are working on custom Playwright crawling executors.</p>
+            <span className="text-danger font-bold uppercase tracking-wider block">Run Execution Error</span>
+            <p className="text-muted-foreground">{runError}</p>
           </div>
           <button 
-            onClick={() => setTestEngineAlert(false)} 
+            onClick={() => setRunError(null)} 
             className="text-muted-foreground hover:text-foreground font-bold text-sm cursor-pointer"
           >
             ×

@@ -54,6 +54,8 @@ test-recordings/
 e2e-screenshots/
 e2e-videos/
 junit.xml
+.storage/
+**/.storage/
 
 # Storage binaries & media checks (strictly no local binary storage commits)
 *.zip
