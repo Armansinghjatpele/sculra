@@ -96,6 +96,21 @@ describe('AI QA Orchestration Live E2E Verification', () => {
           };
         }
 
+        if (table === 'release_scores') {
+          return {
+            select: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
+              }),
+            }),
+            insert: async (scoreRow: any) => {
+              return { data: scoreRow, error: null };
+            },
+          };
+        }
+
         return {};
       },
     };

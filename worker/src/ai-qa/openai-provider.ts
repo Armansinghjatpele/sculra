@@ -238,6 +238,105 @@ export class OpenAIQAProvider implements AIQAProvider {
     );
   }
 
+  async analyzeRelease(
+    context: import('../release/analyzer').ReleaseAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<import('../release/types').AIReleaseAnalysis> {
+    if (cancellationToken?.isCancelled) {
+      throw new AIProviderError(
+        'AI release analysis was cancelled by user.',
+        'AI_PROVIDER_CANCELLED',
+        'openai'
+      );
+    }
+
+    const systemPrompt = `=== TRUSTED RELEASE INTELLIGENCE SYSTEM INSTRUCTIONS ===
+You are Sculra's Senior QA Release Intelligence Analyst.
+Your role is to analyze deterministic test scores, category breakdowns, blockers, and coverage to provide an executive release narrative.
+
+CRITICAL INVARIANTS:
+1. You MUST NOT modify, recalculate, or contradict the numeric release score, category scores, or blockers.
+2. The numeric score and blockers are DETERMINISTIC AND AUTHORITATIVE.
+3. Provide an executive summary, prioritized key risks, validated strengths, evidence gaps, and recommended actions.
+4. Output strict JSON matching the schema.`;
+
+    const userPrompt = `=== UNTRUSTED RELEASE EVIDENCE ===
+Target Application URL: ${context.targetUrl}
+Test Run ID: ${context.testRunId}
+
+DETERMINISTIC RELEASE ASSESSMENT:
+Overall Score: ${context.overallScore} / 100
+Recommendation: ${context.recommendation}
+Risk Level: ${context.riskLevel}
+Evidence Confidence: ${context.confidenceLevel}
+
+CATEGORY SCORES:
+- Functional: ${context.categoryScores.functional} / 100
+- Visual: ${context.categoryScores.visual} / 100
+- Responsive: ${context.categoryScores.responsive} / 100
+- Reliability: ${context.categoryScores.reliability} / 100
+- Coverage: ${context.categoryScores.coverage} / 100
+
+ACTIVE BLOCKERS (${context.blockers.length}):
+${JSON.stringify(context.blockers, null, 2)}
+
+TOP DEFECTS / DEDUCTIONS:
+${context.scoreBreakdownText}
+
+STRUCTURAL COVERAGE:
+- Pages: ${context.coverageSummary.pagesVisited} / ${context.coverageSummary.pagesDiscovered}
+- Forms: ${context.coverageSummary.formsExercised} / ${context.coverageSummary.formsDiscovered}
+- Buttons: ${context.coverageSummary.buttonsExercised} / ${context.coverageSummary.buttonsDiscovered}
+- Viewports Tested: ${context.coverageSummary.viewportsTested} / 3
+
+Please analyze this deterministic assessment and produce a structured AIReleaseAnalysis.`;
+
+    const abortController = new AbortController();
+    if (cancellationToken) {
+      const originalOnCancel = cancellationToken.onCancel;
+      cancellationToken.onCancel = () => {
+        abortController.abort();
+        if (originalOnCancel) originalOnCancel();
+      };
+    }
+
+    const { AI_RELEASE_ANALYSIS_JSON_SCHEMA, validateAndNormalizeReleaseAnalysis } = await import('../release/schema');
+
+    const response = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'ai_release_analysis',
+            strict: true,
+            schema: AI_RELEASE_ANALYSIS_JSON_SCHEMA,
+          },
+        },
+        temperature: 0.1,
+      },
+      {
+        signal: abortController.signal,
+      }
+    );
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new AIProviderError(
+        'OpenAI returned empty release analysis completion.',
+        'AI_PROVIDER_INVALID_RESPONSE',
+        'openai'
+      );
+    }
+
+    const parsed = JSON.parse(content);
+    return validateAndNormalizeReleaseAnalysis(parsed);
+  }
+
   private buildSystemPrompt(): string {
     return `=== TRUSTED QA SYSTEM INSTRUCTIONS ===
 You are Sculra's AI QA Engineer — an autonomous, senior software quality engineer.

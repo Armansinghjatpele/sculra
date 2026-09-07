@@ -205,6 +205,65 @@ export class MockAIQAProvider implements AIQAProvider {
     };
   }
 
+  async analyzeRelease(
+    context: import('../release/analyzer').ReleaseAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<import('../release/types').AIReleaseAnalysis> {
+    const isReady = context.overallScore >= 85 && context.blockers.length === 0;
+    const isCaution = context.overallScore >= 70 && context.blockers.filter((b) => b.severity === 'critical').length === 0;
+
+    const keyRisks: string[] = [];
+    for (const b of context.blockers) {
+      keyRisks.push(`[${b.severity.toUpperCase()}] ${b.title}: ${b.reason}`);
+    }
+    for (const iss of context.topIssues) {
+      if (iss.severity === 'high' || iss.severity === 'critical') {
+        keyRisks.push(`[${iss.severity.toUpperCase()}] ${iss.title}`);
+      }
+    }
+
+    const strengths: string[] = [];
+    if (context.categoryScores.functional >= 90) strengths.push('Core functional test journeys and API interactions passed reliably.');
+    if (context.categoryScores.visual >= 90) strengths.push('Visual presentation maintained high alignment across tested views.');
+    if (context.categoryScores.responsive >= 90) strengths.push('Multi-viewport responsive scaling exhibited zero horizontal clipping.');
+    if (context.categoryScores.coverage >= 80) strengths.push('Broad structural coverage achieved across discovered pages and interactive controls.');
+
+    const evidenceGaps: string[] = [];
+    if (context.coverageSummary.pagesVisited < context.coverageSummary.pagesDiscovered) {
+      evidenceGaps.push(`${context.coverageSummary.pagesDiscovered - context.coverageSummary.pagesVisited} discovered page(s) were not visited during testing.`);
+    }
+
+    const recommendedActions: string[] = [];
+    if (context.blockers.length > 0) {
+      recommendedActions.push(`Resolve ${context.blockers.length} active release blocker(s) prior to production deployment.`);
+    }
+    if (keyRisks.length > 0) {
+      recommendedActions.push('Perform targeted QA verification on routes exhibiting responsive overflow or step failures.');
+    }
+    recommendedActions.push('Establish automated regression test runs in CI/CD pipeline.');
+
+    let releaseExplanation = '';
+    if (context.confidenceLevel === 'INSUFFICIENT') {
+      releaseExplanation = 'Insufficient test evidence captured to provide an authoritative release endorsement.';
+    } else if (isReady) {
+      releaseExplanation = `Application achieved a high stability score (${context.overallScore}/100) with zero active blockers and strong multi-viewport health.`;
+    } else if (isCaution) {
+      releaseExplanation = `Application scored ${context.overallScore}/100 with moderate non-critical risks. Deployment permitted with stakeholder review.`;
+    } else {
+      releaseExplanation = `Application scored ${context.overallScore}/100 and possesses ${context.blockers.length} active release blocker(s). Production release is NOT recommended.`;
+    }
+
+    return {
+      summary: `Release readiness evaluated at ${context.overallScore}/100 (${context.recommendation.replace(/_/g, ' ')}).`,
+      keyRisks: keyRisks.length > 0 ? keyRisks : ['No severe blockers identified in tested workflows.'],
+      strengths: strengths.length > 0 ? strengths : ['Basic page navigation established successfully.'],
+      evidenceGaps: evidenceGaps.length > 0 ? evidenceGaps : ['All discovered routes and viewports evaluated.'],
+      recommendedActions,
+      releaseExplanation,
+      confidence: context.confidenceLevel === 'HIGH' ? 'high' : context.confidenceLevel === 'MEDIUM' ? 'medium' : 'low',
+    };
+  }
+
   private createCancelledPlan(context: AIQAContext): AIQAPlan {
     return {
       version: '1.0',

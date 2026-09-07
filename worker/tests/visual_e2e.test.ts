@@ -92,6 +92,21 @@ describe('Deterministic Visual & Responsive QA Live E2E Verification', () => {
           };
         }
 
+        if (table === 'release_scores') {
+          return {
+            select: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
+              }),
+            }),
+            insert: async (scoreRow: any) => {
+              return { data: scoreRow, error: null };
+            },
+          };
+        }
+
         return {};
       },
     };
@@ -111,7 +126,7 @@ describe('Deterministic Visual & Responsive QA Live E2E Verification', () => {
     expect(runUpdates.length).toBeGreaterThanOrEqual(2);
     expect(runUpdates[0].status).toBe('running');
     expect(runUpdates[runUpdates.length - 1].status).toBe('failed');
-    expect(runUpdates[runUpdates.length - 1].overall_score).toBeNull();
+    expect(typeof runUpdates[runUpdates.length - 1].overall_score).toBe('number');
 
     // 3. Assert Visual & Responsive Evidence Persisted
     const visualComparisons = insertedEvidence.filter((e) => e.type === 'visual_comparison');

@@ -57,12 +57,60 @@ export interface TestEvidence {
     | 'ai_qa_plan'
     | 'ai_qa_result'
     | 'ai_qa_state_summary'
-    | 'ai_qa_stop';
+    | 'ai_qa_stop'
+    | 'release_report';
   title: string;
   url?: string;
   message?: string;
   metadata?: Record<string, any>;
   storagePath?: string;
+  createdAt: string;
+}
+
+export interface ReleaseBlocker {
+  id: string;
+  title: string;
+  reason: string;
+  category: 'functional' | 'visual' | 'responsive' | 'reliability';
+  severity: 'critical' | 'high';
+  evidenceSummary: string;
+  relatedIssueFingerprints?: string[];
+}
+
+export interface ScoreDeduction {
+  category: string;
+  points: number;
+  reason: string;
+  evidenceRef?: string;
+}
+
+export interface ReleaseScore {
+  id: string;
+  testRunId: string;
+  projectId: string;
+  organizationId?: string | null;
+  overallScore: number;
+  functionalityScore: number;
+  uiScore: number;
+  responsiveScore: number;
+  reliabilityScore: number;
+  coverageScore: number;
+  recommendation: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
+  riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+  confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT';
+  scoringVersion: string;
+  blockersCount: number;
+  breakdown?: any;
+  blockers?: ReleaseBlocker[];
+  aiAnalysis?: {
+    summary: string;
+    keyRisks: string[];
+    strengths: string[];
+    evidenceGaps: string[];
+    recommendedActions: string[];
+    releaseExplanation: string;
+    confidence: 'high' | 'medium' | 'low';
+  };
   createdAt: string;
 }
 

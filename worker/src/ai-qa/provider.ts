@@ -1,10 +1,7 @@
-// ==============================================================================
-// Sculra AI QA Provider Interface (worker/src/ai-qa/provider.ts)
-// ==============================================================================
-// Provider-agnostic abstraction for AI QA reasoning & plan generation.
-
 import { AIQAContext, AIQAPlan, AIQAProviderMetadata } from './types';
 import { CancellationToken } from '../types';
+import { ReleaseAnalysisContext } from '../release/analyzer';
+import { AIReleaseAnalysis } from '../release/types';
 
 export interface AIQAProvider {
   readonly metadata: AIQAProviderMetadata;
@@ -17,4 +14,13 @@ export interface AIQAProvider {
     context: AIQAContext,
     cancellationToken?: CancellationToken
   ): Promise<AIQAPlan>;
+
+  /**
+   * Generates a structured AIReleaseAnalysis given a sanitized ReleaseAnalysisContext.
+   * Must not modify numeric release scores or blockers.
+   */
+  analyzeRelease?(
+    context: ReleaseAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<AIReleaseAnalysis>;
 }

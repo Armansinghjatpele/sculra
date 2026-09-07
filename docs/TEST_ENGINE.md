@@ -43,7 +43,7 @@ A test run progresses through the following deterministic states:
 4. **`failed`**: Navigation timeout, DNS failure, server error (HTTP 5xx), or security validation rejection.
 5. **`cancelled`**: User initiated cancellation before or during execution.
 
-> **Note on Scoring**: In alignment with Sculra's design principles, `overall_score` remains `null` until the AI Release Readiness Scoring Engine is implemented. No placeholder scores (e.g. 100% or 0%) are faked.
+> **Release Readiness Scoring**: The engine deterministically computes `overall_score` (0–100), 5 category scores (functional, visual, responsive, reliability, coverage), blockers, risk levels, and confidence levels, persisting them to `public.release_scores` and updating `test_runs.overall_score`. See `docs/RELEASE_READINESS.md` for full details.
 
 ---
 

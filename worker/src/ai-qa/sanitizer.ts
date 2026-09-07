@@ -36,6 +36,14 @@ const PROMPT_INJECTION_INDICATORS: RegExp[] = [
 
 export class AIQAContextSanitizer {
   /**
+   * Sanitizes generic string text, neutralizing potential prompt injection attempts
+   * and redacting any sensitive tokens/secrets.
+   */
+  static sanitizeString(text: string | null | undefined, maxLength: number = 500): string {
+    return this.sanitizeBrowserText(text, maxLength);
+  }
+
+  /**
    * Sanitizes browser text, neutralizing potential prompt injection attempts
    * and redacting any sensitive tokens/secrets.
    */

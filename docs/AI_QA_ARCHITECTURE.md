@@ -242,4 +242,33 @@ The loop terminates cleanly upon any of the following conditions:
 5. `CRITICAL_BUG_FOUND`: Multiple severe blockers (page crashes, runtime exceptions) detected.
 6. `CANCELLED`: User or system cancellation token tripped.
 
+---
+
+## 7. AI Release Readiness & QA Intelligence Engine
+
+Following test run execution (deterministic journeys, responsive evaluation, and adaptive AI exploration), Sculra produces an authoritative, multi-category release assessment:
+
+```mermaid
+flowchart TD
+    RunFacts[Execution Facts: Journeys, Responsive, Issues, Telemetry] --> Scorer[DeterministicReleaseScorer: v1.0 Model]
+    Scorer --> ReleaseScore[Deterministic Scores, Recommendation, Risk & Blockers]
+    
+    ReleaseScore --> AIAnalyzer[ReleaseAnalyzer: OpenAI / Mock Provider]
+    AIAnalyzer --> StructuredAnalysis[AIReleaseAnalysis: Executive Summary, Risks, Advice]
+    
+    ReleaseScore --> DBScore[(public.release_scores)]
+    StructuredAnalysis --> DBScore
+    ReleaseScore --> MarkdownGen[ReleaseReportGenerator]
+    StructuredAnalysis --> MarkdownGen
+    MarkdownGen --> DBEvidence[(public.test_evidence: type=release_report)]
+    ReleaseScore --> DBRun[(public.test_runs: overall_score)]
+```
+
+- **Scoring Version**: `1.0`
+- **Category Weights**: Functional (35%), Visual (20%), Responsive (20%), Reliability (10%), Coverage (15%).
+- **Release Blockers**: Critical bugs, failed primary CTA routes, or severe mobile layout collapse trigger `DO_NOT_RELEASE`.
+- **AI Role**: Explanation and risk synthesis only; does not override numeric scores or blockers.
+- **Full Specification**: See [RELEASE_READINESS.md](RELEASE_READINESS.md) for full scoring models, schemas, and evidence structures.
+
+
 

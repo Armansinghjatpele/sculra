@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -523,5 +523,113 @@ export async function cancelTestRun(clerkToken: string, testRunId: string): Prom
   }
 
   return true;
+}
+
+export async function getReleaseScore(clerkToken: string, testRunId: string): Promise<ReleaseScore | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_scores')
+    .select('*')
+    .eq('test_run_id', testRunId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    testRunId: data.test_run_id,
+    projectId: data.project_id,
+    organizationId: data.organization_id,
+    overallScore: data.overall_score,
+    functionalityScore: data.functionality_score,
+    uiScore: data.ui_score,
+    responsiveScore: data.responsive_score,
+    reliabilityScore: data.reliability_score || data.performance_score,
+    coverageScore: data.coverage_score || data.accessibility_score,
+    recommendation: data.recommendation || 'DO_NOT_RELEASE',
+    riskLevel: data.risk_level || 'UNKNOWN',
+    confidenceLevel: data.confidence_level || 'LOW',
+    scoringVersion: data.scoring_version || '1.0',
+    blockersCount: data.blockers_count || 0,
+    breakdown: data.breakdown,
+    blockers: data.blockers || [],
+    aiAnalysis: data.ai_analysis,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : '',
+  };
+}
+
+export async function getLatestReleaseScore(clerkToken: string, projectId: string): Promise<ReleaseScore | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_scores')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    testRunId: data.test_run_id,
+    projectId: data.project_id,
+    organizationId: data.organization_id,
+    overallScore: data.overall_score,
+    functionalityScore: data.functionality_score,
+    uiScore: data.ui_score,
+    responsiveScore: data.responsive_score,
+    reliabilityScore: data.reliability_score || data.performance_score,
+    coverageScore: data.coverage_score || data.accessibility_score,
+    recommendation: data.recommendation || 'DO_NOT_RELEASE',
+    riskLevel: data.risk_level || 'UNKNOWN',
+    confidenceLevel: data.confidence_level || 'LOW',
+    scoringVersion: data.scoring_version || '1.0',
+    blockersCount: data.blockers_count || 0,
+    breakdown: data.breakdown,
+    blockers: data.blockers || [],
+    aiAnalysis: data.ai_analysis,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : '',
+  };
+}
+
+export async function getProjectReleaseHistory(clerkToken: string, projectId: string): Promise<ReleaseScore[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_scores')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((d: any) => ({
+    id: d.id,
+    testRunId: d.test_run_id,
+    projectId: d.project_id,
+    organizationId: d.organization_id,
+    overallScore: d.overall_score,
+    functionalityScore: d.functionality_score,
+    uiScore: d.ui_score,
+    responsiveScore: d.responsive_score,
+    reliabilityScore: d.reliability_score || d.performance_score,
+    coverageScore: d.coverage_score || d.accessibility_score,
+    recommendation: d.recommendation || 'DO_NOT_RELEASE',
+    riskLevel: d.risk_level || 'UNKNOWN',
+    confidenceLevel: d.confidence_level || 'LOW',
+    scoringVersion: d.scoring_version || '1.0',
+    blockersCount: d.blockers_count || 0,
+    breakdown: d.breakdown,
+    blockers: d.blockers || [],
+    aiAnalysis: d.ai_analysis,
+    createdAt: d.created_at ? new Date(d.created_at).toLocaleString() : '',
+  }));
 }
 

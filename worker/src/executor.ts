@@ -10,6 +10,13 @@ import { SupabaseEvidenceStorage, IEvidenceStorage, LocalEvidenceStorage } from 
 import { WorkerLogger } from './logger';
 import { CancellationToken } from './types';
 import { IssueManager } from './issues';
+import {
+  DeterministicReleaseScorer,
+  ReleaseAnalyzer,
+  ReleaseReportGenerator,
+  ReleaseAssessment,
+} from './release';
+import { createAIQAProvider } from './ai-qa';
 
 export interface ExecutorConfig {
   supabaseUrl?: string;
@@ -347,16 +354,129 @@ export class JobExecutor {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
 
-    // 6. Update Test Run Final Status (overall_score remains null until AI scoring engine is built)
+    // 6. Compute Deterministic Release Readiness Assessment
+    let assessment: ReleaseAssessment | undefined;
+    try {
+      // 6a. Fetch previous release score for this project for historical delta comparison
+      let previousAssessment: { overallScore: number; testRunId?: string; createdAt?: string } | undefined;
+      try {
+        const { data: prevScore } = await this.supabase
+          .from('release_scores')
+          .select('overall_score, test_run_id, created_at')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (prevScore && typeof prevScore.overall_score === 'number') {
+          previousAssessment = {
+            overallScore: prevScore.overall_score,
+            testRunId: prevScore.test_run_id,
+            createdAt: prevScore.created_at,
+          };
+        }
+      } catch {
+        // Ignore previous score lookup failure
+      }
+
+      // 6b. Calculate Authoritative Deterministic Release Assessment
+      assessment = DeterministicReleaseScorer.calculateAssessment({
+        testRunId,
+        projectId: project.id,
+        organizationId: project.organization_id,
+        testRunStatus: result.status,
+        targetUrl,
+        applicationMap: result.applicationMap,
+        journeyResults: result.journeyResults,
+        bugObservations: result.bugObservations,
+        visualResult: result.visualResult,
+        consoleErrors: result.consoleErrors,
+        networkErrors: result.networkErrors,
+        aiQaStateSummary: result.aiQaStateSummary,
+        previousAssessment,
+      });
+
+      // 6c. Run AI Release Analysis (OpenAI or Mock Provider)
+      try {
+        const provider = createAIQAProvider();
+        const analyzer = new ReleaseAnalyzer(provider, logger);
+        const aiAnalysis = await analyzer.analyze(assessment, targetUrl, cancellationToken);
+        if (aiAnalysis) {
+          assessment.aiAnalysis = aiAnalysis;
+        }
+      } catch (aiErr: any) {
+        logger.warn('ai_release_analysis_warning', { message: aiErr.message });
+      }
+
+      // 6d. Persist Release Score Record to public.release_scores
+      await this.supabase.from('release_scores').insert({
+        organization_id: project.organization_id || null,
+        project_id: project.id,
+        test_run_id: testRunId,
+        overall_score: assessment.overallScore,
+        functionality_score: assessment.scores.functional,
+        ui_score: assessment.scores.visual,
+        responsive_score: assessment.scores.responsive,
+        performance_score: assessment.scores.reliability,
+        accessibility_score: assessment.scores.coverage,
+        security_score: 100,
+        recommendation: assessment.recommendation,
+        risk_level: assessment.riskLevel,
+        confidence_level: assessment.confidenceLevel,
+        scoring_version: assessment.scoringVersion,
+        blockers_count: assessment.blockers.length,
+        reliability_score: assessment.scores.reliability,
+        coverage_score: assessment.scores.coverage,
+        breakdown: assessment.breakdown,
+        blockers: assessment.blockers,
+        ai_analysis: assessment.aiAnalysis || null,
+        metadata: {
+          evaluatedAt: assessment.evaluatedAt,
+          targetUrl,
+        },
+      });
+
+      // 6e. Persist Release Report Evidence
+      const markdownReport = ReleaseReportGenerator.generateMarkdownReport(assessment, {
+        targetUrl,
+        projectName: project.name,
+        durationMs: result.durationMs,
+        testRunStatus: result.status,
+      });
+
+      await this.supabase.from('test_evidence').insert({
+        test_run_id: testRunId,
+        project_id: project.id,
+        type: 'release_report',
+        title: `Release Readiness Assessment: ${assessment.scores.overall}/100 (${assessment.recommendation})`,
+        url: result.finalUrl || targetUrl,
+        message: markdownReport,
+        metadata: {
+          assessment,
+          scoringVersion: assessment.scoringVersion,
+          overallScore: assessment.overallScore,
+          recommendation: assessment.recommendation,
+          riskLevel: assessment.riskLevel,
+          confidenceLevel: assessment.confidenceLevel,
+        },
+      });
+
+    } catch (scoringErr: any) {
+      logger.error('release_scoring_error', { message: scoringErr.message });
+    }
+
+    // 7. Update Test Run Final Status and Overall Score
     await this.updateTestRunState(testRunId, result.status, {
       completed_at: completedAt,
       duration_ms: result.durationMs,
-      overall_score: null,
+      overall_score: assessment ? assessment.overallScore : null,
     });
 
     logger.log('job_execution_finished', {
       finalStatus: result.status,
       durationMs: result.durationMs,
+      overallScore: assessment ? assessment.overallScore : null,
+      recommendation: assessment ? assessment.recommendation : 'N/A',
     });
 
     return {

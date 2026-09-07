@@ -13,12 +13,12 @@ describe('Application Discovery Engine with Real Playwright', () => {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (browser) await browser.close();
     if (fixture) await fixture.close();
-  });
+  }, 30000);
 
   it('should discover all fixture pages, links, buttons, forms, and responsive captures', async () => {
     const discovery = new ApplicationDiscovery(browser, fixture.url, {
