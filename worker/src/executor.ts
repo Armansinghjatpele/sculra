@@ -410,6 +410,81 @@ export class JobExecutor {
         }
       }
 
+      // 5n. Persist Authenticated Sessions & Role Context Evidence
+      if (result.authenticatedSessions && result.authenticatedSessions.length > 0) {
+        for (const session of result.authenticatedSessions) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'authenticated_session',
+            title: `Authenticated Session: ${session.role} [${session.outcome}]`,
+            url: session.finalUrl || targetUrl,
+            message: `Identity "${session.identityId}" (${session.role}): ${session.outcome}. Discovered ${session.discoveredPagesCount || 0} authenticated page(s).`,
+            metadata: {
+              identityId: session.identityId,
+              role: session.role,
+              outcome: session.outcome,
+              authenticated: session.authenticated,
+              authenticatedAt: session.authenticatedAt,
+              discoveredPagesCount: session.discoveredPagesCount,
+              telemetryEvidence: session.telemetryEvidence,
+            },
+          });
+        }
+      }
+
+      if (result.roleContexts && result.roleContexts.length > 0) {
+        for (const roleCtx of result.roleContexts) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'role_context',
+            title: `Role Context: ${roleCtx.roleName}`,
+            url: targetUrl,
+            message: `Role "${roleCtx.roleName}" (${roleCtx.roleId}): ${roleCtx.capabilities.length} capabilities, ${roleCtx.discoveredPageUrls.length} pages mapped.`,
+            metadata: {
+              roleContext: roleCtx,
+            },
+          });
+        }
+      }
+
+      // 5o. Persist Authorization Checks & Security Findings
+      if (result.authorizationResults && result.authorizationResults.length > 0) {
+        for (const authRes of result.authorizationResults) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: authRes.isUnauthorizedAccess ? 'unauthorized_access' : 'authorization_check',
+            title: authRes.isUnauthorizedAccess
+              ? `SECURITY VIOLATION: Unauthorized Access (${authRes.role} -> ${authRes.path})`
+              : `Authorization Check: ${authRes.role} -> ${authRes.path} [${authRes.status}]`,
+            url: authRes.finalUrl || targetUrl,
+            message: `Expected: ${authRes.expectedAccess}, Observed: ${authRes.observedAccess} (${authRes.denialReason || `HTTP ${authRes.statusCode || '200'}`}). Status: ${authRes.status}.`,
+            metadata: {
+              authorizationCheck: authRes,
+            },
+          });
+        }
+      }
+
+      // 5p. Persist Role Differences
+      if (result.roleComparisons && result.roleComparisons.length > 0) {
+        for (const comp of result.roleComparisons) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'role_difference',
+            title: `Role Surface Comparison: ${comp.roleA} vs ${comp.roleB}`,
+            url: targetUrl,
+            message: comp.comparisonSummary,
+            metadata: {
+              comparison: comp,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
@@ -453,6 +528,8 @@ export class JobExecutor {
         consoleErrors: result.consoleErrors,
         networkErrors: result.networkErrors,
         aiQaStateSummary: result.aiQaStateSummary,
+        productModel: result.productModel,
+        authorizationResults: result.authorizationResults,
         previousAssessment,
       });
 

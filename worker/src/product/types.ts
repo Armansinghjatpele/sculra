@@ -119,6 +119,7 @@ export interface ProductFeature {
   criticality: CriticalityAssessment;
   status: ProductEntityStatus;
   isCoreCapability: boolean;
+  availableRoles?: string[];
 }
 
 export interface ProductRole {
@@ -157,6 +158,9 @@ export interface ProductWorkflow {
   goal: string;
   roleId?: string;
   roleName?: string;
+  requiredRole?: string;
+  authenticated?: boolean;
+  roleConfidence?: number;
   steps: WorkflowStep[];
   entryPoint: string;
   exitPoint: string;

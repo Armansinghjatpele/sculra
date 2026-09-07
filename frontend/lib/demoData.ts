@@ -67,6 +67,11 @@ export interface TestEvidence {
     | 'product_role'
     | 'product_criticality'
     | 'product_coverage'
+    | 'authenticated_session'
+    | 'role_context'
+    | 'authorization_check'
+    | 'unauthorized_access'
+    | 'role_difference'
     | 'release_report';
   title: string;
   url?: string;

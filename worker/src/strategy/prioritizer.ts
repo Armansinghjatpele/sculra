@@ -134,7 +134,16 @@ export class DeterministicPrioritizer {
         reasons.push('Product Criticality: Part of MEDIUM criticality product capability (+5 pts)');
       }
 
-      // 5. Status, Attempts & Redundancy Cooldown
+      // 5. Role & Authorization Boundary Modifier
+      if (candidate.isAuthorizationBoundary) {
+        baseScore += 25;
+        reasons.push('Security: Deterministic authorization boundary verification target (+25 pts)');
+      } else if (candidate.authenticated) {
+        baseScore += 10;
+        reasons.push('Authenticated Target: Verified role session context (+10 pts)');
+      }
+
+      // 6. Status, Attempts & Redundancy Cooldown
       if (completed.has(candidate.id) || candidate.status === 'EXECUTED') {
         baseScore -= 40;
         reasons.push('Redundancy penalty: Target previously executed in this test run');

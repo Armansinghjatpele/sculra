@@ -31,12 +31,13 @@ export class ProductModelBuilder {
   /**
    * Constructs the full grounded ProductModel from discovery, execution evidence, and optional AI enhancement.
    */
-  public static async build(options: {
+  static async build(options: {
     testRunId: string;
     targetUrl: string;
     applicationMap?: ApplicationMap;
     journeyResults?: JourneyResult[];
     bugObservations?: BugObservation[];
+    roleContexts?: import('../auth/types').RoleContext[];
     provider?: AIQAProvider;
     logger?: WorkerLogger;
     engineOptions?: ProductEngineOptions;
@@ -48,6 +49,7 @@ export class ProductModelBuilder {
       applicationMap,
       journeyResults = [],
       bugObservations = [],
+      roleContexts,
       provider,
       logger,
       engineOptions = {},
@@ -72,7 +74,7 @@ export class ProductModelBuilder {
     const features = FeatureDiscoveryEngine.discoverFeatures(pages, pageClassifications);
 
     // 4. Discover Roles
-    const roles = RoleDiscoveryEngine.discoverRoles(pages, pageClassifications, features);
+    const roles = RoleDiscoveryEngine.discoverRoles(pages, pageClassifications, features, roleContexts);
 
     // 5. Discover Workflows
     const workflows = WorkflowDiscoveryEngine.discoverWorkflows({

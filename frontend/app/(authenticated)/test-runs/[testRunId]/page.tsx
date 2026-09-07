@@ -133,6 +133,22 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
     .filter((e) => e.type === 'product_workflow')
     .map((e) => e.metadata?.workflow)
     .filter(Boolean);
+  const authSessions: any[] = evidence
+    .filter((e) => e.type === 'authenticated_session')
+    .map((e) => e.metadata)
+    .filter(Boolean);
+  const roleContexts: any[] = evidence
+    .filter((e) => e.type === 'role_context')
+    .map((e) => e.metadata?.roleContext)
+    .filter(Boolean);
+  const authChecks: any[] = evidence
+    .filter((e) => e.type === 'authorization_check' || e.type === 'unauthorized_access')
+    .map((e) => e.metadata?.authorizationCheck)
+    .filter(Boolean);
+  const roleComparisons: any[] = evidence
+    .filter((e) => e.type === 'role_difference')
+    .map((e) => e.metadata?.comparison)
+    .filter(Boolean);
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -341,6 +357,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           <TabsTrigger value="issues">
             Issues Detected {issues.length > 0 && `(${issues.length})`}
           </TabsTrigger>
+          <TabsTrigger value="auth">
+            Auth & Roles {(roleContexts.length > 0 || authChecks.length > 0 || authSessions.length > 0) && `(${roleContexts.length || authChecks.length || authSessions.length})`}
+          </TabsTrigger>
           <TabsTrigger value="responsive">
             Responsive QA {responsiveObservations.length > 0 && `(${responsiveObservations.length})`}
           </TabsTrigger>
@@ -451,6 +470,274 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
               </div>
             ) : (
               <IssueList issues={issues} />
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Auth & Roles */}
+        <TabsContent value="auth">
+          <div className="mt-4 space-y-6 font-mono">
+            {/* Header Banner */}
+            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">
+                    Authenticated & Role-Based QA Foundation
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded bg-accent/15 border border-accent/30 text-accent text-[10px] uppercase font-bold">
+                    Method: Form Login (Isolated Contexts)
+                  </span>
+                  {authChecks.some((c) => c.unauthorizedAccessDetected || c.verdict === 'UNAUTHORIZED_ACCESS') ? (
+                    <span className="px-2.5 py-0.5 rounded bg-danger/20 border border-danger/40 text-danger text-[10px] uppercase font-bold animate-pulse">
+                      Security Alert: Unauthorized Access Detected
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded bg-success/10 border border-success/20 text-success text-[10px] uppercase font-bold">
+                      Authorization Intact
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-3xs max-w-2xl">
+                  Evaluates authenticated user flows in isolated Playwright browser contexts, discovers role-specific surfaces, and deterministically validates access-control boundaries across configured identities.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Role Contexts</span>
+                <span className="text-sm font-bold text-accent font-mono">
+                  {roleContexts.length} Identities Authenticated
+                </span>
+              </div>
+            </div>
+
+            {/* Critical Security Alert Banner if unauthorized access detected */}
+            {authChecks.some((c) => c.unauthorizedAccessDetected || c.verdict === 'UNAUTHORIZED_ACCESS') && (
+              <div className="border border-danger/40 bg-danger/10 rounded-2xl p-5 space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="h-7 w-7 rounded-full bg-danger/20 border border-danger/40 flex items-center justify-center text-danger font-bold text-sm">
+                    ✕
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-danger uppercase tracking-wider">
+                      Critical Security Violation: UNAUTHORIZED_ACCESS Detected
+                    </h4>
+                    <p className="text-3xs text-muted-foreground mt-0.5">
+                      A non-privileged role accessed one or more protected administrative or private endpoints without expected HTTP 401/403 or denial redirects.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {roleContexts.length === 0 && authSessions.length === 0 && authChecks.length === 0 ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground">
+                No authenticated test identities or authorization checks configured for this run.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Authenticated Role Contexts Strip */}
+                {roleContexts.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Authenticated Role Contexts ({roleContexts.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {roleContexts.map((rc: any, idx: number) => (
+                        <div key={idx} className="p-4 bg-zinc-900/40 border border-white/10 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-success" />
+                              <span className="text-sm font-bold text-foreground">{rc.roleName}</span>
+                              <span className="px-2 py-0.5 rounded bg-white/10 text-muted-foreground text-[10px] font-bold">
+                                Identity: {rc.identityUsername}
+                              </span>
+                            </div>
+                            <span className="text-3xs text-muted-foreground">
+                              {rc.discoveredRoutes?.length || 0} Routes Discovered
+                            </span>
+                          </div>
+
+                          {/* Discovered Routes */}
+                          <div className="space-y-1">
+                            <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">
+                              Discovered Surface Routes:
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {(rc.discoveredRoutes || []).map((route: string, rIdx: number) => (
+                                <span
+                                  key={rIdx}
+                                  className="px-2 py-0.5 rounded bg-zinc-800 text-foreground text-[10px] border border-white/5 font-mono"
+                                >
+                                  {route}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Available Actions */}
+                          {rc.availableActions && rc.availableActions.length > 0 && (
+                            <div className="space-y-1 pt-1 border-t border-white/5">
+                              <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">
+                                Role-Accessible Actions ({rc.availableActions.length}):
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {rc.availableActions.slice(0, 6).map((act: any, aIdx: number) => (
+                                  <span
+                                    key={aIdx}
+                                    className="px-1.5 py-0.5 rounded bg-accent/10 text-accent text-[9px] border border-accent/20"
+                                  >
+                                    [{act.type}] {act.description || act.selector}
+                                  </span>
+                                ))}
+                                {rc.availableActions.length > 6 && (
+                                  <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-muted-foreground text-[9px]">
+                                    +{rc.availableActions.length - 6} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deterministic Authorization Checks */}
+                {authChecks.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Deterministic Authorization Checks ({authChecks.length})
+                    </h3>
+                    <div className="border border-white/10 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-3xs">
+                        <thead className="bg-white/5 text-muted-foreground border-b border-white/10">
+                          <tr>
+                            <th className="p-3 font-semibold">Role Tested</th>
+                            <th className="p-3 font-semibold">Target Route</th>
+                            <th className="p-3 font-semibold">Expected Behavior</th>
+                            <th className="p-3 font-semibold">Actual Response</th>
+                            <th className="p-3 font-semibold">Verdict</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 bg-zinc-950/40">
+                          {authChecks.map((chk: any, cIdx: number) => {
+                            const isViolation = chk.unauthorizedAccessDetected || chk.verdict === 'UNAUTHORIZED_ACCESS';
+                            const isPass = chk.passed;
+
+                            return (
+                              <tr key={cIdx} className={`hover:bg-white/5 ${isViolation ? 'bg-danger/10' : ''}`}>
+                                <td className="p-3">
+                                  <span className="font-bold text-foreground">{chk.roleName}</span>
+                                </td>
+                                <td className="p-3 font-mono text-accent">{chk.targetRoute}</td>
+                                <td className="p-3">
+                                  <span className="px-2 py-0.5 rounded bg-zinc-800 text-muted-foreground text-4xs uppercase">
+                                    {chk.expectedBehavior}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-muted-foreground">
+                                  <span>HTTP {chk.actualStatus}</span>
+                                  {chk.finalUrl && chk.finalUrl !== chk.targetRoute && (
+                                    <span className="block text-4xs text-muted-foreground truncate max-w-xs">
+                                      Redirect: {chk.finalUrl}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-4xs font-bold uppercase ${
+                                      isViolation
+                                        ? 'bg-danger/20 text-danger border border-danger/40 animate-pulse'
+                                        : isPass
+                                        ? 'bg-success/20 text-success border border-success/30'
+                                        : 'bg-warning/20 text-warning border border-warning/30'
+                                    }`}
+                                  >
+                                    {chk.verdict}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Role Surface Difference & Comparison */}
+                {roleComparisons.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Role Surface Differences & Access Boundaries
+                    </h3>
+                    <div className="space-y-4">
+                      {roleComparisons.map((comp: any, cmpIdx: number) => (
+                        <div key={cmpIdx} className="p-5 bg-zinc-950/50 border border-white/10 rounded-2xl space-y-4">
+                          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                            <span className="text-xs font-bold text-foreground">
+                              Boundary Comparison: <span className="text-accent">{comp.roleA}</span> vs <span className="text-accent">{comp.roleB}</span>
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Role A Exclusive */}
+                            <div className="p-3 bg-zinc-900/40 rounded-xl border border-white/5 space-y-2">
+                              <span className="text-4xs uppercase tracking-widest text-accent font-bold block">
+                                {comp.roleA} Exclusive Routes ({comp.roleAExclusiveRoutes?.length || 0})
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {(comp.roleAExclusiveRoutes || []).map((r: string, rIdx: number) => (
+                                  <span key={rIdx} className="px-2 py-0.5 rounded bg-accent/10 text-accent text-[10px] font-mono">
+                                    {r}
+                                  </span>
+                                ))}
+                                {(!comp.roleAExclusiveRoutes || comp.roleAExclusiveRoutes.length === 0) && (
+                                  <span className="text-4xs text-muted-foreground">None</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Common Shared */}
+                            <div className="p-3 bg-zinc-900/40 rounded-xl border border-white/5 space-y-2">
+                              <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">
+                                Shared Common Routes ({comp.commonRoutes?.length || 0})
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {(comp.commonRoutes || []).map((r: string, rIdx: number) => (
+                                  <span key={rIdx} className="px-2 py-0.5 rounded bg-zinc-800 text-muted-foreground text-[10px] font-mono">
+                                    {r}
+                                  </span>
+                                ))}
+                                {(!comp.commonRoutes || comp.commonRoutes.length === 0) && (
+                                  <span className="text-4xs text-muted-foreground">None</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Role B Exclusive */}
+                            <div className="p-3 bg-zinc-900/40 rounded-xl border border-white/5 space-y-2">
+                              <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">
+                                {comp.roleB} Exclusive Routes ({comp.roleBExclusiveRoutes?.length || 0})
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {(comp.roleBExclusiveRoutes || []).map((r: string, rIdx: number) => (
+                                  <span key={rIdx} className="px-2 py-0.5 rounded bg-zinc-800 text-muted-foreground text-[10px] font-mono">
+                                    {r}
+                                  </span>
+                                ))}
+                                {(!comp.roleBExclusiveRoutes || comp.roleBExclusiveRoutes.length === 0) && (
+                                  <span className="text-4xs text-muted-foreground">None</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </TabsContent>

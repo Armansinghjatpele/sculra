@@ -37,6 +37,7 @@ export interface CalculateAssessmentOptions {
   networkErrors?: CapturedNetworkError[];
   aiQaStateSummary?: AIQAStateSummary;
   productModel?: import('../product/types').ProductModel;
+  authorizationResults?: import('../auth/types').AuthorizationCheckResult[];
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -459,12 +460,27 @@ export class DeterministicReleaseScorer {
       );
       if (failedCriticalWorkflows.length > 0) {
         blockers.push({
-          id: 'blocker-critical-workflow-failure',
-          title: 'Business-Critical Workflow Failure',
-          reason: `${failedCriticalWorkflows.length} high/critical business workflow(s) failed during execution: ${failedCriticalWorkflows.map((w) => w.name).join(', ')}.`,
+          id: 'blocker-product-workflow-critical',
+          title: `Broken Business-Critical Workflow (${failedCriticalWorkflows[0].name})`,
+          reason: `Business-critical user workflow "${failedCriticalWorkflows[0].name}" failed execution. Goal: ${failedCriticalWorkflows[0].goal}`,
           category: 'functional',
           severity: 'critical',
-          evidenceSummary: failedCriticalWorkflows.map((w) => `${w.name} [${w.criticality.level}]`).join('; '),
+          evidenceSummary: `Criticality score ${failedCriticalWorkflows[0].criticality.score}/100 with ${failedCriticalWorkflows[0].steps.length} steps.`,
+        });
+      }
+    }
+
+    // Blocker 6: Unauthorized Access Violation
+    if (options.authorizationResults) {
+      const unauthorizedViolations = options.authorizationResults.filter((a) => a.isUnauthorizedAccess);
+      for (const unauth of unauthorizedViolations) {
+        blockers.push({
+          id: `blocker-auth-violation-${unauth.path.replace(/[^a-z0-9]/gi, '_')}`,
+          title: `Security Violation: Unauthorized Access (${unauth.role} -> ${unauth.path})`,
+          reason: `Role "${unauth.role}" was granted access to restricted route "${unauth.path}" violating authorization boundary.`,
+          category: 'functional',
+          severity: 'critical',
+          evidenceSummary: unauth.evidence.join('; '),
         });
       }
     }

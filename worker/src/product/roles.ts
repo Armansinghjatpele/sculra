@@ -5,6 +5,8 @@
 import { DiscoveredPage } from '../types';
 import { ProductRole, SemanticPageClassification, ProductFeature } from './types';
 
+import { RoleContext } from '../auth/types';
+
 export class RoleDiscoveryEngine {
   /**
    * Discovers plausible user roles strictly grounded in observed routes and controls.
@@ -12,7 +14,8 @@ export class RoleDiscoveryEngine {
   public static discoverRoles(
     pages: DiscoveredPage[],
     classifications: SemanticPageClassification[],
-    features: ProductFeature[]
+    features: ProductFeature[],
+    roleContexts?: RoleContext[]
   ): ProductRole[] {
     const rolesMap = new Map<string, ProductRole>();
 
@@ -133,6 +136,38 @@ export class RoleDiscoveryEngine {
         'Can select product plans, manage subscriptions, and process checkout transactions.',
         'INFERRED'
       );
+    }
+
+    // 5. Strengthen roles with authenticated test session evidence
+    if (roleContexts && roleContexts.length > 0) {
+      for (const ctx of roleContexts) {
+        if (ctx.authenticated) {
+          const roleId = `role-${ctx.roleId.toLowerCase().replace(/^role-/, '')}`;
+          const existing = rolesMap.get(roleId);
+          if (existing) {
+            existing.status = 'OBSERVED';
+            existing.confidence = 1.0;
+            const ev = `Authenticated test session executed under role "${ctx.roleName}" (${ctx.discoveredPageUrls.length} pages discovered).`;
+            if (!existing.evidence.includes(ev)) {
+              existing.evidence.push(ev);
+            }
+            for (const cap of ctx.capabilities) {
+              if (!existing.observedCapabilities.includes(cap)) {
+                existing.observedCapabilities.push(cap);
+              }
+            }
+          } else {
+            addRole(
+              ctx.roleId.toLowerCase().replace(/^role-/, ''),
+              ctx.roleName,
+              1.0,
+              `Authenticated test session verified under role "${ctx.roleName}".`,
+              'Verified authenticated test identity.',
+              'OBSERVED'
+            );
+          }
+        }
+      }
     }
 
     return Array.from(rolesMap.values());

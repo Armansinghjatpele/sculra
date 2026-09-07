@@ -408,3 +408,63 @@ flowchart TD
    - **Test Strategy Engine**: Enriches candidate targets with workflow criticality multipliers (+20 bonus for `CRITICAL` workflows).
    - **Release Readiness Engine**: Flags failures in business-critical workflows as hard blockers with risk escalation.
    - **Persistence & UI**: Stores `product_model` and `product_workflow` in `public.test_evidence` and renders the rich **Product Understanding** dashboard tab on `/test-runs/[testRunId]`.
+
+---
+
+## 13. Authenticated & Role-Based QA Foundation (MVP)
+
+> **Important Architecture & Security Principle**: *Zero Credential Exposure.* Passwords, API tokens, session cookies, and authorization headers exist strictly in volatile memory during form login execution and are **never** passed to AI providers, stored in `test_evidence`, recorded in `issues`, or emitted in logs.
+>
+> > [!NOTE]
+> > `EnvironmentSecretProvider` is an MVP/local configuration mechanism, not a production secret vault. Production enterprise deployments should integrate with hardened secret management systems (e.g., AWS Secrets Manager, HashiCorp Vault, Azure Key Vault).
+
+```mermaid
+flowchart TD
+    Config[Test Identities & Auth Config] --> SecretProv[SecretProvider: EnvironmentSecretProvider]
+    SecretProv --> FormLogin[FormLoginEngine: Pure Playwright Actuator]
+    
+    FormLogin --> BrowserContext[Isolated Playwright BrowserContext per Role]
+    BrowserContext --> AuthVerify[Deterministic AuthVerifier]
+    
+    AuthVerify -->|SUCCESS| AuthDiscovery[Authenticated Application Discovery]
+    AuthDiscovery --> RoleCtx[RoleContext: Routes & Available Actions]
+    
+    RoleCtx --> RoleComp[RoleComparator: Role Surface Matrix]
+    RoleCtx --> RolePromote[RoleDiscoveryEngine: HYPOTHESIZED -> OBSERVED]
+    
+    BrowserContext --> AuthzEval[AuthorizationEvaluator: Deterministic Access Boundary Checks]
+    AuthzEval -->|Expected 401/403 / Redirect / Text| AuthzPass[PASS_DENIED]
+    AuthzEval -->|Unexpected 200 OK on Protected Route| UnauthAccess[UNAUTHORIZED_ACCESS Security Defect]
+    
+    UnauthAccess --> Blocker[Release Readiness Blocker 6]
+    RoleCtx --> Strategy[Test Strategy Engine: +10 Authenticated, +25 Boundary Bonus]
+    
+    AuthzPass & UnauthAccess & RoleCtx & RoleComp --> Redactor[AuthRedaction: Zero Credential Exposure]
+    Redactor --> Persistence[(Supabase test_evidence: authenticated_session, role_context, authorization_check, role_difference)]
+```
+
+### Core Components (`worker/src/auth/`)
+1. **Secret Management (`secrets.ts`)**:
+   - `SecretProvider`: Interface resolving secret references (`env:VAR_NAME` or `raw:VALUE`) in memory.
+   - `EnvironmentSecretProvider`: Retrieves credentials from system environment variables without writing to disk or logs.
+2. **Zero Credential Exposure & Redaction Engine (`redaction.ts`)**:
+   - Redacts passwords, API keys, tokens, session cookies, and authorization headers from strings, nested objects, and telemetry.
+   - Strips sensitive query parameters from URLs and replaces values with `[REDACTED]`.
+3. **Deterministic Form Login Engine (`form-login.ts`, `verifier.ts`)**:
+   - `FormLoginEngine`: Identifies login forms using semantic selectors (`input[type="email"]`, `input[type="password"]`, `button[type="submit"]`), injects credentials in memory, and submits.
+   - `AuthVerifier`: Confirms successful session establishment by verifying URL transition away from login, disappearance of password field, emergence of authenticated UI elements (avatar, user menu, dashboard links), and presence of session cookies.
+4. **Session Isolation via Playwright `BrowserContext`**:
+   - Each test identity (`ADMIN`, `MEMBER`, etc.) executes in a clean, isolated `BrowserContext`.
+   - Storage state, cookies, and localStorage are completely partitioned between identities to prevent session cross-contamination.
+5. **Role Discovery & Product Model Promotion (`worker/src/product/roles.ts`)**:
+   - Discovered role contexts populate observed routes and accessible actions into the `ProductModel`.
+   - Inferred roles are promoted from `HYPOTHESIZED` to `OBSERVED` with 100% confidence.
+6. **Deterministic Authorization Evaluation (`authorization.ts`)**:
+   - `AuthorizationEvaluator`: Tests role access boundaries on protected routes against explicit rules (`ALLOW`, `DENY_401_403`, `DENY_REDIRECT`, `DENY_ACCESS_TEXT`).
+   - Flags `UNAUTHORIZED_ACCESS` if a non-privileged identity successfully accesses a protected endpoint without expected access denial.
+7. **Role Surface Comparison Matrix (`comparator.ts`)**:
+   - `RoleComparator`: Computes set differences between role surfaces, identifying role-exclusive routes (e.g., admin panels) and common shared surfaces.
+8. **Strategy & Release Readiness Integrations**:
+   - `Prioritizer`: Applies deterministic priority bonuses (+10 for authenticated targets, +25 for authorization boundaries).
+   - `ReleaseReadiness`: Implements Blocker 6 (`UNAUTHORIZED_ACCESS: Critical security access boundary violation detected`).
+   - `test_evidence`: Persists `authenticated_session`, `role_context`, `authorization_check`, `role_difference`, and `unauthorized_access` evidence rows with zero credentials.

@@ -29,6 +29,7 @@ export interface DiscoveryOptions {
   allowLocalhost?: boolean;
   cancellationToken?: CancellationToken;
   logger?: WorkerLogger;
+  existingContext?: BrowserContext;
 }
 
 const DEFAULT_VIEWPORTS: ViewportConfig[] = [
@@ -53,10 +54,12 @@ export class ApplicationDiscovery {
   private allowLocalhost: boolean;
   private cancellationToken?: CancellationToken;
   private logger: WorkerLogger;
+  private options: DiscoveryOptions;
 
   constructor(browser: Browser, startUrl: string, options: DiscoveryOptions = {}) {
     this.browser = browser;
     this.startUrl = startUrl;
+    this.options = options;
     this.limits = { ...DEFAULT_DISCOVERY_LIMITS, ...(options.limits || {}) };
     this.allowLocalhost = options.allowLocalhost ?? false;
     this.cancellationToken = options.cancellationToken;
@@ -83,13 +86,14 @@ export class ApplicationDiscovery {
 
     let context: BrowserContext | null = null;
     let page: Page | null = null;
+    const isExternalContext = !!this.options.existingContext;
 
     try {
-      context = await this.browser.newContext({
+      context = this.options.existingContext || (await this.browser.newContext({
         viewport: { width: 1280, height: 720 },
         userAgent: 'Sculra-Autonomous-Discovery-Engine/1.0',
         ignoreHTTPSErrors: false,
-      });
+      }));
 
       page = await context.newPage();
       page.setDefaultNavigationTimeout(15000);
@@ -534,7 +538,7 @@ export class ApplicationDiscovery {
       }
     } finally {
       if (page) await page.close().catch(() => {});
-      if (context) await context.close().catch(() => {});
+      if (!isExternalContext && context) await context.close().catch(() => {});
     }
 
     // Calculate totals across application map

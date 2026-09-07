@@ -10,6 +10,16 @@ export interface ViewportConfig {
   name: 'desktop' | 'tablet' | 'mobile';
 }
 
+import {
+  AuthenticationConfig,
+  TestIdentity,
+  AuthenticatedSession,
+  RoleContext,
+  AuthorizationCheckConfig,
+  AuthorizationCheckResult,
+  RoleComparisonResult,
+} from './auth/types';
+
 export interface RunnerOptions {
   browserType?: BrowserType;
   headless?: boolean;
@@ -21,6 +31,9 @@ export interface RunnerOptions {
   enableVisual?: boolean;
   enableAiQa?: boolean;
   aiQaConfig?: AIQAConfig;
+  authConfig?: AuthenticationConfig;
+  testIdentities?: TestIdentity[];
+  authorizationChecks?: AuthorizationCheckConfig[];
   viewport?: {
     width: number;
     height: number;
@@ -170,6 +183,10 @@ export interface TestExecutionResult {
   strategyTargets?: import('./strategy/types').TestTarget[];
   productModel?: import('./product/types').ProductModel;
   productCoverage?: import('./product/types').CoverageAgainstProductModel;
+  authenticatedSessions?: AuthenticatedSession[];
+  roleContexts?: RoleContext[];
+  authorizationResults?: AuthorizationCheckResult[];
+  roleComparisons?: RoleComparisonResult[];
   failureReason?: string;
 }
 

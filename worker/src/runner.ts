@@ -22,6 +22,17 @@ import { DeterministicIssueClassifier, BugObservation } from './issues';
 import { ResponsiveVisualEngine, ResponsiveExecutionResult } from './visual';
 import { AIQAOrchestrator, AIQAPlan, AIQAResult } from './ai-qa';
 import { ProductModelBuilder, ProductModel, CoverageAgainstProductModel } from './product';
+import {
+  FormLoginEngine,
+  EnvironmentSecretProvider,
+  AuthorizationEvaluator,
+  RoleComparator,
+  AuthenticatedSession,
+  RoleContext,
+  AuthorizationCheckResult,
+  RoleComparisonResult,
+  TestIdentity,
+} from './auth';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -52,6 +63,9 @@ export class BrowserRunner {
       enableVisual: options.enableVisual ?? true,
       enableAiQa: options.enableAiQa ?? true,
       aiQaConfig: options.aiQaConfig,
+      authConfig: options.authConfig,
+      testIdentities: options.testIdentities,
+      authorizationChecks: options.authorizationChecks,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -105,6 +119,10 @@ export class BrowserRunner {
     let strategyTargets: import('./strategy/types').TestTarget[] | undefined;
     let productModel: ProductModel | undefined;
     let productCoverage: CoverageAgainstProductModel | undefined;
+    let authenticatedSessions: AuthenticatedSession[] = [];
+    let roleContexts: RoleContext[] = [];
+    let authorizationResults: AuthorizationCheckResult[] = [];
+    let roleComparisons: RoleComparisonResult[] = [];
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -477,7 +495,172 @@ export class BrowserRunner {
           mediumCount: bugObservations.filter((b) => b.severity === 'medium').length,
         });
 
-        // Set test run failure if deterministic functional or visual bugs were detected
+        // 12.5 Authenticated Test Identities, Role Discovery & Authorization Checks
+        const identities: TestIdentity[] = this.options.testIdentities
+          ? [...this.options.testIdentities]
+          : this.options.authConfig
+          ? [
+              {
+                id: 'identity-primary',
+                name: `${this.options.authConfig.role} Test Identity`,
+                role: this.options.authConfig.role,
+                authMethod: this.options.authConfig.method,
+                status: 'ACTIVE',
+                loginUrl: this.options.authConfig.loginUrl,
+                usernameSecretRef: this.options.authConfig.usernameSecretRef,
+                passwordSecretRef: this.options.authConfig.passwordSecretRef,
+                successIndicator: this.options.authConfig.successIndicator,
+                usernameFieldSelector: this.options.authConfig.usernameFieldSelector,
+                passwordFieldSelector: this.options.authConfig.passwordFieldSelector,
+                submitButtonSelector: this.options.authConfig.submitButtonSelector,
+              },
+            ]
+          : [];
+
+        if (identities.length > 0 && browser && !cancellationToken?.isCancelled) {
+          this.logger.log('authenticated_testing_initiated', { identitiesCount: identities.length });
+          const secretProvider = new EnvironmentSecretProvider();
+          const roleAppMaps = new Map<string, ApplicationMap>();
+
+          for (const identity of identities) {
+            if (identity.status === 'DISABLED' || cancellationToken?.isCancelled) continue;
+
+            let authContext: BrowserContext | null = null;
+            try {
+              authContext = await browser.newContext({
+                viewport: this.options.viewport,
+                userAgent: 'Sculra-Autonomous-QA-Engine/1.0',
+                ignoreHTTPSErrors: false,
+              });
+
+              // 1. Authenticate Identity
+              const session = await FormLoginEngine.login(
+                authContext,
+                identity,
+                secretProvider,
+                {
+                  timeoutMs: this.options.navigationTimeoutMs,
+                  logger: this.logger,
+                }
+              );
+              authenticatedSessions.push(session);
+
+              if (session.authenticated) {
+                // 2. Authenticated Application Discovery
+                this.logger.log('authenticated_discovery_started', { role: identity.role, identityId: identity.id });
+                const discoveryStartUrl = session.finalUrl || safeUrl;
+                const authDiscovery = new ApplicationDiscovery(browser, discoveryStartUrl, {
+                  limits: this.options.discoveryLimits,
+                  allowLocalhost: this.options.allowLocalhost,
+                  cancellationToken,
+                  logger: this.logger,
+                  existingContext: authContext,
+                });
+
+                const roleMap = await authDiscovery.discover();
+                session.discoveredPagesCount = roleMap.totalPages;
+                roleAppMaps.set(identity.role, roleMap);
+
+                this.logger.log('authenticated_discovery_completed', {
+                  role: identity.role,
+                  pagesCount: roleMap.totalPages,
+                });
+
+                // Create RoleContext
+                const roleCtx: RoleContext = {
+                  identityId: identity.id,
+                  roleId: `role-${identity.role.toLowerCase()}`,
+                  roleName: identity.name || identity.role,
+                  authenticated: true,
+                  capabilities:
+                    identity.role.toUpperCase() === 'ADMIN'
+                      ? ['Admin console access', 'User management', 'Workspace administration']
+                      : ['Workspace project access', 'Standard member capabilities'],
+                  workflowIds: [],
+                  discoveredPageUrls: roleMap.pages.map((p) => p.url),
+                };
+                roleContexts.push(roleCtx);
+
+                // 3. Deterministic Authorization Checks
+                const matchingChecks = (this.options.authorizationChecks || []).filter(
+                  (c) => c.role.toUpperCase() === identity.role.toUpperCase()
+                );
+
+                for (const check of matchingChecks) {
+                  if (cancellationToken?.isCancelled) break;
+                  const authResult = await AuthorizationEvaluator.evaluateCheck(
+                    authContext,
+                    safeUrl,
+                    check,
+                    this.logger
+                  );
+                  authorizationResults.push(authResult);
+
+                  if (authResult.isUnauthorizedAccess) {
+                    // Generate deterministic security bug observation
+                    bugObservations.push({
+                      id: `bug-unauth-${this.testRunId}-${identity.role.toLowerCase()}-${Date.now()}`,
+                      testRunId: this.testRunId,
+                      projectId: this.projectId || 'unassigned',
+                      type: 'UNKNOWN_FUNCTIONAL_FAILURE',
+                      severity: 'critical',
+                      confidence: 'high',
+                      status: 'open',
+                      title: `Security Violation: Unauthorized Access (${identity.role} -> ${check.path})`,
+                      summary: `Role "${identity.role}" was granted access to restricted route "${check.path}" violating authorization boundaries.`,
+                      description: `Observed unauthorized access to ${check.path}. Evidence: ${authResult.evidence.join('; ')}`,
+                      url: authResult.finalUrl || safeUrl,
+                      reproductionSteps: [
+                        {
+                          stepNumber: 1,
+                          action: 'AUTHENTICATE',
+                          target: `Role ${identity.role}`,
+                          url: identity.loginUrl,
+                          expectedBehavior: `Authenticate as ${identity.role}`,
+                          observedBehavior: 'Authenticated successfully',
+                        },
+                        {
+                          stepNumber: 2,
+                          action: 'NAVIGATE',
+                          target: check.path,
+                          url: check.path,
+                          expectedBehavior: 'Access Denied (401/403 or redirect)',
+                          observedBehavior: `Access Granted (${authResult.statusCode || '200 OK'})`,
+                        },
+                      ],
+                      fingerprint: `unauthorized_access_${identity.role.toLowerCase()}_${check.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                      timestamp: new Date().toISOString(),
+                    });
+                  }
+                }
+              }
+            } catch (authErr: any) {
+              this.logger.warn('authenticated_testing_identity_error', {
+                identityId: identity.id,
+                error: authErr.message,
+              });
+            } finally {
+              if (authContext) {
+                await authContext.close().catch(() => {});
+              }
+            }
+          }
+
+          // 4. Deterministic Role Surface Comparison
+          if (roleAppMaps.has('ADMIN') && (roleAppMaps.has('MEMBER') || applicationMap)) {
+            const adminMap = roleAppMaps.get('ADMIN')!;
+            const memberMap = roleAppMaps.get('MEMBER') || applicationMap!;
+            const comparison = RoleComparator.compareRoleSurfaces(
+              'ADMIN',
+              adminMap,
+              roleAppMaps.has('MEMBER') ? 'MEMBER' : 'PUBLIC',
+              memberMap
+            );
+            roleComparisons.push(comparison);
+          }
+        }
+
+        // Set test run failure if deterministic functional, visual, or security bugs were detected
         if (
           !cancellationToken?.isCancelled &&
           bugObservations.some(
@@ -499,6 +682,7 @@ export class BrowserRunner {
               applicationMap,
               journeyResults,
               bugObservations,
+              roleContexts,
               logger: this.logger,
               cancellationToken,
             });
@@ -538,6 +722,8 @@ export class BrowserRunner {
       totalPagesDiscovered: applicationMap?.totalPages || 0,
       journeysExecuted: journeyResults?.length || 0,
       bugsDetected: bugObservations.length,
+      authenticatedSessionsCount: authenticatedSessions.length,
+      authorizationChecksCount: authorizationResults.length,
     });
 
     return {
@@ -560,6 +746,10 @@ export class BrowserRunner {
       strategyTargets,
       productModel,
       productCoverage,
+      authenticatedSessions,
+      roleContexts,
+      authorizationResults,
+      roleComparisons,
       failureReason,
     };
   }

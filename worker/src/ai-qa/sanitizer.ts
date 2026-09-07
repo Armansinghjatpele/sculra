@@ -13,8 +13,8 @@ const SECRET_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
   { pattern: /sbp_[a-zA-Z0-9]{20,}/g, replacement: '[REDACTED_SUPABASE_KEY]' },
   { pattern: /sk_live_[a-zA-Z0-9]{20,}/g, replacement: '[REDACTED_SECRET_KEY]' },
   { pattern: /pk_live_[a-zA-Z0-9]{20,}/g, replacement: '[REDACTED_PUBLIC_KEY]' },
-  // Generic API keys and hex secrets
-  { pattern: /(api[_-]?key|secret|token|password|auth|credential)\s*[:=]\s*["']?([a-zA-Z0-9_\-]{8,})["']?/gi, replacement: '$1: "[REDACTED_SECRET]"' },
+  // Generic API keys, passwords, cookies and hex secrets
+  { pattern: /(api[_-]?key|secret|token|password|auth|credential|cookie|session)\s*[:=]\s*["']?([a-zA-Z0-9_\-.~+/]{6,})["']?/gi, replacement: '$1: "[REDACTED_SECRET]"' },
   // Credit cards
   { pattern: /\b(?:\d{4}[ -]?){3}\d{4}\b/g, replacement: '[REDACTED_CARD]' },
   // SSNs

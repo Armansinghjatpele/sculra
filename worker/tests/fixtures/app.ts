@@ -461,6 +461,205 @@ export async function createFixtureServer(): Promise<FixtureServer> {
     } else if (pathname === '/analytics/collect') {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Analytics not found' }));
+    } else if (pathname === '/login') {
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+          const params = new URLSearchParams(body);
+          const username = (params.get('username') || params.get('email') || '').trim().toLowerCase();
+          const password = params.get('password') || '';
+
+          if ((username === 'admin@example.com' || username === 'admin') && password === 'admin123') {
+            res.writeHead(302, {
+              Location: '/dashboard',
+              'Set-Cookie': 'sculra_auth=admin-token; Path=/; HttpOnly; SameSite=Lax',
+            });
+            res.end();
+          } else if ((username === 'member@example.com' || username === 'member') && password === 'member123') {
+            res.writeHead(302, {
+              Location: '/dashboard',
+              'Set-Cookie': 'sculra_auth=member-token; Path=/; HttpOnly; SameSite=Lax',
+            });
+            res.end();
+          } else {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="UTF-8"><title>Sign in — Sculra Target</title></head>
+              <body style="font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem;">
+                <h1>Sign in to your account</h1>
+                <p id="error-msg" style="color: #ef4444; font-weight: bold;">Invalid credentials</p>
+                <form id="login-form" action="/login" method="POST">
+                  <label for="username">Username or Email</label><br/>
+                  <input type="text" id="username" name="username" value="${username}" required /><br/><br/>
+                  <label for="password">Password</label><br/>
+                  <input type="password" id="password" name="password" required /><br/><br/>
+                  <button type="submit" id="login-submit">Sign in</button>
+                </form>
+              </body>
+              </html>
+            `);
+          }
+        });
+        return;
+      }
+
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Sign in — Sculra Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            form { background: #1e293b; padding: 2rem; border-radius: 8px; max-width: 400px; }
+            input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; margin-bottom: 1rem; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: white; }
+            button { background: #0284c7; color: white; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <nav><a href="/" style="color: #38bdf8;">← Back to Home</a></nav>
+          <h1>Sign in to your account</h1>
+          <form id="login-form" action="/login" method="POST">
+            <label for="username">Username or Email</label>
+            <input type="text" id="username" name="username" placeholder="user@example.com" required />
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required />
+            <button type="submit" id="login-submit" data-testid="login-submit">Sign in</button>
+          </form>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/dashboard') {
+      const cookieHeader = req.headers.cookie || '';
+      const isAdmin = /sculra_auth=[^;]*admin/i.test(cookieHeader);
+      const isMember = /sculra_auth=[^;]*member/i.test(cookieHeader);
+
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Workspace Dashboard — Sculra Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            nav { background: #1e293b; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center; }
+            nav a { color: #38bdf8; text-decoration: none; font-weight: bold; }
+            .badge { background: #0369a1; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+          </style>
+        </head>
+        <body>
+          <nav>
+            <a href="/" data-testid="nav-home">Home</a>
+            <a href="/dashboard" data-testid="nav-dashboard">Dashboard</a>
+            <a href="/projects" data-testid="nav-projects">Projects</a>
+            ${isAdmin ? '<a href="/admin/users" data-testid="nav-admin">Admin Users</a>' : ''}
+            <div data-testid="avatar" class="badge">${isAdmin ? 'Role: ADMIN' : isMember ? 'Role: MEMBER' : 'Public'}</div>
+            <button data-testid="logout-btn" onclick="document.cookie='sculra_auth=; Max-Age=0'; location.href='/login';">Log out</button>
+          </nav>
+          <h1>Workspace Dashboard</h1>
+          <p>Welcome to your authenticated workspace session.</p>
+          <div data-testid="dashboard-metrics" style="background: #1e293b; padding: 1.5rem; border-radius: 8px;">
+            <h3>Active Workspace Metrics</h3>
+            <p>Role authorization tier: <strong>${isAdmin ? 'ADMINISTRATOR' : isMember ? 'MEMBER' : 'ANONYMOUS'}</strong></p>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/projects') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Projects List — Sculra Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            nav a { color: #38bdf8; text-decoration: none; margin-right: 1rem; }
+            button { background: #0284c7; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <nav><a href="/dashboard">← Dashboard</a></nav>
+          <h1>Active Workspace Projects</h1>
+          <button id="create-project-btn" data-testid="create-project-btn">Create New Project</button>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/admin/users') {
+      const cookieHeader = req.headers.cookie || '';
+      const isAdmin = /sculra_auth=[^;]*admin/i.test(cookieHeader);
+      const isMember = /sculra_auth=[^;]*member/i.test(cookieHeader);
+
+      if (isAdmin) {
+        res.writeHead(200);
+        res.end(`
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>Admin Users Management — Sculra Target</title>
+            <style>
+              body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+              nav a { color: #38bdf8; text-decoration: none; margin-right: 1rem; }
+              table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+              th, td { border: 1px solid #334155; padding: 0.75rem; text-align: left; }
+              th { background: #1e293b; }
+              button { background: #0284c7; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; }
+            </style>
+          </head>
+          <body>
+            <nav><a href="/dashboard">← Dashboard</a></nav>
+            <h1>Admin Users & Organization Management</h1>
+            <p>Administrative console for role permissions and member management.</p>
+            <button id="invite-btn" data-testid="invite-btn">Invite New Member</button>
+            <table>
+              <thead><tr><th>User ID</th><th>Email</th><th>Role</th></tr></thead>
+              <tbody>
+                <tr><td>usr-1</td><td>admin@example.com</td><td>ADMIN</td></tr>
+                <tr><td>usr-2</td><td>member@example.com</td><td>MEMBER</td></tr>
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `);
+      } else if (isMember) {
+        res.writeHead(403);
+        res.end(`
+          <!DOCTYPE html>
+          <html lang="en">
+          <head><meta charset="UTF-8"><title>403 Forbidden</title></head>
+          <body style="font-family: sans-serif; background: #0b0f19; color: #ef4444; padding: 2rem;">
+            <h1>403 Forbidden</h1>
+            <p>Access denied. Administrator privileges required to view user management console.</p>
+          </body>
+          </html>
+        `);
+      } else {
+        res.writeHead(302, { Location: '/login' });
+        res.end();
+      }
+    } else if (pathname === '/admin/leak-panel') {
+      // Intentionally broken endpoint that leaks protected admin controls even to MEMBER role
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Leaked Admin Panel — Sculra Target</title>
+        </head>
+        <body style="font-family: sans-serif; background: #7f1d1d; color: #fef2f2; padding: 2rem;">
+          <h1>Critical Admin Settings (Unprotected Vulnerability)</h1>
+          <p>This endpoint intentionally omits role checks to test security boundary evaluation.</p>
+        </body>
+        </html>
+      `);
     } else if (pathname === '/server-error') {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Fatal 500 Internal Server Error');
@@ -486,3 +685,5 @@ export async function createFixtureServer(): Promise<FixtureServer> {
     });
   });
 }
+
+export const createTestServer = createFixtureServer;

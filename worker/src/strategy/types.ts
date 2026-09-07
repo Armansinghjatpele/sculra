@@ -71,6 +71,8 @@ export interface TestTarget {
   productFeatureId?: string;
   workflowId?: string;
   roleId?: string;
+  authenticated?: boolean;
+  isAuthorizationBoundary?: boolean;
   criticalityScore?: number;
   criticalityLevel?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
   productReason?: string;
