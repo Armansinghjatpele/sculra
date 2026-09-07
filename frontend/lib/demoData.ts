@@ -72,6 +72,13 @@ export interface TestEvidence {
     | 'authorization_check'
     | 'unauthorized_access'
     | 'role_difference'
+    | 'api_endpoint'
+    | 'api_request'
+    | 'api_response'
+    | 'api_coverage_summary'
+    | 'api_authorization_check'
+    | 'api_failure'
+    | 'api_contract'
     | 'release_report';
   title: string;
   url?: string;

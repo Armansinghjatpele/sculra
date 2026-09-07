@@ -65,6 +65,26 @@ export class DeterministicPrioritizer {
           baseScore = 48;
           reasons.push('Internal route transition path');
           break;
+        case 'API_AUTHORIZATION':
+          baseScore = 80;
+          reasons.push('High intrinsic priority: API role authorization boundary check');
+          break;
+        case 'API_FAILURE':
+          baseScore = 75;
+          reasons.push('High intrinsic priority: Re-verification of previous API failure');
+          break;
+        case 'API_CONTRACT':
+          baseScore = 65;
+          reasons.push('API contract schema and required field validation');
+          break;
+        case 'API_ENDPOINT':
+          baseScore = 60;
+          reasons.push('Discovered API endpoint exploration');
+          break;
+        case 'API_REGRESSION':
+          baseScore = 70;
+          reasons.push('API regression verification target');
+          break;
         default:
           baseScore = 45;
           break;

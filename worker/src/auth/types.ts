@@ -63,6 +63,7 @@ export interface AuthenticatedSession {
   discoveredPagesCount?: number;
   error?: string;
   telemetryEvidence: string[];
+  cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
 }
 
 export interface RoleContext {
@@ -76,9 +77,9 @@ export interface RoleContext {
 }
 
 export interface AuthorizationCheckConfig {
-  name: string;
+  name?: string;
   path: string;
-  expectedAccess: 'ALLOWED' | 'DENIED';
+  expectedAccess?: 'ALLOWED' | 'DENIED' | 'ALLOW' | 'DENY' | 'DENY_401_403' | string;
   role: string;
   expectedRedirectUrl?: string;
 }

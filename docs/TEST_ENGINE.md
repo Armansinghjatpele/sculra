@@ -468,3 +468,66 @@ flowchart TD
    - `Prioritizer`: Applies deterministic priority bonuses (+10 for authenticated targets, +25 for authorization boundaries).
    - `ReleaseReadiness`: Implements Blocker 6 (`UNAUTHORIZED_ACCESS: Critical security access boundary violation detected`).
    - `test_evidence`: Persists `authenticated_session`, `role_context`, `authorization_check`, `role_difference`, and `unauthorized_access` evidence rows with zero credentials.
+
+## 14. API & Backend Autonomous QA Architecture (Prompt 24)
+
+Sculra incorporates a deterministic, bounded API QA engine designed to discover backend API endpoints, execute safe HTTP tests, validate response contracts and JSON schemas, enforce role-based API authorization boundaries, and feed API coverage and reliability metrics directly into the Strategy Engine, Product Model, and Release Readiness scoring.
+
+> [!NOTE]
+> **MVP Scope & Limitation Disclaimer**:
+> This milestone is an API QA foundation, not a complete API security scanner. Automated execution is restricted to safe idempotent methods (`GET`, `HEAD`, `OPTIONS`) by default. Data mutating methods (`POST`, `PUT`, `PATCH`, `DELETE`) require explicit safe test configuration.
+
+### Architecture & Conceptual Flow
+
+```mermaid
+graph TD
+    AppDiscovery[Browser Network Traces / DOM / Project Config / OpenAPI 3.x] --> EndpointDiscovery[ApiEndpointDiscovery: Normalization & Query Redaction]
+    EndpointDiscovery --> ApiModel[ApiEndpoint & Contract Model]
+    ApiModel --> RequestPlanner[Safe Request Planner & Data Generator]
+    
+    RequestPlanner --> Executor[ApiExecutor: SSRF Protection, Timeouts, Body Size Bounds]
+    Executor -->|GET / HEAD / OPTIONS| SafeExec[Auto-Execute]
+    Executor -->|POST / PUT / PATCH / DELETE| MutationGuard{Explicit Safe Config?}
+    MutationGuard -->|No| SkipUnsafe[SKIP_UNSAFE]
+    MutationGuard -->|Yes| MutateExec[Execute Safe Mutation]
+    
+    SafeExec & MutateExec --> Assertions[Deterministic Assertions: Transport, HTTP Status, JSON, Schema Contracts, Role Authorization]
+    Assertions --> IssueIntell[Deterministic Issue Intelligence: 15 API Bug Types]
+    Assertions --> EvidenceStore[(public.test_evidence: api_endpoint, api_response, api_failure, api_coverage_summary)]
+    
+    IssueIntell & EvidenceStore --> StrategyEngine[Strategy Engine: API Targets + Bonuses]
+    IssueIntell & EvidenceStore --> ReleaseScorer[Release Readiness: Blocker 7 for API 5xx / Unauthorized Access]
+    IssueIntell & EvidenceStore --> ProductModel[Product Model: API-Backed Features & Dependencies]
+```
+
+### Core Components (`worker/src/api-qa/`)
+
+1. **Endpoint Normalization & Secret Redaction (`normalizer.ts`)**:
+   - Strips sensitive query parameter values (`token`, `access_token`, `refresh_token`, `api_key`, `apikey`, `key`, `secret`, `password`, `otp`, `code`, `authorization`, `session`, `cookie`, `jwt`) with `[REDACTED]`.
+   - Normalizes path placeholders (`/api/projects/123` -> `/api/projects/{id}`).
+2. **Bounded OpenAPI 3.x Parser (`openapi.ts`)**:
+   - Parses bounded OpenAPI 3.x documents (max document size 2MB, max endpoints 200, max schema depth 8).
+   - Validates document URL against SSRF protections and re-validates redirect destinations.
+   - Malformed OpenAPI documents produce deterministic `API_CONFIGURATION_ERROR` evidence without crashing the worker.
+3. **Deterministic Safe Request Data Generator (`generator.ts`)**:
+   - Generates deterministic sample data for required parameters/schemas (string -> `"sculra-test"`, numbers -> min valid, booleans -> `false`).
+   - Never generates real credentials, payment info, PII, or destructive identifiers.
+4. **Safe HTTP Executor (`executor.ts`)**:
+   - Executes HTTP requests with bounded timeout (default 10s), bounded response size (default 1MB), bounded body size (default 256KB), and bounded redirects (default 3 hops).
+   - Enforces strict SSRF protections and re-validates each redirect destination.
+   - Blocks mutating HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`) unless explicitly configured with `safeToExecute: true`.
+   - Blocks destructive keywords (`delete`, `logout`, `payment`, `purchase`, `transfer`, `withdraw`, `cancel`, `subscription`, `bulk`, etc.).
+   - Injects credentials in-memory only; strictly scrubs sensitive response headers (`Set-Cookie`, `Authorization`, `x-api-key`) from evidence and logs.
+5. **Deterministic Assertions & Contract Validation (`assertions.ts`)**:
+   - Transport assertions: detects timeouts (`API_TIMEOUT`) and network/DNS failures (`API_NETWORK_FAILURE`).
+   - HTTP status assertions: detects 5xx server crashes (`API_HTTP_5XX`), client errors (`API_HTTP_4XX`), and unexpected redirects (`API_UNEXPECTED_REDIRECT`).
+   - Content integrity assertions: verifies JSON syntax (`API_INVALID_JSON`) and content type matches (`API_CONTENT_TYPE_MISMATCH`).
+   - OpenAPI contract assertions: verifies required fields presence (`API_REQUIRED_FIELD_MISSING`) and data types (`API_SCHEMA_VIOLATION`).
+6. **Role-Based API Authorization Evaluator (`authorization.ts`)**:
+   - Tests role boundaries against protected API endpoints.
+   - Validates privileged access (ADMIN -> 200) vs unprivileged access (MEMBER -> 401/403).
+   - Detects `API_UNEXPECTED_AUTHORIZED_ACCESS` when an unauthorized role accesses a restricted endpoint.
+7. **Strategy & Release Readiness Integrations**:
+   - Strategy Prioritizer: Adds target types (`API_ENDPOINT`, `API_AUTHORIZATION`, `API_CONTRACT`, `API_FAILURE`, `API_REGRESSION`) with priority bonuses.
+   - Release Readiness: Adds Blocker 7 (`Critical API 5xx Server Error` and `API_UNEXPECTED_AUTHORIZED_ACCESS`).
+   - Product Model: Links API endpoints to features and workflow dependencies as `OBSERVED` or `HYPOTHESIZED`.

@@ -34,6 +34,9 @@ export interface RunnerOptions {
   authConfig?: AuthenticationConfig;
   testIdentities?: TestIdentity[];
   authorizationChecks?: AuthorizationCheckConfig[];
+  enableApiQa?: boolean;
+  apiConfig?: import('./api-qa/types').ApiProjectConfig;
+  apiLimits?: Partial<import('./api-qa/types').ApiExecutionLimits>;
   viewport?: {
     width: number;
     height: number;
@@ -187,6 +190,10 @@ export interface TestExecutionResult {
   roleContexts?: RoleContext[];
   authorizationResults?: AuthorizationCheckResult[];
   roleComparisons?: RoleComparisonResult[];
+  apiEndpoints?: import('./api-qa/types').ApiEndpoint[];
+  apiTestResults?: import('./api-qa/types').ApiTestResult[];
+  apiObservations?: import('./api-qa/types').ApiResponseObservation[];
+  apiCoverage?: import('./api-qa/types').ApiCoverageSummary;
   failureReason?: string;
 }
 

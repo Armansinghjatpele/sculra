@@ -81,7 +81,10 @@ export function calculateBugSeverity(params: {
 }): BugSeverity {
   const { bugType, statusCode, isInitialPage, targetDescription, selector, isCriticalResource } = params;
 
-  // 1. Catastrophic / Entry Point Failures -> CRITICAL
+  // 1. Catastrophic / Entry Point / Security Failures -> CRITICAL
+  if (bugType === 'API_UNEXPECTED_AUTHORIZED_ACCESS') {
+    return 'critical';
+  }
   if (isInitialPage && (statusCode && statusCode >= 500)) {
     return 'critical';
   }
@@ -90,6 +93,15 @@ export function calculateBugSeverity(params: {
   }
 
   // 2. Primary Navigation / Critical API / Primary CTA -> HIGH
+  if (
+    bugType === 'API_HTTP_5XX' ||
+    bugType === 'API_TIMEOUT' ||
+    bugType === 'API_NETWORK_FAILURE' ||
+    bugType === 'API_AUTHORIZATION_FAILURE' ||
+    bugType === 'API_AUTHENTICATION_FAILURE'
+  ) {
+    return 'high';
+  }
   if (bugType === 'NAVIGATION_FAILURE' || (statusCode && statusCode === 404)) {
     return 'high';
   }
@@ -108,7 +120,19 @@ export function calculateBugSeverity(params: {
     return 'high';
   }
 
-  // 3. Secondary Controls / Forms / Interactions -> MEDIUM
+  // 3. Secondary Controls / Forms / API Content / Schema -> MEDIUM
+  if (
+    bugType === 'API_INVALID_JSON' ||
+    bugType === 'API_SCHEMA_VIOLATION' ||
+    bugType === 'API_REQUIRED_FIELD_MISSING' ||
+    bugType === 'API_RESPONSE_MALFORMED' ||
+    bugType === 'API_HTTP_4XX' ||
+    bugType === 'API_UNEXPECTED_STATUS' ||
+    bugType === 'API_UNEXPECTED_REDIRECT' ||
+    bugType === 'API_CONTENT_TYPE_MISMATCH'
+  ) {
+    return 'medium';
+  }
   if (bugType === 'BROKEN_CONTROL' || bugType === 'CLICK_NO_OP') {
     return 'medium';
   }
@@ -120,6 +144,10 @@ export function calculateBugSeverity(params: {
   }
   if (bugType === 'UNEXPECTED_NAVIGATION' || bugType === 'CLICK_TIMEOUT') {
     return 'medium';
+  }
+
+  if (bugType === 'API_CONFIGURATION_ERROR') {
+    return 'info';
   }
 
   // 4. Low Impact / Recoverable -> LOW

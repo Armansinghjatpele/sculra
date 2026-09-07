@@ -33,6 +33,13 @@ import {
   RoleComparisonResult,
   TestIdentity,
 } from './auth';
+import {
+  ApiQAEngine,
+  ApiEndpoint,
+  ApiTestResult,
+  ApiResponseObservation,
+  ApiCoverageSummary,
+} from './api-qa';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -66,6 +73,9 @@ export class BrowserRunner {
       authConfig: options.authConfig,
       testIdentities: options.testIdentities,
       authorizationChecks: options.authorizationChecks,
+      enableApiQa: options.enableApiQa ?? true,
+      apiConfig: options.apiConfig,
+      apiLimits: options.apiLimits,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -124,6 +134,10 @@ export class BrowserRunner {
     let authorizationResults: AuthorizationCheckResult[] = [];
     let roleComparisons: RoleComparisonResult[] = [];
     let bugObservations: BugObservation[] = [];
+    let apiEndpoints: ApiEndpoint[] = [];
+    let apiTestResults: ApiTestResult[] = [];
+    let apiObservations: ApiResponseObservation[] = [];
+    let apiCoverage: ApiCoverageSummary | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -660,6 +674,55 @@ export class BrowserRunner {
           }
         }
 
+        // 12.6 Deterministic API QA Engine Execution
+        if (this.options.enableApiQa !== false && !cancellationToken?.isCancelled) {
+          this.logger.log('api_qa_execution_initiated');
+          try {
+            const apiEngine = new ApiQAEngine(this.options.apiLimits, this.logger);
+            const networkObs = networkErrors.map((n) => ({
+              url: n.url,
+              method: n.method,
+              status: n.status,
+            }));
+
+            const apiOutput = await apiEngine.execute({
+              testRunId: this.testRunId,
+              projectId: this.projectId || 'unassigned',
+              targetUrl: safeUrl,
+              applicationMap,
+              networkObservations: networkObs,
+              projectConfig: this.options.apiConfig,
+              testIdentities: identities,
+              authenticatedSessions,
+              authorizationChecks: this.options.authorizationChecks?.map((c) => ({
+                path: c.path,
+                method: 'GET',
+                role: c.role,
+                restrictedToRole: c.expectedAccess === 'DENY_401_403' || c.expectedAccess === 'DENIED' || c.expectedAccess === 'DENY' ? 'ADMIN' : c.role,
+                unauthorizedRole: c.expectedAccess === 'DENY_401_403' || c.expectedAccess === 'DENIED' || c.expectedAccess === 'DENY' ? c.role : (c.role.toUpperCase() === 'ADMIN' ? 'MEMBER' : 'ANONYMOUS'),
+                expectedAccess: c.expectedAccess,
+              })),
+              allowLocalhost: this.options.allowLocalhost,
+              logger: this.logger,
+              cancellationToken,
+            });
+
+            apiEndpoints = apiOutput.endpoints;
+            apiTestResults = apiOutput.testResults;
+            apiObservations = apiOutput.observations;
+            apiCoverage = apiOutput.coverage;
+
+            // Merge API bug observations (deduplicating by fingerprint)
+            for (const apiBug of apiOutput.bugObservations) {
+              if (!bugObservations.some((b) => b.fingerprint === apiBug.fingerprint)) {
+                bugObservations.push(apiBug);
+              }
+            }
+          } catch (apiErr: any) {
+            this.logger.warn('api_qa_engine_warning', { message: apiErr.message });
+          }
+        }
+
         // Set test run failure if deterministic functional, visual, or security bugs were detected
         if (
           !cancellationToken?.isCancelled &&
@@ -750,6 +813,10 @@ export class BrowserRunner {
       roleContexts,
       authorizationResults,
       roleComparisons,
+      apiEndpoints,
+      apiTestResults,
+      apiObservations,
+      apiCoverage,
       failureReason,
     };
   }

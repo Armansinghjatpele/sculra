@@ -23,6 +23,7 @@ export * from './ai-qa';
 export * from './strategy';
 export * from './product';
 export * from './auth';
+export * from './api-qa';
 export * from './release';
 export * from './security';
 export * from './logger';

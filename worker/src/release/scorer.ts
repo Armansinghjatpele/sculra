@@ -38,6 +38,8 @@ export interface CalculateAssessmentOptions {
   aiQaStateSummary?: AIQAStateSummary;
   productModel?: import('../product/types').ProductModel;
   authorizationResults?: import('../auth/types').AuthorizationCheckResult[];
+  apiTestResults?: import('../api-qa/types').ApiTestResult[];
+  apiCoverage?: import('../api-qa/types').ApiCoverageSummary;
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -387,10 +389,13 @@ export class DeterministicReleaseScorer {
     const finalCoverageScore = Math.max(0, Math.min(100, Math.round(weightedCoverage * 100)));
 
     // 7. Determine Evidence Confidence Level
+    const hasApiEvidence = (options.apiTestResults && options.apiTestResults.length > 0) || (options.apiCoverage && options.apiCoverage.endpointsTested > 0);
     let confidenceLevel: EvidenceConfidence = 'HIGH';
-    if (testRunStatus === 'cancelled' || (discoveredPagesCount <= 1 && journeyResults.length === 0)) {
+    if (testRunStatus === 'cancelled') {
       confidenceLevel = 'INSUFFICIENT';
-    } else if (discoveredPagesCount <= 1 || journeyResults.length <= 0 || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
+    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence) {
+      confidenceLevel = 'INSUFFICIENT';
+    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence) || (journeyResults.length <= 0 && !hasApiEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
       confidenceLevel = 'LOW';
     } else if (discoveredPagesCount < 3 || viewportsTestedSet.size < 3 || journeyResults.length < 2 || finalCoverageScore < 70) {
       confidenceLevel = 'MEDIUM';
@@ -481,6 +486,35 @@ export class DeterministicReleaseScorer {
           category: 'functional',
           severity: 'critical',
           evidenceSummary: unauth.evidence.join('; '),
+        });
+      }
+    }
+
+    // Blocker 7: API Unauthorized Access & Critical 5xx Server Crashes
+    if (options.apiTestResults) {
+      const apiUnauth = options.apiTestResults.filter((r) => r.isUnauthorizedAccess);
+      for (const unauth of apiUnauth) {
+        blockers.push({
+          id: `blocker-api-unauth-${unauth.testCaseId}`,
+          title: `Security Violation: Unauthorized API Access (${unauth.role || 'ROLE'} -> ${unauth.method} ${unauth.url})`,
+          reason: `Role "${unauth.role || 'ROLE'}" was granted unauthorized access to restricted API endpoint "${unauth.url}".`,
+          category: 'functional',
+          severity: 'critical',
+          evidenceSummary: unauth.errorMessage || 'Unauthorized API access granted.',
+        });
+      }
+
+      const criticalApi5xx = options.apiTestResults.filter(
+        (r) => r.status === 'FAILED' && r.observation?.status && r.observation.status >= 500
+      );
+      if (criticalApi5xx.length > 0) {
+        blockers.push({
+          id: `blocker-api-5xx-${criticalApi5xx[0].testCaseId}`,
+          title: `Critical API Server Error (HTTP ${criticalApi5xx[0].observation?.status})`,
+          reason: `API endpoint "${criticalApi5xx[0].method} ${criticalApi5xx[0].url}" returned internal server error HTTP ${criticalApi5xx[0].observation?.status}.`,
+          category: 'reliability',
+          severity: 'critical',
+          evidenceSummary: criticalApi5xx[0].errorMessage || 'API 5xx server error',
         });
       }
     }

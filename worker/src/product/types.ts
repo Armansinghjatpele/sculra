@@ -185,10 +185,10 @@ export type ProductRelationshipType =
 
 export interface ProductRelationship {
   id: string;
-  fromType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL';
   fromId: string;
-  toType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL';
+  fromType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT';
   toId: string;
+  toType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT';
   relationshipType: ProductRelationshipType;
   confidence: number; // 0.0 - 1.0
   evidence: string[];
@@ -204,7 +204,10 @@ export type ProductEvidenceSourceType =
   | 'JOURNEY'
   | 'OBSERVATION'
   | 'ERROR'
-  | 'METADATA';
+  | 'METADATA'
+  | 'API'
+  | 'API_ENDPOINT'
+  | 'API_CONTRACT';
 
 export interface ProductEvidence {
   id: string;

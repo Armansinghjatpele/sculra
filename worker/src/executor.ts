@@ -92,15 +92,15 @@ export class JobExecutor {
     }
 
     // 2. Validate Project Source Type
-    if (project.source_type !== 'website') {
-      logger.error('unsupported_source_type', `Source type "${project.source_type}" is not supported for browser testing.`);
+    if (project.source_type !== 'website' && project.source_type !== 'api') {
+      logger.error('unsupported_source_type', `Source type "${project.source_type}" is not supported for automated testing.`);
       await this.updateTestRunState(testRunId, 'failed', {
         completed_at: new Date().toISOString(),
       });
       return {
         success: false,
         status: 'failed',
-        error: `Only "website" projects can be browser tested (got ${project.source_type}).`,
+        error: `Only "website" and "api" projects can be automated (got ${project.source_type}).`,
       };
     }
 
@@ -485,6 +485,54 @@ export class JobExecutor {
         }
       }
 
+      // 5q. Persist API QA Evidence (Endpoints, Coverage, Results)
+      if (result.apiEndpoints && result.apiEndpoints.length > 0) {
+        for (const ep of result.apiEndpoints) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'api_endpoint',
+            title: `API Endpoint: ${ep.method} ${ep.path}`,
+            url: ep.url || targetUrl,
+            message: `Source: ${ep.source}. Requires Safe Config: ${ep.requiresExplicitSafeConfig ? 'Yes' : 'No'}. Params: ${ep.parameters?.length || 0}.`,
+            metadata: {
+              endpoint: ep,
+            },
+          });
+        }
+      }
+
+      if (result.apiCoverage) {
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'api_coverage_summary',
+          title: `API Coverage: ${result.apiCoverage.endpointsTested}/${result.apiCoverage.endpointsDiscovered} (${(result.apiCoverage.coverageRatio * 100).toFixed(0)}%)`,
+          url: targetUrl,
+          message: `Tested ${result.apiCoverage.endpointsTested} of ${result.apiCoverage.endpointsDiscovered} discovered API endpoints. Failed: ${result.apiCoverage.failedEndpoints}.`,
+          metadata: {
+            coverage: result.apiCoverage,
+          },
+        });
+      }
+
+      if (result.apiTestResults && result.apiTestResults.length > 0) {
+        for (const res of result.apiTestResults) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: res.status === 'FAILED' ? 'api_failure' : 'api_response',
+            title: `API Test: ${res.method} ${res.url} [${res.status}]`,
+            url: res.url,
+            message: `Status: HTTP ${res.observation?.status || 0} (${res.observation?.statusText || 'N/A'}) in ${res.durationMs}ms. ${res.errorMessage || ''}`,
+            metadata: {
+              testResult: res,
+              observation: res.observation,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
@@ -530,6 +578,8 @@ export class JobExecutor {
         aiQaStateSummary: result.aiQaStateSummary,
         productModel: result.productModel,
         authorizationResults: result.authorizationResults,
+        apiTestResults: result.apiTestResults,
+        apiCoverage: result.apiCoverage,
         previousAssessment,
       });
 

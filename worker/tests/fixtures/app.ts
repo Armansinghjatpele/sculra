@@ -452,6 +452,181 @@ export async function createFixtureServer(): Promise<FixtureServer> {
         </body>
         </html>
       `);
+    } else if (pathname === '/api/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', version: '1.0.0' }));
+    } else if (pathname === '/api/projects' || pathname === '/api/projects/') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([
+        { id: 'proj-1', name: 'Project Alpha', status: 'active' },
+        { id: 'proj-2', name: 'Project Beta', status: 'active' },
+      ]));
+    } else if (pathname.startsWith('/api/projects/')) {
+      const id = pathname.replace('/api/projects/', '');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id: id || 'proj-1', name: `Project ${id || 'Alpha'}`, status: 'active' }));
+    } else if (pathname === '/api/admin/users') {
+      const cookieHeader = req.headers.cookie || '';
+      const authHeader = req.headers.authorization || '';
+      const isAdmin = /sculra_auth=[^;]*admin/i.test(cookieHeader) || authHeader.includes('admin');
+      const isMember = /sculra_auth=[^;]*member/i.test(cookieHeader) || authHeader.includes('member');
+
+      if (isAdmin) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify([
+          { id: 'usr-1', email: 'admin@example.com', role: 'ADMIN' },
+          { id: 'usr-2', email: 'member@example.com', role: 'MEMBER' },
+        ]));
+      } else if (isMember) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden: Administrator privileges required' }));
+      } else {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: Authentication required' }));
+      }
+    } else if (pathname === '/api/member/profile') {
+      const cookieHeader = req.headers.cookie || '';
+      const isAuthenticated = /sculra_auth=[^;]*/i.test(cookieHeader);
+      if (isAuthenticated) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ id: 'usr-2', email: 'member@example.com', role: 'MEMBER' }));
+      } else {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: Authentication required' }));
+      }
+    } else if (pathname === '/api/me') {
+      const cookieHeader = req.headers.cookie || '';
+      const isAdmin = /sculra_auth=[^;]*admin/i.test(cookieHeader);
+      const isMember = /sculra_auth=[^;]*member/i.test(cookieHeader);
+
+      if (isAdmin || isMember) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ user: 'test-identity', role: isAdmin ? 'ADMIN' : 'MEMBER' }));
+      } else {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: Authentication required' }));
+      }
+    } else if (pathname === '/api/fixture/500') {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Intentional Internal Server Error 500' }));
+    } else if (pathname === '/api/fixture/invalid-json') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"status": "broken", invalid_json_syntax: true,');
+    } else if (pathname === '/api/fixture/schema-error') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id: 'should-be-number', count: 'string-instead-of-int' }));
+    } else if (pathname === '/api/fixture/slow') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'slow-ok' }));
+      }, 500);
+      return;
+    } else if (pathname === '/api/fixture/leak-panel') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ sensitiveAdminData: 'leaked-secret-payload', roleRequired: 'ADMIN' }));
+    } else if (pathname === '/api/openapi.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        openapi: '3.0.0',
+        info: {
+          title: 'Sculra Fixture API',
+          version: '1.0.0',
+          description: 'Deterministic test target API specification',
+        },
+        paths: {
+          '/api/health': {
+            get: {
+              operationId: 'getHealth',
+              summary: 'Health check endpoint',
+              responses: {
+                '200': {
+                  description: 'Health status OK',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        required: ['status', 'version'],
+                        properties: {
+                          status: { type: 'string' },
+                          version: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '/api/projects': {
+            get: {
+              operationId: 'listProjects',
+              summary: 'List active projects',
+              responses: {
+                '200': {
+                  description: 'Array of projects',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          required: ['id', 'name'],
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '/api/admin/users': {
+            get: {
+              operationId: 'listAdminUsers',
+              summary: 'Admin user management',
+              responses: {
+                '200': {
+                  description: 'List of users (admin only)',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'array',
+                      },
+                    },
+                  },
+                },
+                '403': { description: 'Forbidden' },
+              },
+            },
+          },
+          '/api/fixture/schema-error': {
+            get: {
+              operationId: 'getSchemaError',
+              summary: 'Contract test endpoint',
+              responses: {
+                '200': {
+                  description: 'Schema error probe',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        required: ['id', 'count'],
+                        properties: {
+                          id: { type: 'integer' },
+                          count: { type: 'integer' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }));
     } else if (pathname === '/api/feedback' || pathname === '/api/safe-submit') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'Fixture submission successful' }));

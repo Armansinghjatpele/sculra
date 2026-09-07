@@ -101,10 +101,10 @@ export class AuthorizationEvaluator {
       }
 
       return {
-        name: check.name,
+        name: check.name || `auth_${check.role}_${check.path}`,
         path: check.path,
         role: check.role,
-        expectedAccess: check.expectedAccess,
+        expectedAccess: (check.expectedAccess === 'ALLOWED' || check.expectedAccess === 'ALLOW' ? 'ALLOWED' : 'DENIED') as 'ALLOWED' | 'DENIED',
         observedAccess,
         status,
         statusCode,
@@ -116,10 +116,10 @@ export class AuthorizationEvaluator {
       };
     } catch (err: any) {
       return {
-        name: check.name,
+        name: check.name || `auth_${check.role}_${check.path}`,
         path: check.path,
         role: check.role,
-        expectedAccess: check.expectedAccess,
+        expectedAccess: (check.expectedAccess === 'ALLOWED' || check.expectedAccess === 'ALLOW' ? 'ALLOWED' : 'DENIED') as 'ALLOWED' | 'DENIED',
         observedAccess: 'ERROR',
         status: 'FAILED',
         denialReason: `Evaluation exception: ${err.message}`,

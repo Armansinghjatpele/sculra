@@ -21,7 +21,13 @@ export type TestTargetType =
   | 'PREVIOUS_FAILURE'
   | 'SUSPECTED_ISSUE'
   | 'VISUAL_AREA'
-  | 'INTERACTION_CLUSTER';
+  | 'INTERACTION_CLUSTER'
+  // Prompt 24: API Target Types
+  | 'API_ENDPOINT'
+  | 'API_AUTHORIZATION'
+  | 'API_CONTRACT'
+  | 'API_FAILURE'
+  | 'API_REGRESSION';
 
 export type TestTargetStatus =
   | 'PENDING'
@@ -44,7 +50,9 @@ export type TargetSource =
   | 'HYPOTHESIS'
   | 'COVERAGE_GAP'
   | 'REGRESSION'
-  | 'RESPONSIVE';
+  | 'RESPONSIVE'
+  | 'API_DISCOVERY'
+  | 'API_CONTRACT';
 
 export interface TestTarget {
   id: string;

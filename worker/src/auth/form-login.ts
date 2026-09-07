@@ -152,6 +152,8 @@ export class FormLoginEngine {
           finalUrl: verification.finalUrl,
         });
 
+        const contextCookies = await context.cookies().catch(() => []);
+
         return {
           identityId: identity.id,
           role: identity.role,
@@ -160,6 +162,12 @@ export class FormLoginEngine {
           authenticatedAt: new Date().toISOString(),
           finalUrl: verification.finalUrl,
           telemetryEvidence,
+          cookies: contextCookies.map((c) => ({
+            name: c.name,
+            value: c.value,
+            domain: c.domain,
+            path: c.path,
+          })),
         };
       } else {
         logger?.warn('authentication_unverified', {

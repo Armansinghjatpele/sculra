@@ -149,6 +149,17 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
     .filter((e) => e.type === 'role_difference')
     .map((e) => e.metadata?.comparison)
     .filter(Boolean);
+  const apiEndpoints: any[] = evidence
+    .filter((e) => e.type === 'api_endpoint')
+    .map((e) => e.metadata?.endpoint)
+    .filter(Boolean);
+  const apiCoverageEvidence = evidence.find((e) => e.type === 'api_coverage_summary');
+  const apiCoverage = apiCoverageEvidence?.metadata?.coverage;
+  const apiResponses: any[] = evidence
+    .filter((e) => e.type === 'api_response' || e.type === 'api_failure')
+    .map((e) => e.metadata?.testResult)
+    .filter(Boolean);
+  const apiFailures = apiResponses.filter((r) => r.status === 'FAILED');
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -359,6 +370,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </TabsTrigger>
           <TabsTrigger value="auth">
             Auth & Roles {(roleContexts.length > 0 || authChecks.length > 0 || authSessions.length > 0) && `(${roleContexts.length || authChecks.length || authSessions.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="api">
+            API QA {(apiEndpoints.length > 0 || apiResponses.length > 0) && `(${apiEndpoints.length || apiResponses.length})`}
           </TabsTrigger>
           <TabsTrigger value="responsive">
             Responsive QA {responsiveObservations.length > 0 && `(${responsiveObservations.length})`}
@@ -731,6 +745,274 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                                 )}
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab: API QA */}
+        <TabsContent value="api">
+          <div className="mt-4 space-y-6">
+            {apiEndpoints.length === 0 && apiResponses.length === 0 ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground font-mono">
+                {testRun.status === 'queued' || testRun.status === 'running'
+                  ? 'Discovering and testing API endpoints in background...'
+                  : 'No API endpoints discovered or tested for this run.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 1. API QA Metric Cards */}
+                <Grid cols={1} colsSm={2} colsLg={6} gap={12}>
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Discovered Endpoints
+                    </span>
+                    <span className="text-xl font-bold text-foreground font-mono">
+                      {apiEndpoints.length}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Tested Endpoints
+                    </span>
+                    <span className="text-xl font-bold text-accent font-mono">
+                      {apiCoverage?.endpointsTested ?? apiResponses.length}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Safe Methods Tested
+                    </span>
+                    <span className="text-xl font-bold text-success font-mono">
+                      {apiCoverage?.safeMethodsTested ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Auth Checks
+                    </span>
+                    <span className="text-xl font-bold text-sky-400 font-mono">
+                      {apiCoverage?.authorizationChecks ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      API Coverage
+                    </span>
+                    <span className="text-xl font-bold text-foreground font-mono">
+                      {apiCoverage ? `${(apiCoverage.coverageRatio * 100).toFixed(0)}%` : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      API Failures
+                    </span>
+                    <span
+                      className={`text-xl font-bold font-mono ${
+                        apiFailures.length > 0 ? 'text-danger' : 'text-success'
+                      }`}
+                    >
+                      {apiFailures.length}
+                    </span>
+                  </div>
+                </Grid>
+
+                {/* 2. Critical API Security & Failure Banner */}
+                {apiFailures.length > 0 && (
+                  <div className="border border-danger/40 bg-danger/10 rounded-2xl p-6 font-mono text-xs shadow-glass space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-7 w-7 rounded-full bg-danger/20 border border-danger/30 flex items-center justify-center text-danger font-bold text-sm animate-pulse">
+                        !
+                      </div>
+                      <div>
+                        <span className="font-bold text-danger text-sm block">
+                          API Quality & Security Defects Detected ({apiFailures.length})
+                        </span>
+                        <p className="text-muted-foreground text-3xs mt-0.5">
+                          Deterministic assertions detected API failures, unexpected 5xx responses, contract mismatches, or unauthorized access.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-danger/20">
+                      {apiFailures.map((f: any, fIdx: number) => (
+                        <div
+                          key={fIdx}
+                          className="px-2.5 py-1 rounded bg-danger/20 border border-danger/30 text-danger text-3xs flex items-center gap-2"
+                        >
+                          <span className="font-bold">{f.bugType || 'API_FAILURE'}</span>
+                          <span className="text-foreground/80 font-mono">{f.method} {f.url}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Discovered & Tested Endpoints Table */}
+                {apiEndpoints.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Discovered API Endpoints ({apiEndpoints.length})
+                    </h3>
+                    <div className="border border-white/10 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-3xs font-mono">
+                        <thead className="bg-white/5 text-muted-foreground border-b border-white/10">
+                          <tr>
+                            <th className="p-3 font-semibold">Method</th>
+                            <th className="p-3 font-semibold">Endpoint Path</th>
+                            <th className="p-3 font-semibold">Discovery Source</th>
+                            <th className="p-3 font-semibold">Safety Policy</th>
+                            <th className="p-3 font-semibold">Observed Status</th>
+                            <th className="p-3 font-semibold">Latency</th>
+                            <th className="p-3 font-semibold">Verdict</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 bg-zinc-950/40">
+                          {apiEndpoints.map((ep: any, eIdx: number) => {
+                            const matchingResult = apiResponses.find((r: any) => r.endpointId === ep.id);
+                            const methodUpper = ep.method?.toUpperCase() || 'GET';
+                            const isGet = methodUpper === 'GET' || methodUpper === 'HEAD' || methodUpper === 'OPTIONS';
+                            const isPost = methodUpper === 'POST';
+                            const isDelete = methodUpper === 'DELETE';
+                            const isPassed = matchingResult ? matchingResult.status === 'PASSED' : false;
+                            const isFailed = matchingResult ? matchingResult.status === 'FAILED' : false;
+
+                            return (
+                              <tr key={eIdx} className="hover:bg-white/5">
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-4xs font-bold uppercase ${
+                                      isGet
+                                        ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                        : isPost
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                        : isDelete
+                                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                    }`}
+                                  >
+                                    {methodUpper}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  <span className="text-foreground font-semibold block">{ep.path}</span>
+                                  {ep.summary && (
+                                    <span className="text-muted-foreground text-4xs block truncate max-w-sm">
+                                      {ep.summary}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-muted-foreground text-4xs">
+                                    {ep.source}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  {ep.requiresExplicitSafeConfig ? (
+                                    <span className="text-amber-400 text-4xs font-semibold">
+                                      Requires Safe Config
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-400 text-4xs font-semibold">
+                                      Safe Auto-Execute
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  {matchingResult?.observation ? (
+                                    <span
+                                      className={`font-bold ${
+                                        matchingResult.observation.status >= 500
+                                          ? 'text-danger'
+                                          : matchingResult.observation.status >= 400
+                                          ? 'text-warning'
+                                          : 'text-success'
+                                      }`}
+                                    >
+                                      HTTP {matchingResult.observation.status}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground text-4xs">Not Executed</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-muted-foreground">
+                                  {matchingResult?.durationMs !== undefined
+                                    ? `${matchingResult.durationMs}ms`
+                                    : '—'}
+                                </td>
+                                <td className="p-3">
+                                  {matchingResult ? (
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-4xs font-bold uppercase ${
+                                        isFailed
+                                          ? 'bg-danger/20 text-danger border border-danger/30'
+                                          : isPassed
+                                          ? 'bg-success/20 text-success border border-success/30'
+                                          : 'bg-zinc-800 text-muted-foreground'
+                                      }`}
+                                    >
+                                      {matchingResult.status}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded bg-zinc-800 text-muted-foreground text-4xs uppercase">
+                                      PENDING
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. API Failures & Reproductions Detail */}
+                {apiFailures.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      API Failures & Diagnostic Telemetry ({apiFailures.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {apiFailures.map((fail: any, fIdx: number) => (
+                        <div
+                          key={fIdx}
+                          className="border border-danger/30 bg-zinc-900/40 p-4 rounded-xl space-y-3 font-mono text-xs"
+                        >
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-danger/20 text-danger border border-danger/30 text-3xs font-bold">
+                                {fail.bugType || 'API_FAILURE'}
+                              </span>
+                              <span className="text-foreground font-bold">
+                                {fail.method} {fail.url}
+                              </span>
+                            </div>
+                            <span className="text-3xs text-muted-foreground">
+                              HTTP {fail.observation?.status || 0} ({fail.durationMs || 0}ms)
+                            </span>
+                          </div>
+
+                          <div className="text-3xs text-muted-foreground">
+                            <span className="text-danger block mb-1">
+                              <strong>Error:</strong> {fail.errorMessage || 'Assertion failure'}
+                            </span>
+                            {fail.observation?.bodyExcerpt && (
+                              <div className="mt-2 p-2 bg-zinc-950 rounded border border-white/5 font-mono text-4xs text-foreground/80 overflow-x-auto">
+                                <strong>Response Excerpt:</strong> {fail.observation.bodyExcerpt}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}

@@ -72,6 +72,7 @@ export interface CoverageSummary {
   buttons: { discovered: number; exercised: number };
   links: { discovered: number; exercised: number };
   navigationPaths: { discovered: number; exercised: number };
+  apis?: { discovered: number; tested: number; failed: number; coverageRatio: number };
   hypotheses: {
     formulated: number;
     tested: number;
