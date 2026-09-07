@@ -20,6 +20,7 @@ import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
 import { DeterministicIssueClassifier, BugObservation } from './issues';
 import { ResponsiveVisualEngine, ResponsiveExecutionResult } from './visual';
+import { AIQAOrchestrator, AIQAPlan, AIQAResult } from './ai-qa';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -48,6 +49,8 @@ export class BrowserRunner {
       enableDiscovery: options.enableDiscovery ?? true,
       enableJourneys: options.enableJourneys ?? true,
       enableVisual: options.enableVisual ?? true,
+      enableAiQa: options.enableAiQa ?? true,
+      aiQaConfig: options.aiQaConfig,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -94,6 +97,8 @@ export class BrowserRunner {
     let applicationMap: ApplicationMap | undefined;
     let journeyResults: JourneyResult[] | undefined;
     let visualResult: ResponsiveExecutionResult | undefined;
+    let aiQaPlans: AIQAPlan[] | undefined;
+    let aiQaResults: AIQAResult[] | undefined;
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -378,9 +383,64 @@ export class BrowserRunner {
             });
           }
         }
+
+        // 11. Run AI QA Orchestrator (Provider-Agnostic, Bounded Iterations)
+        if (
+          this.options.enableAiQa !== false &&
+          !cancellationToken?.isCancelled &&
+          browser
+        ) {
+          this.logger.log('invoking_ai_qa_orchestrator');
+          try {
+            const aiOrchestrator = new AIQAOrchestrator(browser, safeUrl, {
+              config: this.options.aiQaConfig,
+              logger: this.logger,
+              allowLocalhost: this.options.allowLocalhost,
+            });
+
+            const aiOutput = await aiOrchestrator.execute(
+              this.testRunId,
+              this.projectId || 'unassigned',
+              undefined,
+              applicationMap,
+              journeyResults || [],
+              bugObservations,
+              cancellationToken
+            );
+
+            aiQaPlans = aiOutput.plans;
+            aiQaResults = aiOutput.results;
+
+            // Merge executed journeys into telemetry
+            if (aiOutput.executedJourneys.length > 0) {
+              if (!journeyResults) journeyResults = [];
+              journeyResults.push(...aiOutput.executedJourneys);
+
+              for (const jRes of aiOutput.executedJourneys) {
+                for (const step of jRes.steps) {
+                  if (step.screenshot) screenshots.push(step.screenshot);
+                  for (const cErr of step.consoleErrors) {
+                    if (!consoleErrors.some((e) => e.message === cErr.message && e.url === cErr.url)) {
+                      consoleErrors.push(cErr);
+                    }
+                  }
+                  for (const nErr of step.networkErrors) {
+                    if (!networkErrors.some((e) => e.url === nErr.url && e.status === nErr.status)) {
+                      networkErrors.push(nErr);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (aiErr: any) {
+            this.logger.warn('ai_qa_orchestrator_warning', {
+              message: aiErr.message,
+            });
+          }
+        }
       }
 
-      // 11. Deterministic Issue Classification
+      // 12. Deterministic Issue Classification
       if (!cancellationToken?.isCancelled) {
         this.logger.log('invoking_issue_classifier');
         const classifier = new DeterministicIssueClassifier();
@@ -464,6 +524,8 @@ export class BrowserRunner {
       journeyResults,
       bugObservations,
       visualResult,
+      aiQaPlans,
+      aiQaResults,
       failureReason,
     };
   }

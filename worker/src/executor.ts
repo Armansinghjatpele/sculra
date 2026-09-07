@@ -275,6 +275,39 @@ export class JobExecutor {
         );
       }
 
+      // 5i. Persist AI QA Plans & Results
+      if (result.aiQaPlans && result.aiQaPlans.length > 0) {
+        for (const plan of result.aiQaPlans) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'ai_qa_plan',
+            title: `AI QA Plan (Iter ${plan.iteration}) - ${plan.priority.toUpperCase()}`,
+            url: result.finalUrl || targetUrl,
+            message: plan.reasoningSummary,
+            metadata: {
+              plan,
+            },
+          });
+        }
+      }
+
+      if (result.aiQaResults && result.aiQaResults.length > 0) {
+        for (const res of result.aiQaResults) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'ai_qa_result',
+            title: `AI QA Result (Iter ${res.iteration}) - ${res.stopReason}`,
+            url: result.finalUrl || targetUrl,
+            message: `Iteration ${res.iteration} (${res.provider}/${res.model}): ${res.approvedActions.length} approved, ${res.rejectedActions.length} rejected, ${res.issuesIdentified.length} issues identified.`,
+            metadata: {
+              result: res,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }

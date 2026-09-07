@@ -53,7 +53,9 @@ export interface TestEvidence {
     | 'visual_comparison'
     | 'responsive_observation'
     | 'visual_snapshot'
-    | 'visual_baseline';
+    | 'visual_baseline'
+    | 'ai_qa_plan'
+    | 'ai_qa_result';
   title: string;
   url?: string;
   message?: string;

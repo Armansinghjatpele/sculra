@@ -19,6 +19,7 @@ export * from './discoveryUtils';
 export * from './journeys';
 export * from './issues';
 export * from './visual';
+export * from './ai-qa';
 export * from './security';
 export * from './logger';
 export * from './storage';

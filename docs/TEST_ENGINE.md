@@ -280,5 +280,61 @@ The responsive engine evaluates applications across standard viewport profiles:
 - If two workers insert the same fingerprint simultaneously, the duplicate key violation is caught gracefully, the existing issue is retrieved, its `occurrence_count` is incremented, and an entry is recorded in `public.issue_occurrences`.
 - Two simultaneous runs result in **1 issue** and **2 occurrences** with zero lost data.
 
+---
+
+## 11. Provider-Agnostic AI QA Orchestration Foundation
+
+> **Critical Architectural Guarantee**: *The AI never directly controls Playwright.* The AI operates strictly as a structured planner and reasoner that produces a typed, validatable plan (`AIQAPlan`). The existing deterministic `JourneyExecutor` remains the sole browser actuator.
+
+```mermaid
+flowchart TD
+    AppMap[Application Map] --> CtxBuilder[AI QA Context Builder]
+    PrevJourneys[Journey Telemetry] --> CtxBuilder
+    ExistingIssues[Existing Bugs] --> CtxBuilder
+    VisualObs[Visual Observations] --> CtxBuilder
+    
+    CtxBuilder --> Sanitizer[AIQAContextSanitizer]
+    Sanitizer -- "Sanitized Context (Untrusted DOM Data)" --> Ctx[AIQAContext]
+    
+    Ctx --> Provider[AIQAProvider: Mock / Provider Abstraction]
+    Provider --> RawPlan[Structured AIQAPlan]
+    
+    RawPlan --> Validator[AIQASafetyValidator]
+    Validator -- "Safety Validation & SSRF Check" --> Validated{Safety Check}
+    
+    Validated -- "Approved Actions" --> JourneyConv[Convert to Journey]
+    Validated -- "All Rejected / Stop Condition" --> Stop[Stop Loop]
+    
+    JourneyConv --> JourneyExec[Deterministic JourneyExecutor]
+    JourneyExec --> Playwright[Playwright Browser]
+    Playwright --> Telemetry[Step Telemetry & Observations]
+    
+    Telemetry --> Assessment[Categorize: CONFIRMED vs SUSPECTED]
+    Assessment --> Persistence[(Supabase test_evidence & issues)]
+    Telemetry -- "Feedback Loop for Iteration N+1" --> CtxBuilder
+```
+
+### Core Components
+1. **Provider Abstraction (`AIQAProvider`)**:
+   - Strongly-typed, provider-agnostic interface enabling future model integrations (OpenAI, Anthropic, local model) without altering test engine actuation.
+   - Deterministic `MockAIQAProvider` enables offline verification, unit tests, and CI/CD without external API keys.
+2. **Context Sanitization & Prompt Injection Defense (`AIQAContextSanitizer`)**:
+   - Treats all browser DOM text, titles, button labels, form labels, and errors as **untrusted data**.
+   - Redacts JWTs, bearer tokens, API keys, passwords, and private credentials.
+   - Quarantines prompt injection patterns (e.g. `Ignore previous instructions...`) to prevent malicious page content from redefining safety rules or budgets.
+3. **Strict Safety Validator (`AIQASafetyValidator`)**:
+   - Validates allowlisted action vocabulary: `NAVIGATE`, `CLICK`, `FILL`, `SELECT`, `CHECK`, `UNCHECK`, `PRESS`, `WAIT_FOR_NAVIGATION`, `ASSERT_VISIBLE`, `ASSERT_URL`, `ASSERT_TITLE`, `VALIDATE_FORM`.
+   - Enforces SSRF and scope boundaries: blocks cross-origin navigations, loopback addresses, and cloud metadata endpoints.
+   - Blocks dangerous operations: `delete`, `checkout`, `cancel subscription`, `logout`, etc.
+   - Blocks sensitive fields: passwords, payment cards, SSNs, OTPs.
+4. **Bounded Budgets & Feedback Loops (`AIQABudgetTracker`)**:
+   - Enforces configurable bounds: `MAX_AI_ITERATIONS = 3`, `MAX_AI_CALLS = 5`, `MAX_TOTAL_ACTIONS = 30`, `MAX_AI_TIME_MS = 60000`.
+   - Feeds observations and results from Iteration $N$ into the context for Iteration $N+1$.
+5. **Issue Intelligence & Evidence Integration**:
+   - Distinguishes `CONFIRMED` defects (directly verified by deterministic failure/observation) from `SUSPECTED` anomalies.
+   - Persists `ai_qa_plan` and `ai_qa_result` evidence rows into `public.test_evidence`.
+   - Authoritative issue deduplication via SHA-256 fingerprinting.
+
+
 
 

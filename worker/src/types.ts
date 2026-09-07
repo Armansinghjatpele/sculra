@@ -19,6 +19,8 @@ export interface RunnerOptions {
   enableDiscovery?: boolean;
   enableJourneys?: boolean;
   enableVisual?: boolean;
+  enableAiQa?: boolean;
+  aiQaConfig?: AIQAConfig;
   viewport?: {
     width: number;
     height: number;
@@ -146,6 +148,7 @@ export interface DiscoveryLimits {
 }
 
 import { ResponsiveExecutionResult } from './visual/types';
+import { AIQAPlan, AIQAResult, AIQAConfig } from './ai-qa/types';
 
 export interface TestExecutionResult {
   status: 'passed' | 'failed' | 'cancelled';
@@ -160,6 +163,8 @@ export interface TestExecutionResult {
   journeyResults?: any[];
   bugObservations?: any[];
   visualResult?: ResponsiveExecutionResult;
+  aiQaPlans?: AIQAPlan[];
+  aiQaResults?: AIQAResult[];
   failureReason?: string;
 }
 
@@ -167,3 +172,4 @@ export interface CancellationToken {
   isCancelled: boolean;
   onCancel?: () => void;
 }
+

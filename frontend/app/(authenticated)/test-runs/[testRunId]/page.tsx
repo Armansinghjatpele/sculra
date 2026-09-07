@@ -112,6 +112,14 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const appMap = appMapEvidence?.metadata?.applicationMap;
   const visualComparisons = evidence.filter((e) => e.type === 'visual_comparison');
   const responsiveObservations = evidence.filter((e) => e.type === 'responsive_observation');
+  const aiQaPlans: any[] = evidence
+    .filter((e) => e.type === 'ai_qa_plan')
+    .map((e) => e.metadata?.plan)
+    .filter(Boolean);
+  const aiQaResults: any[] = evidence
+    .filter((e) => e.type === 'ai_qa_result')
+    .map((e) => e.metadata?.result)
+    .filter(Boolean);
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -325,6 +333,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </TabsTrigger>
           <TabsTrigger value="visual">
             Visual QA {visualComparisons.length > 0 && `(${visualComparisons.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="aiqa">
+            AI QA {aiQaPlans.length > 0 && `(${aiQaPlans.length})`}
           </TabsTrigger>
           <TabsTrigger value="journeys">
             User Journeys {journeyResults.length > 0 && `(${journeyResults.length})`}
@@ -1040,6 +1051,200 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                 </div>
               )}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab: AI QA */}
+        <TabsContent value="aiqa">
+          <div className="space-y-6">
+            {/* Banner */}
+            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 font-mono text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">AI QA Orchestration Foundation</span>
+                  <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent text-[10px] uppercase font-bold">
+                    {aiQaResults[0]?.provider || 'Mock / Deterministic'}
+                  </span>
+                </div>
+                <p className="text-muted-foreground text-3xs max-w-2xl">
+                  Provider-agnostic orchestration loop. The AI operates as a structured planner and reasoner while the deterministic JourneyExecutor remains the sole browser actuator.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Bounded Iterations</span>
+                <span className="text-sm font-bold text-foreground font-mono">
+                  {aiQaPlans.length} / 3 Iterations Executed
+                </span>
+              </div>
+            </div>
+
+            {aiQaPlans.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground font-mono text-xs border border-white/5 rounded-2xl bg-zinc-950/40">
+                No AI QA plans recorded for this execution run.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {aiQaPlans.map((plan: any, idx: number) => {
+                  const result = aiQaResults.find((r: any) => r.iteration === plan.iteration) || aiQaResults[idx];
+                  return (
+                    <div
+                      key={plan.planId || idx}
+                      className="border border-white/10 bg-zinc-950/50 rounded-2xl p-6 font-mono space-y-5"
+                    >
+                      {/* Iteration Header */}
+                      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="px-2.5 py-1 rounded bg-white/10 text-white font-bold text-xs">
+                            Iteration {plan.iteration}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            plan.priority === 'critical' ? 'bg-danger/10 text-danger border border-danger/30' :
+                            plan.priority === 'high' ? 'bg-warning/10 text-warning border border-warning/30' :
+                            'bg-accent/10 text-accent border border-accent/30'
+                          }`}>
+                            Priority: {plan.priority}
+                          </span>
+                          {result?.stopReason && (
+                            <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px] uppercase">
+                              Stop: {result.stopReason}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-muted-foreground text-3xs">
+                          Plan ID: {plan.planId}
+                        </span>
+                      </div>
+
+                      {/* Reasoning Summary */}
+                      <div>
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1">
+                          Reasoning & Strategy
+                        </span>
+                        <p className="text-foreground text-xs leading-relaxed bg-zinc-900/60 p-3 rounded-lg border border-white/5">
+                          {plan.reasoningSummary}
+                        </p>
+                      </div>
+
+                      {/* Hypotheses */}
+                      {plan.hypotheses && plan.hypotheses.length > 0 && (
+                        <div>
+                          <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-2">
+                            Hypotheses Formulated ({plan.hypotheses.length})
+                          </span>
+                          <div className="space-y-2">
+                            {plan.hypotheses.map((hyp: any, hIdx: number) => (
+                              <div
+                                key={hyp.id || hIdx}
+                                className="flex items-start gap-2 p-2.5 rounded bg-zinc-900/40 border border-white/5 text-xs text-zinc-300"
+                              >
+                                <span className="text-accent font-bold">H{hIdx + 1}:</span>
+                                <div className="flex-1">
+                                  <p>{hyp.description}</p>
+                                  <span className="text-muted-foreground text-3xs mt-0.5 block">Target: {hyp.targetUrl}</span>
+                                </div>
+                                <span className="text-3xs uppercase px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
+                                  {hyp.confidence} confidence
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions Breakdown */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Approved Actions */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-3xs uppercase tracking-widest text-success font-bold">
+                              ✓ Approved Actions ({result?.approvedActions?.length || plan.actions?.length || 0})
+                            </span>
+                            <span className="text-4xs text-muted-foreground uppercase">Safety Validated</span>
+                          </div>
+                          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                            {(result?.approvedActions || plan.actions || []).map((act: any, aIdx: number) => (
+                              <div
+                                key={act.id || aIdx}
+                                className="p-2 rounded bg-success/5 border border-success/20 text-3xs flex items-center justify-between gap-2"
+                              >
+                                <div className="truncate">
+                                  <span className="font-bold text-success mr-2">[{act.type}]</span>
+                                  <span className="text-foreground">{act.targetDescription}</span>
+                                </div>
+                                {act.selector && (
+                                  <span className="text-muted-foreground text-4xs bg-zinc-900 px-1.5 py-0.5 rounded truncate max-w-[120px]">
+                                    {act.selector}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Rejected Actions */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-3xs uppercase tracking-widest text-danger font-bold">
+                              ✕ Blocked / Rejected ({result?.rejectedActions?.length || 0})
+                            </span>
+                            <span className="text-4xs text-muted-foreground uppercase">Safety Protected</span>
+                          </div>
+                          {(!result?.rejectedActions || result.rejectedActions.length === 0) ? (
+                            <div className="p-3 rounded bg-zinc-900/30 border border-white/5 text-3xs text-muted-foreground text-center">
+                              0 actions rejected. All actions complied with safety policy.
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                              {result.rejectedActions.map((rej: any, rIdx: number) => (
+                                <div
+                                  key={rej.actionId || rIdx}
+                                  className="p-2 rounded bg-danger/5 border border-danger/20 text-3xs space-y-1"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-danger">[{rej.actionType}]</span>
+                                    <span className="text-4xs px-1.5 py-0.5 rounded bg-danger/10 text-danger uppercase font-bold">
+                                      {rej.ruleViolated}
+                                    </span>
+                                  </div>
+                                  <p className="text-muted-foreground text-4xs">{rej.reason}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Issues Identified */}
+                      {result?.issuesIdentified && result.issuesIdentified.length > 0 && (
+                        <div>
+                          <span className="text-3xs uppercase tracking-widest text-warning font-bold block mb-2">
+                            Issues Assessment ({result.issuesIdentified.length})
+                          </span>
+                          <div className="space-y-2">
+                            {result.issuesIdentified.map((iss: any, iIdx: number) => (
+                              <div
+                                key={iIdx}
+                                className="p-2.5 rounded bg-warning/5 border border-warning/20 text-xs flex items-center justify-between gap-3"
+                              >
+                                <div>
+                                  <span className="font-bold text-warning mr-2">[{iss.confidence}]</span>
+                                  <span className="text-foreground">{iss.title}</span>
+                                  <p className="text-muted-foreground text-3xs mt-0.5">{iss.details}</p>
+                                </div>
+                                <span className="text-3xs px-2 py-0.5 rounded bg-zinc-900 text-muted-foreground uppercase font-bold">
+                                  {iss.type}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
