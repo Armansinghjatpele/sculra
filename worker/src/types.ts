@@ -17,6 +17,7 @@ export interface RunnerOptions {
   runTimeoutMs?: number;
   allowLocalhost?: boolean;
   enableDiscovery?: boolean;
+  enableJourneys?: boolean;
   viewport?: {
     width: number;
     height: number;
@@ -153,6 +154,7 @@ export interface TestExecutionResult {
   networkErrors: CapturedNetworkError[];
   screenshots: CapturedScreenshot[];
   applicationMap?: ApplicationMap;
+  journeyResults?: any[];
   failureReason?: string;
 }
 

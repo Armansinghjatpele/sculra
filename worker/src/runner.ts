@@ -2,7 +2,7 @@
 // Sculra Deterministic Playwright Browser Runner (worker/src/runner.ts)
 // ==============================================================================
 // Headless browser automation executing deterministic page navigation,
-// application discovery, evidence extraction, and status resolution.
+// application discovery, user journey execution, evidence extraction, and status resolution.
 
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import {
@@ -17,6 +17,7 @@ import {
 import { validateTargetUrl } from './security';
 import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
+import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -43,6 +44,7 @@ export class BrowserRunner {
           : 30000),
       allowLocalhost: options.allowLocalhost ?? (process.env.NODE_ENV === 'test'),
       enableDiscovery: options.enableDiscovery ?? true,
+      enableJourneys: options.enableJourneys ?? true,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -87,6 +89,7 @@ export class BrowserRunner {
     let failureReason: string | undefined;
     let status: 'passed' | 'failed' | 'cancelled' = 'passed';
     let applicationMap: ApplicationMap | undefined;
+    let journeyResults: JourneyResult[] | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -288,6 +291,43 @@ export class BrowserRunner {
             }
           }
         }
+
+        // 9. Run User Journey Planning & Execution
+        if (this.options.enableJourneys !== false && applicationMap && !cancellationToken?.isCancelled) {
+          this.logger.log('planning_user_journeys');
+          const planner = new DeterministicJourneyPlanner();
+          const journeys = await planner.plan(applicationMap);
+
+          if (journeys.length > 0) {
+            this.logger.log('executing_user_journeys', { count: journeys.length });
+            const journeyExecutor = new JourneyExecutor(browser, {
+              allowLocalhost: this.options.allowLocalhost,
+              cancellationToken,
+              logger: this.logger,
+            });
+
+            journeyResults = await journeyExecutor.executeJourneys(journeys);
+
+            // Collect journey screenshots & telemetry
+            for (const jRes of journeyResults) {
+              for (const step of jRes.steps) {
+                if (step.screenshot) {
+                  screenshots.push(step.screenshot);
+                }
+                for (const cErr of step.consoleErrors) {
+                  if (!consoleErrors.some((e) => e.message === cErr.message && e.url === cErr.url)) {
+                    consoleErrors.push(cErr);
+                  }
+                }
+                for (const nErr of step.networkErrors) {
+                  if (!networkErrors.some((e) => e.url === nErr.url && e.status === nErr.status)) {
+                    networkErrors.push(nErr);
+                  }
+                }
+              }
+            }
+          }
+        }
       }
 
     } catch (err: any) {
@@ -315,6 +355,7 @@ export class BrowserRunner {
       networkErrorsCount: networkErrors.length,
       screenshotsCount: screenshots.length,
       totalPagesDiscovered: applicationMap?.totalPages || 0,
+      journeysExecuted: journeyResults?.length || 0,
     });
 
     return {
@@ -327,6 +368,7 @@ export class BrowserRunner {
       networkErrors,
       screenshots,
       applicationMap,
+      journeyResults,
       failureReason,
     };
   }

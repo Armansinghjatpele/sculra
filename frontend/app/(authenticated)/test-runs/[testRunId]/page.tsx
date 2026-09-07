@@ -28,6 +28,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const [activeTab, setActiveTab] = React.useState('overview');
   const [selectedScreenshot, setSelectedScreenshot] = React.useState<string | null>(null);
   const [expandedPageUrl, setExpandedPageUrl] = React.useState<string | null>(null);
+  const [expandedJourneyId, setExpandedJourneyId] = React.useState<string | null>(null);
 
   const fetchRunDetails = React.useCallback(async () => {
     try {
@@ -106,8 +107,27 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const navigationItem = evidence.find((e) => e.type === 'navigation');
   const appMapEvidence = evidence.find((e) => e.type === 'application_map');
   const appMap = appMapEvidence?.metadata?.applicationMap;
+  const journeyResults: any[] = evidence
+    .filter((e) => e.type === 'journey_result')
+    .map((e) => e.metadata?.journeyResult)
+    .filter(Boolean);
 
   const isTerminal = testRun.status === 'passed' || testRun.status === 'failed' || testRun.status === 'cancelled';
+
+  // Total journey actions summary
+  let totalActionsAttempted = 0;
+  let totalActionsPassed = 0;
+  let totalActionsFailed = 0;
+  let totalActionsSkipped = 0;
+  let totalObservationsCount = 0;
+
+  for (const j of journeyResults) {
+    totalActionsAttempted += j.actionsAttempted || 0;
+    totalActionsPassed += j.actionsPassed || 0;
+    totalActionsFailed += j.actionsFailed || 0;
+    totalActionsSkipped += j.actionsSkipped || 0;
+    totalObservationsCount += (j.observations || []).length;
+  }
 
   return (
     <Stack spacing={24}>
@@ -166,9 +186,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
               </svg>
             </div>
             <div>
-              <span className="font-bold text-foreground block">Browser Execution & Discovery in Progress</span>
+              <span className="font-bold text-foreground block">Browser Execution & User Journeys in Progress</span>
               <p className="text-muted-foreground text-3xs mt-0.5">
-                Navigating to target URL, mapping application structure, capturing viewports, and logging network telemetry...
+                Executing application discovery, exercising deterministic user journeys, and logging network telemetry...
               </p>
             </div>
           </div>
@@ -187,7 +207,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
             <div>
               <span className="font-bold text-foreground block">Test Execution Completed (Passed)</span>
               <p className="text-muted-foreground text-3xs mt-0.5">
-                Target responded successfully with HTTP 200 OK. Application structure discovery mapped successfully.
+                Target responded successfully with HTTP 200 OK. Application discovery & user journeys verified cleanly.
               </p>
             </div>
           </div>
@@ -206,7 +226,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
             <div>
               <span className="font-bold text-foreground block">Test Execution Completed (Failed)</span>
               <p className="text-muted-foreground text-3xs mt-0.5">
-                Exceptions were detected during execution. Inspect the evidence tabs below for details.
+                Exceptions were detected during execution. Inspect the evidence and user journey tabs below for details.
               </p>
             </div>
           </div>
@@ -263,25 +283,27 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
 
         <Card className="glass-panel text-center py-5">
           <CardHeader className="p-0">
-            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Discovered Pages</CardDescription>
+            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">User Journeys</CardDescription>
             <CardTitle className="text-lg font-extrabold mt-1 font-mono text-accent">
-              {appMap ? appMap.totalPages : '--'}
+              {journeyResults.length > 0 ? `${journeyResults.length} Flows` : (appMap ? `${appMap.totalPages} Pages` : '--')}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 mt-2 text-3xs text-muted-foreground font-mono">
-            {appMap ? `${appMap.totalButtons} buttons · ${appMap.totalForms} forms` : 'Awaiting discovery'}
+            {journeyResults.length > 0
+              ? `${totalActionsPassed} passed · ${totalActionsFailed} failed`
+              : (appMap ? `${appMap.totalButtons} buttons · ${appMap.totalForms} forms` : 'Awaiting execution')}
           </CardContent>
         </Card>
 
         <Card className="glass-panel text-center py-5">
           <CardHeader className="p-0">
-            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Issues Detected</CardDescription>
+            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Issues & Observations</CardDescription>
             <CardTitle className={`text-lg font-extrabold mt-1 font-mono ${consoleErrors.length + networkErrors.length > 0 ? 'text-danger' : 'text-success'}`}>
               {consoleErrors.length + networkErrors.length}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 mt-2 text-3xs text-muted-foreground font-mono">
-            {consoleErrors.length} console · {networkErrors.length} network
+            {consoleErrors.length} console · {networkErrors.length} network · {totalObservationsCount} observations
           </CardContent>
         </Card>
       </Grid>
@@ -290,6 +312,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview & Navigation</TabsTrigger>
+          <TabsTrigger value="journeys">
+            User Journeys {journeyResults.length > 0 && `(${journeyResults.length})`}
+          </TabsTrigger>
           <TabsTrigger value="appmap">
             Application Map {appMap && `(${appMap.totalPages})`}
           </TabsTrigger>
@@ -345,7 +370,155 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Application Map (Prompt 13 Addition) */}
+        {/* Tab 2: User Journeys (Prompt 14 Addition) */}
+        <TabsContent value="journeys">
+          <div className="mt-4 space-y-6">
+            {journeyResults.length === 0 ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground font-mono">
+                {testRun.status === 'queued' || testRun.status === 'running'
+                  ? 'Planning and executing user journeys in background...'
+                  : 'No user journeys executed for this run.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Journey Metrics Header */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono">
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Journeys</span>
+                    <span className="text-lg font-bold text-foreground">{journeyResults.length}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-success/20 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-success block">Passed Actions</span>
+                    <span className="text-lg font-bold text-success">{totalActionsPassed}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-danger/20 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-danger block">Failed Actions</span>
+                    <span className="text-lg font-bold text-danger">{totalActionsFailed}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Skipped Actions</span>
+                    <span className="text-lg font-bold text-foreground">{totalActionsSkipped}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-warning/20 rounded-xl p-4 text-center">
+                    <span className="text-3xs uppercase tracking-wider text-warning block">Observations</span>
+                    <span className="text-lg font-bold text-warning">{totalObservationsCount}</span>
+                  </div>
+                </div>
+
+                {/* Journeys List & Step Timelines */}
+                <div className="space-y-4">
+                  {journeyResults.map((j: any, jIdx: number) => {
+                    const isExpanded = expandedJourneyId === j.journeyId || (expandedJourneyId === null && jIdx === 0);
+                    return (
+                      <div
+                        key={jIdx}
+                        className="border border-white/10 bg-zinc-900/30 rounded-xl overflow-hidden font-mono text-xs transition-all"
+                      >
+                        {/* Journey Header */}
+                        <div
+                          className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5"
+                          onClick={() => setExpandedJourneyId(isExpanded ? '' : j.journeyId)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`h-6 w-6 rounded-full flex items-center justify-center font-bold text-3xs ${j.status === 'PASSED' ? 'bg-success/10 text-success border border-success/30' : j.status === 'FAILED' ? 'bg-danger/10 text-danger border border-danger/30' : 'bg-warning/10 text-warning border border-warning/30'}`}>
+                              {j.status === 'PASSED' ? '✓' : j.status === 'FAILED' ? '✕' : '●'}
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-foreground">{j.name}</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] bg-accent/10 text-accent uppercase border border-accent/20">
+                                  {j.category}
+                                </span>
+                                {j.viewport && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-muted-foreground border border-white/5">
+                                    {j.viewport.name} ({j.viewport.width}x{j.viewport.height})
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-3xs text-muted-foreground block mt-0.5">
+                                {j.steps.length} Steps · Duration: {(j.durationMs / 1000).toFixed(2)}s · Pages: {j.pagesVisited?.length || 1}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-3xs">
+                            <span className="text-success font-bold">{j.actionsPassed} passed</span>
+                            {j.actionsFailed > 0 && <span className="text-danger font-bold">{j.actionsFailed} failed</span>}
+                            {j.actionsSkipped > 0 && <span className="text-muted-foreground">{j.actionsSkipped} skipped</span>}
+                            <span className="text-sm font-bold text-foreground">{isExpanded ? '−' : '+'}</span>
+                          </div>
+                        </div>
+
+                        {/* Step Timeline Details */}
+                        {isExpanded && (
+                          <div className="p-4 pt-0 border-t border-white/5 space-y-3">
+                            <h4 className="text-3xs uppercase tracking-wider text-muted-foreground font-bold mt-3 mb-1">
+                              Action Timeline
+                            </h4>
+                            <div className="space-y-2">
+                              {j.steps.map((step: any, sIdx: number) => (
+                                <div
+                                  key={sIdx}
+                                  className="p-3 bg-zinc-950/40 rounded-lg border border-white/5 space-y-1 text-3xs"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground font-bold">#{sIdx + 1}</span>
+                                      <span className="px-1.5 py-0.5 rounded bg-white/5 text-foreground font-bold uppercase text-[10px]">
+                                        {step.action}
+                                      </span>
+                                      <span className="text-foreground font-semibold">{step.targetDescription}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${step.status === 'PASSED' ? 'bg-success/10 text-success' : step.status === 'FAILED' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+                                        {step.status}
+                                      </span>
+                                      <span className="text-muted-foreground text-[10px]">{step.durationMs}ms</span>
+                                    </div>
+                                  </div>
+
+                                  {step.selector && (
+                                    <p className="text-muted-foreground text-[10px]">Selector: {step.selector}</p>
+                                  )}
+
+                                  {step.beforeUrl !== step.afterUrl && (
+                                    <p className="text-accent text-[10px]">
+                                      Transition: {step.beforeUrl} → {step.afterUrl}
+                                    </p>
+                                  )}
+
+                                  {step.error && (
+                                    <p className="text-danger font-semibold text-[10px] mt-1">Error: {step.error}</p>
+                                  )}
+
+                                  {/* Step Observations */}
+                                  {step.observations && step.observations.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1 pt-1 border-t border-white/5">
+                                      {step.observations.map((obs: any, oIdx: number) => (
+                                        <span
+                                          key={oIdx}
+                                          className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[9px] border border-warning/20"
+                                        >
+                                          ● [{obs.type}]: {obs.message}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Application Map */}
         <TabsContent value="appmap">
           <div className="mt-4 space-y-6">
             {!appMap ? (
@@ -529,7 +702,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 3: Screenshots */}
+        {/* Tab 4: Screenshots */}
         <TabsContent value="screenshots">
           <div className="mt-4 space-y-4">
             {screenshots.length === 0 ? (
@@ -574,7 +747,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 4: Console Logs */}
+        {/* Tab 5: Console Logs */}
         <TabsContent value="console">
           <div className="mt-4 space-y-4">
             {consoleErrors.length === 0 ? (
@@ -611,7 +784,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 5: Network Requests */}
+        {/* Tab 6: Network Requests */}
         <TabsContent value="network">
           <div className="mt-4 space-y-4">
             {networkErrors.length === 0 ? (

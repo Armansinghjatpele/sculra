@@ -104,4 +104,48 @@ All target URLs undergo strict security validation in `shared/utils/security.ts`
 The storage layer (`worker/src/storage.ts`) implements `IEvidenceStorage`:
 - **Supabase Storage Bucket**: When credentials and the `test-evidence` bucket are configured, screenshots are uploaded directly to Supabase Storage with public URLs.
 - **Local Filesystem Fallback**: If Supabase Storage is unavailable, screenshots are safely saved to `.storage/evidence/<testRunId>/` for local development.
-- **Structured Evidence Table (`public.test_evidence`)**: Records every captured artifact with type (`screenshot`, `console_error`, `network_error`, `navigation`), metadata, and timestamp.
+- **Structured Evidence Table (`public.test_evidence`)**: Records every captured artifact with type (`screenshot`, `console_error`, `network_error`, `navigation`, `application_map`, `journey_result`, `journey_step`, `action_trace`, `observation`), metadata, and timestamp.
+
+---
+
+## 7. Application Discovery Engine
+
+The Application Discovery module (`worker/src/discovery.ts`) maps the structural surface of a target web application:
+- **Same-Origin Crawling**: BFS queue respecting configurable bounds (`maxPages`, `maxDepth`, `maxLinksPerPage`, `maxElementsPerPage`).
+- **Interactive Element Extraction**: Locates non-text actionable elements (buttons, links, form fields, select dropdowns, checkboxes).
+- **Responsive Viewport Probing**: Captures screenshots across desktop (`1280x720`), tablet (`768x1024`), and mobile (`390x844`) layouts.
+- **Resilient Selectors**: Computes robust CSS and semantic locators for every discovered interactable element.
+
+---
+
+## 8. Deterministic User Journey & Safe Interaction Engine
+
+The User Journey Engine (`worker/src/journeys/`) systematically plans and executes safe user journeys across discovered applications:
+
+```mermaid
+flowchart TD
+    AppMap[Discovered Application Map] --> Planner[Deterministic Journey Planner]
+    Planner -->|Generate Candidate Journeys| J1[Primary Navigation Journey]
+    Planner -->|Generate Candidate Journeys| J2[Interactive UI Controls Journey]
+    Planner -->|Generate Candidate Journeys| J3[Form Usability & Validation Journey]
+    Planner -->|Generate Candidate Journeys| J4[Mobile Responsive Journey]
+    
+    J1 & J2 & J3 & J4 --> Executor[Journey Executor]
+    Executor --> Safety[Deterministic Safety Policy]
+    Safety -->|Permit Safe Actions| Runner[Playwright Browser Execution]
+    Safety -->|Skip Dangerous/Sensitive| Telemetry[Record Observations & Evidence]
+    Runner --> Telemetry
+    Telemetry --> Storage[(Persist to test_evidence)]
+```
+
+### Deterministic Safety Policy (`worker/src/journeys/safety.ts`)
+- **Dangerous Action Filter**: Automatically skips destructive operations (deletion, permanent removal, account termination, log out / sign out, monetary payments / checkout, and external publishing / deployments).
+- **Sensitive Field Filter**: Prevents synthetic data injection into sensitive fields (passwords, PINs, OTP tokens, API keys, secrets, credit card numbers, CVVs, SSNs, and bank accounts).
+- **Deterministic Fixture Values**: Injects synthetic, non-sensitive fixtures (`sculra.test.fixture@example.com`, `Sculra Test User`, `Sculra QA`, etc.).
+
+### Journey Types
+1. **Primary Navigation**: Traverses internal routes, asserting HTTP status codes, page titles, and URL routing.
+2. **Interactive UI Controls**: Clicks non-destructive buttons, accordions, and tabs to observe DOM mutations and detect no-ops (`CLICK_NO_OP`).
+3. **Form Usability & Validation**: Evaluates form client constraints (`VALIDATE_FORM`), fills safe inputs, and records validation states.
+4. **Responsive Viewport**: Executes workflows on mobile viewport (`390x844`) to observe usability on small screens.
+

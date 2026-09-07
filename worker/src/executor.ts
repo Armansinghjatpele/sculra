@@ -23,10 +23,11 @@ export class JobExecutor {
 
   constructor(config: ExecutorConfig = {}) {
     const url = config.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isProduction = process.env.NODE_ENV === 'production';
     const key =
       config.supabaseServiceKey ||
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      (!isProduction ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
 
     if (config.supabaseClient) {
       this.supabase = config.supabaseClient;
@@ -205,6 +206,23 @@ export class JobExecutor {
             applicationMap: result.applicationMap,
           },
         });
+      }
+
+      // 5f. Save User Journey Results
+      if (result.journeyResults && result.journeyResults.length > 0) {
+        for (const jRes of result.journeyResults) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'journey_result',
+            title: `User Journey: ${jRes.name}`,
+            url: result.finalUrl || targetUrl,
+            message: `Journey [${jRes.status}] - ${jRes.actionsPassed} passed, ${jRes.actionsFailed} failed, ${jRes.actionsSkipped} skipped across ${jRes.steps.length} steps.`,
+            metadata: {
+              journeyResult: jRes,
+            },
+          });
+        }
       }
 
     } catch (evidenceErr: any) {

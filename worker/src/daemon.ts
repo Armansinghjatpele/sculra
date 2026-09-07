@@ -30,10 +30,11 @@ export class WorkerDaemon {
 
   constructor(config: DaemonConfig = {}) {
     const url = config.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isProduction = process.env.NODE_ENV === 'production';
     const key =
       config.supabaseServiceKey ||
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      (!isProduction ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
 
     if (config.supabaseClient) {
       this.supabase = config.supabaseClient;

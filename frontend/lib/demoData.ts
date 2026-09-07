@@ -45,7 +45,11 @@ export interface TestEvidence {
     | 'navigation'
     | 'application_map'
     | 'discovered_page'
-    | 'responsive_capture';
+    | 'responsive_capture'
+    | 'journey_result'
+    | 'journey_step'
+    | 'action_trace'
+    | 'observation';
   title: string;
   url?: string;
   message?: string;
