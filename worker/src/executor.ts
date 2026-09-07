@@ -230,7 +230,40 @@ export class JobExecutor {
         }
       }
 
-      // 5g. Persist Deterministic Bug Observations & Issues
+      // 5g. Save Visual & Responsive QA Evidence
+      if (result.visualResult) {
+        // Visual Comparisons
+        for (const comp of result.visualResult.comparisons) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'visual_comparison',
+            title: `Visual Comparison: ${comp.viewport.name.toUpperCase()} (${comp.status})`,
+            url: comp.pageUrl,
+            message: `Visual diff ratio: ${(comp.pixelDifferenceRatio * 100).toFixed(2)}% (${comp.changedPixelCount} px changed) - Status: ${comp.status}`,
+            metadata: {
+              comparison: comp,
+            },
+          });
+        }
+
+        // Responsive Observations
+        for (const obs of result.visualResult.observations) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'responsive_observation',
+            title: `Responsive QA: ${obs.type} on ${obs.viewport.name}`,
+            url: obs.pageUrl,
+            message: obs.description,
+            metadata: {
+              observation: obs,
+            },
+          });
+        }
+      }
+
+      // 5h. Persist Deterministic Bug Observations & Issues
       if (result.bugObservations && result.bugObservations.length > 0) {
         const issueManager = new IssueManager(logger);
         await issueManager.persistBugs(

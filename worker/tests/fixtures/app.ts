@@ -271,6 +271,187 @@ export async function createFixtureServer(): Promise<FixtureServer> {
         </body>
         </html>
       `);
+    } else if (pathname === '/responsive-scroll') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Intentional Horizontal Scroll</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; margin: 0; }
+            .scroll-container { overflow-x: auto; width: 100%; max-width: 340px; border: 1px solid #334155; padding: 1rem; }
+            .wide-table { width: 800px; border-collapse: collapse; }
+            .wide-table td { border: 1px solid #475569; padding: 0.5rem; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <h1>Intentional Horizontal Data Table</h1>
+          <div class="scroll-container overflow-x-auto" data-carousel="true" data-testid="intentional-scroll">
+            <table class="wide-table">
+              <tr><td>Column 1 (Data)</td><td>Column 2 (Metrics)</td><td>Column 3 (Status)</td><td>Column 4 (Extended QA Telemetry)</td></tr>
+            </table>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/broken-overflow') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Broken Mobile Overflow Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; margin: 0; padding: 1rem; }
+            .fixed-wide-banner { width: 850px; background: #dc2626; color: white; padding: 2rem; border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <h1>Broken Mobile Overflow Demo</h1>
+          <div id="wide-overflow-banner" class="fixed-wide-banner">
+            <h2>This Element Extends 850px Wide Unconditionally</h2>
+            <p>Causes horizontal viewport scroll on mobile & tablet viewports without responsive wrapping.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/clipped-button') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Clipped Button Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            .clipped-wrapper { width: 80px; height: 30px; overflow: hidden; border: 2px dashed #eab308; }
+            .wide-action-btn { width: 220px; height: 48px; background: #3b82f6; color: white; border: none; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <h1>Clipped Interactive Control</h1>
+          <div id="clipped-box" class="clipped-wrapper">
+            <button id="severely-clipped-btn" class="wide-action-btn">Submit Order Now (Long Text)</button>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/overlapping-controls') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Overlapping Interactive Controls Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            .overlap-zone { position: relative; height: 200px; margin-top: 1rem; }
+            .btn-a { position: absolute; top: 20px; left: 30px; width: 160px; height: 50px; background: #2563eb; color: white; }
+            .btn-b { position: absolute; top: 25px; left: 40px; width: 160px; height: 50px; background: #dc2626; color: white; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <h1>Unrelated Elements Overlap Demo</h1>
+          <div class="overlap-zone">
+            <button id="overlap-primary-btn" class="btn-a">Confirm Order</button>
+            <button id="overlap-cancel-btn" class="btn-b">Cancel Transaction</button>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/text-overflow') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Text Overflow Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            .clipped-text-btn { width: 90px; white-space: nowrap; overflow: hidden; background: #4f46e5; color: white; padding: 0.5rem; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <h1>Unclipped Text Truncation</h1>
+          <button id="unhandled-text-overflow-btn" class="clipped-text-btn">Supercalifragilistic Autonomous QA Pipeline</button>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/layout-shift') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Layout Shift Demo</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            #shifted-header { margin-top: 0px; transition: none; }
+          </style>
+        </head>
+        <body>
+          <p><a href="/">← Back to Home</a></p>
+          <button id="shift-trigger-btn" onclick="document.getElementById('shifted-header').style.marginTop = '180px';">Trigger Massive Layout Shift</button>
+          <h1 id="shifted-header">Headline Affected By Sudden Layout Shift</h1>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/baseline-target') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Visual Baseline Target</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #e2e8f0; padding: 2rem; }
+            .hero-card { background: #1e293b; padding: 2rem; border-radius: 8px; border: 1px solid #3b82f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Visual Baseline Stable Page</h1>
+          <div class="hero-card">
+            <h2>Deterministic QA System v1.0</h2>
+            <p>Stable visual state for screenshot regression comparison.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/baseline-modified') {
+      res.writeHead(200);
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Visual Baseline Target</title>
+          <style>
+            body { font-family: sans-serif; background: #7f1d1d; color: #fef2f2; padding: 2rem; }
+            .hero-card { background: #991b1b; padding: 2rem; border-radius: 8px; border: 4px solid #ef4444; }
+          </style>
+        </head>
+        <body>
+          <h1>Visual Baseline Stable Page (Modified!)</h1>
+          <div class="hero-card">
+            <h2>Deterministic QA System v2.0 Broken Theme</h2>
+            <p>Significant visual color and layout difference detected!</p>
+          </div>
+        </body>
+        </html>
+      `);
     } else if (pathname === '/api/feedback' || pathname === '/api/safe-submit') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'Fixture submission successful' }));

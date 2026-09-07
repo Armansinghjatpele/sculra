@@ -208,4 +208,77 @@ SHA256(`${projectId}:${normalizedUrl}:${bugType}:${action}:${normalizedSelector}
 - **Third-Party Noise Elimination**: Network errors from analytics providers (Google Analytics, PostHog, Segment, Sentry, Telemetry), missing favicons, and non-blocking font downloads are ignored by default.
 - **Sensitive Data Redaction**: Query strings containing tokens, keys, passwords, or credentials are systematically redacted (`[REDACTED]`) before fingerprinting or persistence.
 
+---
+
+## 10. Deterministic Visual Regression & Responsive QA Engine
+
+> **Important Architecture Principle**: *This is deterministic visual/responsive QA, not AI visual reasoning.* All geometry evaluations, overflow checks, overlap calculations, layout shift measurements, and pixel-level screenshot comparisons operate deterministically without stochastic LLM calls or simulated metrics.
+
+```mermaid
+flowchart TD
+    Runner[Browser Runner] --> ViewportMatrix[Viewport Matrix: Desktop, Tablet, Mobile]
+    ViewportMatrix --> Stability[Bounded Page Stabilization]
+    
+    Stability --> Overflow[Overflow & Clipping Detector]
+    Stability --> Overlap[Geometric Overlap Detector]
+    Stability --> Text[Text Overflow Detector]
+    Stability --> Shift[Layout Shift Detector]
+    Stability --> Baseline[Visual Baseline & Comparator]
+    
+    Overflow -->|HORIZONTAL_OVERFLOW / CONTENT_CLIPPED| Observations[Visual Observations]
+    Overlap -->|ELEMENT_OVERLAP| Observations
+    Text -->|TEXT_OVERFLOW| Observations
+    Shift -->|LAYOUT_SHIFT| Observations
+    Baseline -->|VISUAL_REGRESSION / BASELINE_MISSING| Observations
+    
+    Observations --> Fingerprint[Viewport SHA256 Fingerprinter]
+    Fingerprint --> IssueManager[Hardened Issue Manager]
+    IssueManager --> Storage[(Persist Evidence & Issues)]
+```
+
+### Viewport Profile Matrix
+The responsive engine evaluates applications across standard viewport profiles:
+1. **Desktop**: `1440 × 900` (device scale 1x, widescreen desktop layout)
+2. **Tablet**: `768 × 1024` (device scale 2x, touchscreen portrait layout)
+3. **Mobile**: `390 × 844` (device scale 3x, touchscreen mobile layout with mobile user agent)
+
+### Bounded Execution Limits
+- `MAX_RESPONSIVE_PAGES = 10`
+- `MAX_VIEWPORTS = 5`
+- `MAX_SCREENSHOTS_PER_PAGE_PER_VIEWPORT = 2`
+- `MAX_RESPONSIVE_EXECUTION_TIME = 120000` (120 seconds)
+
+### Detection Capabilities & Heuristics
+1. **Horizontal Layout Overflow (`HORIZONTAL_OVERFLOW`)**:
+   - Compares `document.documentElement.scrollWidth` and `document.body.scrollWidth` against viewport width.
+   - Identifies offending DOM elements via bounding boxes and computed styles.
+   - **False-Positive Exclusion**: Excludes intentional scroll containers (`overflow-x: auto/scroll`, `.overflow-x-auto`, `[role="tablist"]`, `data-carousel`, `pre`, `code`), fixed overlays, and offscreen menus.
+2. **Element Clipping (`CONTENT_CLIPPED`)**:
+   - Detects interactive buttons, inputs, and links extending outside parent containers with `overflow: hidden`.
+3. **Element Overlap (`ELEMENT_OVERLAP`)**:
+   - Calculates rectangle intersections between visible interactive candidates.
+   - Ignores parent/child containment, badges in cards, icons in buttons, and active modals.
+   - Flags significant overlap ($\ge 20\%$ area or $\ge 150\text{px}^2$) between unrelated interactive elements.
+4. **Text Truncation Overflow (`TEXT_OVERFLOW`)**:
+   - Detects text elements where `scrollWidth > clientWidth` without `text-overflow: ellipsis`.
+5. **Layout Shift After Interaction (`LAYOUT_SHIFT`)**:
+   - Measures displacement $(\Delta x, \Delta y)$ of stable elements before vs after a journey interaction.
+   - Flags unexpected layout movements $\ge 40\text{px}$.
+
+### Visual Baseline & Pixel-by-Pixel Image Comparison
+- **Deterministic Comparison**: Uses pure pixel color distance $\Delta E = \max(|r_1-r_2|, |g_1-g_2|, |b_1-b_2|, |a_1-a_2|)$.
+- **Dimension Matching**: Asserts dimension equality ($W_1 = W_2, H_1 = H_2$). Returns `DIMENSION_MISMATCH` if dimensions differ.
+- **Configurable Thresholds**:
+  - $< 0.1\%$ difference $\rightarrow$ `PASS`
+  - $0.1\% - 1\%$ difference $\rightarrow$ `INFO` (review)
+  - $1\% - 5\%$ difference $\rightarrow$ `MEDIUM` visual regression
+  - $> 5\%$ difference $\rightarrow$ `HIGH` visual regression
+- **Baseline Missing Behavior**: If no baseline exists for a target page and viewport, records `BASELINE_MISSING` (severity `info`), stores the snapshot, and does **not** create a visual regression bug.
+
+### IssueManager Concurrency Hardening
+- Concurrent issue creation is hardened against race conditions using the PostgreSQL unique constraint on `(project_id, fingerprint)`.
+- If two workers insert the same fingerprint simultaneously, the duplicate key violation is caught gracefully, the existing issue is retrieved, its `occurrence_count` is incremented, and an entry is recorded in `public.issue_occurrences`.
+- Two simultaneous runs result in **1 issue** and **2 occurrences** with zero lost data.
+
+
 

@@ -16,6 +16,8 @@ export type BugType =
   | 'FORM_SUBMISSION_FAILURE'
   | 'BROKEN_CONTROL'
   | 'RUNTIME_EXCEPTION'
+  | 'LAYOUT_DEFECT'
+  | 'VISUAL_REGRESSION'
   | 'UNKNOWN_FUNCTIONAL_FAILURE';
 
 export type BugSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';

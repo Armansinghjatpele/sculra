@@ -18,6 +18,7 @@ export * from './discovery';
 export * from './discoveryUtils';
 export * from './journeys';
 export * from './issues';
+export * from './visual';
 export * from './security';
 export * from './logger';
 export * from './storage';

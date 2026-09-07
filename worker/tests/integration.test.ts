@@ -100,7 +100,7 @@ describe('Playwright Real Browser Execution Integration Test', () => {
     );
     expect(matchedNet).toBeDefined();
     expect(matchedNet?.status).toBe(404);
-  }, 20000);
+  }, 45000);
 
   it('should mark execution as failed when target returns HTTP 500 server error', async () => {
     const runner = new BrowserRunner('integration-test-run-2', 'integration-proj-1', {
@@ -114,5 +114,5 @@ describe('Playwright Real Browser Execution Integration Test', () => {
     expect(result.status).toBe('failed');
     expect(result.statusCode).toBe(500);
     expect(result.failureReason).toContain('HTTP 500');
-  }, 20000);
+  }, 45000);
 });

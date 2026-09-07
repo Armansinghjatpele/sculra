@@ -18,6 +18,7 @@ export interface RunnerOptions {
   allowLocalhost?: boolean;
   enableDiscovery?: boolean;
   enableJourneys?: boolean;
+  enableVisual?: boolean;
   viewport?: {
     width: number;
     height: number;
@@ -144,6 +145,8 @@ export interface DiscoveryLimits {
   viewports?: ViewportConfig[];
 }
 
+import { ResponsiveExecutionResult } from './visual/types';
+
 export interface TestExecutionResult {
   status: 'passed' | 'failed' | 'cancelled';
   pageTitle?: string;
@@ -156,6 +159,7 @@ export interface TestExecutionResult {
   applicationMap?: ApplicationMap;
   journeyResults?: any[];
   bugObservations?: any[];
+  visualResult?: ResponsiveExecutionResult;
   failureReason?: string;
 }
 

@@ -15,10 +15,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",
-    "playwright": "^1.50.1"
+    "playwright": "^1.50.1",
+    "pngjs": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
+    "@types/pngjs": "^6.0.5",
     "typescript": "^5.9.3",
     "vitest": "^1.6.1"
   }

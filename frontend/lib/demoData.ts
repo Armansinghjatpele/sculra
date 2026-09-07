@@ -49,7 +49,11 @@ export interface TestEvidence {
     | 'journey_result'
     | 'journey_step'
     | 'action_trace'
-    | 'observation';
+    | 'observation'
+    | 'visual_comparison'
+    | 'responsive_observation'
+    | 'visual_snapshot'
+    | 'visual_baseline';
   title: string;
   url?: string;
   message?: string;

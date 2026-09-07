@@ -110,6 +110,8 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const navigationItem = evidence.find((e) => e.type === 'navigation');
   const appMapEvidence = evidence.find((e) => e.type === 'application_map');
   const appMap = appMapEvidence?.metadata?.applicationMap;
+  const visualComparisons = evidence.filter((e) => e.type === 'visual_comparison');
+  const responsiveObservations = evidence.filter((e) => e.type === 'responsive_observation');
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -317,6 +319,12 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           <TabsTrigger value="overview">Overview & Navigation</TabsTrigger>
           <TabsTrigger value="issues">
             Issues Detected {issues.length > 0 && `(${issues.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="responsive">
+            Responsive QA {responsiveObservations.length > 0 && `(${responsiveObservations.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="visual">
+            Visual QA {visualComparisons.length > 0 && `(${visualComparisons.length})`}
           </TabsTrigger>
           <TabsTrigger value="journeys">
             User Journeys {journeyResults.length > 0 && `(${journeyResults.length})`}
@@ -863,6 +871,175 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                 ))}
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 7: Responsive QA */}
+        <TabsContent value="responsive">
+          <div className="mt-4 space-y-6 font-mono">
+            {/* Viewport Matrix Grid */}
+            <div>
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                Evaluated Viewport Matrix
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-zinc-900/30 border border-white/10 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Desktop Profile</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-muted-foreground">1440 × 900</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Full widescreen desktop layout</p>
+                </div>
+                <div className="p-4 bg-zinc-900/30 border border-white/10 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Tablet Profile</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-muted-foreground">768 × 1024</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Medium touchscreen portrait layout</p>
+                </div>
+                <div className="p-4 bg-zinc-900/30 border border-white/10 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Mobile Profile</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent font-bold">390 × 844</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Compact mobile smartphone viewport</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Responsive Observations */}
+            <div>
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                Responsive Layout Observations ({responsiveObservations.length})
+              </h3>
+              {responsiveObservations.length === 0 ? (
+                <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground">
+                  ✓ All pages rendered cleanly across desktop, tablet, and mobile viewports with zero horizontal overflow or element clipping.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {responsiveObservations.map((obs) => {
+                    const data = obs.metadata?.observation || {};
+                    const isHigh = data.severity === 'high' || data.severity === 'critical';
+                    return (
+                      <div
+                        key={obs.id}
+                        className={`p-4 border rounded-xl space-y-2 text-xs ${
+                          isHigh
+                            ? 'border-danger/30 bg-danger/5'
+                            : 'border-warning/20 bg-warning/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                isHigh ? 'bg-danger/20 text-danger' : 'bg-warning/20 text-warning'
+                              }`}
+                            >
+                              {data.type || 'RESPONSIVE_DEFECT'}
+                            </span>
+                            {data.viewport?.name && (
+                              <span className="px-2 py-0.5 rounded bg-white/10 text-muted-foreground text-[10px] uppercase">
+                                {data.viewport.name} ({data.viewport.width}px)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-muted-foreground text-[10px]">
+                            {data.severity ? data.severity.toUpperCase() : 'MEDIUM'}
+                          </span>
+                        </div>
+                        <p className="text-foreground font-semibold">{obs.message || obs.title}</p>
+                        {data.selector && (
+                          <p className="text-muted-foreground text-[11px]">
+                            Element: <code className="bg-black/30 px-1 py-0.5 rounded text-accent">{data.selector}</code>
+                          </p>
+                        )}
+                        {data.overflowAmount && (
+                          <p className="text-muted-foreground text-[10px]">
+                            Overflow: {data.overflowAmount}px beyond viewport boundary
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab 8: Visual QA */}
+        <TabsContent value="visual">
+          <div className="mt-4 space-y-6 font-mono">
+            <div>
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                Visual Baseline Comparisons ({visualComparisons.length})
+              </h3>
+              {visualComparisons.length === 0 ? (
+                <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground">
+                  No visual regression snapshots available for this test run.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {visualComparisons.map((comp) => {
+                    const data = comp.metadata?.comparison || {};
+                    const status = data.status || 'PASS';
+                    const isPassed = status === 'PASS';
+                    const isMissing = status === 'BASELINE_MISSING';
+                    const isHigh = status === 'HIGH';
+
+                    return (
+                      <div
+                        key={comp.id}
+                        className={`p-4 border rounded-xl space-y-2 text-xs ${
+                          isPassed
+                            ? 'border-success/20 bg-success/5'
+                            : isMissing
+                            ? 'border-white/10 bg-zinc-900/30'
+                            : isHigh
+                            ? 'border-danger/30 bg-danger/5'
+                            : 'border-warning/20 bg-warning/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                isPassed
+                                  ? 'bg-success/20 text-success'
+                                  : isMissing
+                                  ? 'bg-white/10 text-muted-foreground'
+                                  : isHigh
+                                  ? 'bg-danger/20 text-danger'
+                                  : 'bg-warning/20 text-warning'
+                              }`}
+                            >
+                              {status}
+                            </span>
+                            {data.viewport?.name && (
+                              <span className="px-2 py-0.5 rounded bg-white/10 text-muted-foreground text-[10px] uppercase">
+                                Viewport: {data.viewport.name} ({data.viewport.width}×{data.viewport.height})
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-muted-foreground text-[10px]">
+                            {data.threshold ? `Threshold: ${(data.threshold * 100).toFixed(1)}%` : ''}
+                          </span>
+                        </div>
+                        <p className="text-foreground font-semibold">{comp.message || comp.title}</p>
+                        <p className="text-muted-foreground text-[11px] truncate">URL: {comp.url}</p>
+                        {data.boundingRegion && (
+                          <p className="text-muted-foreground text-[10px]">
+                            Diff Region: x={data.boundingRegion.x}, y={data.boundingRegion.y}, w={data.boundingRegion.width}, h={data.boundingRegion.height}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>

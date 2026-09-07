@@ -19,6 +19,7 @@ import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
 import { DeterministicIssueClassifier, BugObservation } from './issues';
+import { ResponsiveVisualEngine, ResponsiveExecutionResult } from './visual';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -46,6 +47,7 @@ export class BrowserRunner {
       allowLocalhost: options.allowLocalhost ?? (process.env.NODE_ENV === 'test'),
       enableDiscovery: options.enableDiscovery ?? true,
       enableJourneys: options.enableJourneys ?? true,
+      enableVisual: options.enableVisual ?? true,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -91,6 +93,7 @@ export class BrowserRunner {
     let status: 'passed' | 'failed' | 'cancelled' = 'passed';
     let applicationMap: ApplicationMap | undefined;
     let journeyResults: JourneyResult[] | undefined;
+    let visualResult: ResponsiveExecutionResult | undefined;
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -330,13 +333,58 @@ export class BrowserRunner {
             }
           }
         }
+        // 10. Run Deterministic Visual & Responsive QA Engine
+        if (
+          this.options.enableVisual !== false &&
+          !cancellationToken?.isCancelled &&
+          browser
+        ) {
+          this.logger.log('invoking_visual_responsive_engine');
+          try {
+            const visualEngine = new ResponsiveVisualEngine(
+              browser,
+              {
+                allowLocalhost: this.options.allowLocalhost,
+              },
+              this.logger
+            );
+
+            const visualOutput = await visualEngine.execute(
+              this.testRunId,
+              this.projectId || 'unassigned',
+              safeUrl,
+              applicationMap?.pages || [],
+              cancellationToken
+            );
+
+            visualResult = visualOutput.result;
+            bugObservations.push(...visualOutput.bugObservations);
+
+            // Collect visual snapshots as screenshots
+            for (const snap of visualResult.snapshots) {
+              if (snap.buffer) {
+                screenshots.push({
+                  title: `Responsive Viewport: ${snap.viewport.name.toUpperCase()} (${snap.viewport.width}x${snap.viewport.height}) — ${snap.pageUrl}`,
+                  buffer: snap.buffer,
+                  mimeType: 'image/png',
+                  timestamp: snap.capturedAt,
+                  viewportName: snap.viewport.name as any,
+                });
+              }
+            }
+          } catch (visualErr: any) {
+            this.logger.warn('visual_engine_execution_warning', {
+              message: visualErr.message,
+            });
+          }
+        }
       }
 
-      // 10. Deterministic Issue Classification
+      // 11. Deterministic Issue Classification
       if (!cancellationToken?.isCancelled) {
         this.logger.log('invoking_issue_classifier');
         const classifier = new DeterministicIssueClassifier();
-        bugObservations = classifier.classify({
+        const functionalBugs = classifier.classify({
           testRunId: this.testRunId,
           projectId: this.projectId || 'unassigned',
           targetUrl: safeUrl,
@@ -346,6 +394,13 @@ export class BrowserRunner {
           screenshots,
         });
 
+        // Merge functional bugs with visual bug observations (deduplicating by fingerprint)
+        for (const fBug of functionalBugs) {
+          if (!bugObservations.some((b) => b.fingerprint === fBug.fingerprint)) {
+            bugObservations.push(fBug);
+          }
+        }
+
         this.logger.log('issue_classification_completed', {
           bugsDetected: bugObservations.length,
           criticalCount: bugObservations.filter((b) => b.severity === 'critical').length,
@@ -353,7 +408,7 @@ export class BrowserRunner {
           mediumCount: bugObservations.filter((b) => b.severity === 'medium').length,
         });
 
-        // Set test run failure if deterministic functional bugs were detected
+        // Set test run failure if deterministic functional or visual bugs were detected
         if (
           !cancellationToken?.isCancelled &&
           bugObservations.some(
@@ -363,7 +418,7 @@ export class BrowserRunner {
           status = 'failed';
           failureReason =
             failureReason ||
-            `Detected ${bugObservations.length} deterministic functional issue(s).`;
+            `Detected ${bugObservations.length} deterministic issue(s).`;
         }
       }
 
@@ -408,6 +463,7 @@ export class BrowserRunner {
       applicationMap,
       journeyResults,
       bugObservations,
+      visualResult,
       failureReason,
     };
   }

@@ -100,15 +100,51 @@ export class IssueManager {
             .select('id')
             .single();
 
-          if (insertErr || !newIssue) {
-            this.logger.warn('issue_insert_warning', {
-              message: insertErr?.message || 'Failed to retrieve inserted issue ID',
-            });
+          if (insertErr) {
+            // Check for concurrent duplicate key conflict (unique constraint on project_id + fingerprint)
+            const isDuplicate =
+              insertErr.code === '23505' ||
+              insertErr.message?.toLowerCase().includes('duplicate') ||
+              insertErr.message?.toLowerCase().includes('unique');
+
+            if (isDuplicate) {
+              // Fetch the concurrently created issue and update occurrence
+              const { data: concurrentIssue } = await supabase
+                .from('issues')
+                .select('id, status, occurrence_count')
+                .eq('project_id', projectId)
+                .eq('fingerprint', bug.fingerprint)
+                .single();
+
+              if (concurrentIssue) {
+                issueId = concurrentIssue.id;
+                const currentCount = concurrentIssue.occurrence_count || 1;
+                await supabase
+                  .from('issues')
+                  .update({
+                    test_run_id: testRunId,
+                    occurrence_count: currentCount + 1,
+                    last_seen_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', issueId);
+
+                updatedIssuesCount++;
+              } else {
+                continue;
+              }
+            } else {
+              this.logger.warn('issue_insert_warning', {
+                message: insertErr.message || 'Failed to retrieve inserted issue ID',
+              });
+              continue;
+            }
+          } else if (newIssue) {
+            issueId = newIssue.id;
+            newIssuesCount++;
+          } else {
             continue;
           }
-
-          issueId = newIssue.id;
-          newIssuesCount++;
         } else {
           // 3. Existing issue: update occurrence count and last seen timestamp
           issueId = existing.id;
