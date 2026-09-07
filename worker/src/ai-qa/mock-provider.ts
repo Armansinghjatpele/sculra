@@ -264,6 +264,62 @@ export class MockAIQAProvider implements AIQAProvider {
     };
   }
 
+  async analyzeTestStrategy(
+    context: import('../strategy/types').StrategyAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<import('../strategy/types').AIStrategyRecommendation> {
+    if (cancellationToken?.isCancelled) {
+      return {
+        recommendedMode: context.currentMode,
+        selectedTargetIds: [],
+        investigationHypotheses: [],
+        strategyRationale: 'Execution cancelled prior to strategy analysis.',
+        recommendedFocus: 'BREADTH',
+        suggestedStop: true,
+        stopReason: 'Cancelled',
+      };
+    }
+
+    const mode = context.currentMode;
+    const candidates = context.candidates || [];
+    const selectedTargetIds = candidates.slice(0, 3).map((c) => c.id);
+
+    const hypotheses: import('../strategy/types').AIStrategyHypothesis[] = [];
+    if (mode === 'FAILURE_DRIVEN') {
+      const topFail = candidates.find((c) => c.targetType === 'PREVIOUS_FAILURE');
+      if (topFail) {
+        hypotheses.push({
+          id: `hyp-strat-${context.iteration}-failure`,
+          description: `Investigating whether ${topFail.pageUrl} failure reproduces upon re-test.`,
+          targetUrl: topFail.pageUrl,
+          confidence: 'high',
+          supportingEvidence: topFail.reasons[0] || 'Prior defect detected on route',
+        });
+      }
+    } else if (mode === 'DEPTH_FIRST') {
+      const topForm = candidates.find((c) => c.targetType === 'FORM' || c.targetType === 'SUSPECTED_ISSUE');
+      if (topForm) {
+        hypotheses.push({
+          id: `hyp-strat-${context.iteration}-form`,
+          description: `Evaluating input boundary constraints on ${topForm.pageUrl}.`,
+          targetUrl: topForm.pageUrl,
+          confidence: 'medium',
+          supportingEvidence: 'Discovered interactive form requires boundary validation',
+        });
+      }
+    }
+
+    return {
+      recommendedMode: mode,
+      selectedTargetIds,
+      investigationHypotheses: hypotheses,
+      strategyRationale: `Deterministic Mock Strategy (Iter ${context.iteration}): Prioritized top ${selectedTargetIds.length} candidate(s) under ${mode} mode.`,
+      recommendedFocus: mode === 'FAILURE_DRIVEN' ? 'FAILURE_INVESTIGATION' : mode === 'DEPTH_FIRST' ? 'DEPTH' : 'BREADTH',
+      suggestedStop: candidates.length === 0,
+      stopReason: candidates.length === 0 ? 'All viable candidate targets evaluated.' : undefined,
+    };
+  }
+
   private createCancelledPlan(context: AIQAContext): AIQAPlan {
     return {
       version: '1.0',

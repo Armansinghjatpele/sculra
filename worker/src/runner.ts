@@ -100,6 +100,8 @@ export class BrowserRunner {
     let aiQaPlans: AIQAPlan[] | undefined;
     let aiQaResults: AIQAResult[] | undefined;
     let aiQaStateSummary: import('./ai-qa/state').AIQAStateSummary | undefined;
+    let strategyDecisions: import('./strategy/types').StrategyDecision[] | undefined;
+    let strategyTargets: import('./strategy/types').TestTarget[] | undefined;
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -412,6 +414,8 @@ export class BrowserRunner {
             aiQaPlans = aiOutput.plans;
             aiQaResults = aiOutput.results;
             aiQaStateSummary = aiOutput.stateSummary;
+            strategyDecisions = aiOutput.strategyDecisions;
+            strategyTargets = aiOutput.strategyTargets;
 
             // Merge executed journeys into telemetry
             if (aiOutput.executedJourneys.length > 0) {
@@ -529,6 +533,8 @@ export class BrowserRunner {
       aiQaPlans,
       aiQaResults,
       aiQaStateSummary,
+      strategyDecisions,
+      strategyTargets,
       failureReason,
     };
   }

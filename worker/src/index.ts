@@ -20,6 +20,7 @@ export * from './journeys';
 export * from './issues';
 export * from './visual';
 export * from './ai-qa';
+export * from './strategy';
 export * from './release';
 export * from './security';
 export * from './logger';

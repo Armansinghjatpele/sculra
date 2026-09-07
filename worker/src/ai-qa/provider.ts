@@ -2,6 +2,7 @@ import { AIQAContext, AIQAPlan, AIQAProviderMetadata } from './types';
 import { CancellationToken } from '../types';
 import { ReleaseAnalysisContext } from '../release/analyzer';
 import { AIReleaseAnalysis } from '../release/types';
+import { StrategyAnalysisContext, AIStrategyRecommendation } from '../strategy/types';
 
 export interface AIQAProvider {
   readonly metadata: AIQAProviderMetadata;
@@ -23,4 +24,14 @@ export interface AIQAProvider {
     context: ReleaseAnalysisContext,
     cancellationToken?: CancellationToken
   ): Promise<AIReleaseAnalysis>;
+
+  /**
+   * Evaluates autonomous test strategy, target ranking, and hypotheses given StrategyAnalysisContext.
+   * Must only select from candidate targets provided.
+   */
+  analyzeTestStrategy?(
+    context: StrategyAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<AIStrategyRecommendation>;
 }
+

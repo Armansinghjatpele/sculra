@@ -123,6 +123,10 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const aiQaStateEvidence = evidence.find((e) => e.type === 'ai_qa_state_summary');
   const aiQaStateSummary = aiQaStateEvidence?.metadata?.stateSummary;
   const aiQaStopEvidence = evidence.find((e) => e.type === 'ai_qa_stop');
+  const strategyDecisions: any[] = evidence
+    .filter((e) => e.type === 'strategy_decision')
+    .map((e) => e.metadata?.decision)
+    .filter(Boolean);
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -336,6 +340,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </TabsTrigger>
           <TabsTrigger value="visual">
             Visual QA {visualComparisons.length > 0 && `(${visualComparisons.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="strategy">
+            AI Strategy {strategyDecisions.length > 0 && `(${strategyDecisions.length})`}
           </TabsTrigger>
           <TabsTrigger value="aiqa">
             AI QA {aiQaPlans.length > 0 && `(${aiQaPlans.length})`}
@@ -1054,6 +1061,190 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                 </div>
               )}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab: AI Strategy & Prioritization */}
+        <TabsContent value="strategy">
+          <div className="space-y-6 font-mono">
+            {/* Strategy Mode Header Banner */}
+            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">
+                    Autonomous Test Strategy & Prioritization Engine
+                  </span>
+                  {strategyDecisions.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded bg-accent/15 border border-accent/30 text-accent text-[10px] uppercase font-bold">
+                      Mode: {strategyDecisions[strategyDecisions.length - 1].mode}
+                    </span>
+                  )}
+                  {strategyDecisions[strategyDecisions.length - 1]?.isFallback && (
+                    <span className="px-2 py-0.5 rounded bg-warning/10 border border-warning/20 text-warning text-[10px] uppercase font-bold">
+                      Deterministic Fallback
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-3xs max-w-2xl">
+                  Evaluates application structure, failure telemetry, and coverage gaps to dynamically rank test targets and allocate testing budgets without human intervention.
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Strategy Iterations</span>
+                <span className="text-sm font-bold text-foreground font-mono">
+                  {strategyDecisions.length} Decisions Logged
+                </span>
+              </div>
+            </div>
+
+            {strategyDecisions.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground font-mono text-xs border border-white/5 rounded-2xl bg-zinc-950/40">
+                No autonomous strategy decisions recorded for this test run.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {strategyDecisions.map((decision: any, dIdx: number) => {
+                  const selectedTarget = decision.selectedTargets?.[0];
+                  return (
+                    <div key={dIdx} className="border border-white/10 bg-zinc-950/50 rounded-2xl p-6 space-y-5">
+                      {/* Decision Header */}
+                      <div className="flex items-center justify-between border-b border-white/5 pb-4 flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="px-2.5 py-1 rounded bg-white/10 text-white font-bold text-xs">
+                            Strategy Iteration {decision.iteration}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent text-[10px] font-bold uppercase">
+                            {decision.mode}
+                          </span>
+                          <span className="text-3xs text-muted-foreground">
+                            {decision.selectedTargets?.length || 0} Target(s) Selected
+                          </span>
+                        </div>
+                        <div className="text-3xs text-muted-foreground">
+                          Budget Remaining: {decision.budgetRemaining?.targets ?? '--'} targets · {decision.budgetRemaining?.iterations ?? '--'} iters
+                        </div>
+                      </div>
+
+                      {/* Selected Top Target & "Why This Was Tested" */}
+                      {selectedTarget && (
+                        <div className="p-4 rounded-xl bg-zinc-900/60 border border-accent/20 space-y-3">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-3xs font-bold text-accent uppercase tracking-wider">
+                                Current Selected Target:
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-accent/20 text-accent font-mono text-[10px] font-bold">
+                                {selectedTarget.targetType}
+                              </span>
+                              <span className="text-xs font-bold text-foreground">{selectedTarget.id}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-3xs text-muted-foreground">Deterministic Priority:</span>
+                              <span className="px-2.5 py-0.5 rounded bg-accent/15 border border-accent/30 text-accent font-bold text-xs">
+                                {selectedTarget.priorityScore} / 100
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-3xs text-muted-foreground font-mono">
+                            <span>Route: <span className="text-foreground">{selectedTarget.pageUrl}</span></span>
+                            {selectedTarget.selector && <span> · Selector: <span className="text-foreground">{selectedTarget.selector}</span></span>}
+                            {selectedTarget.action && <span> · Action: <span className="text-accent">{selectedTarget.action}</span></span>}
+                          </div>
+
+                          {/* Deterministic "Why This Was Tested" Explanation List */}
+                          <div className="space-y-1.5 pt-2 border-t border-white/5">
+                            <span className="text-3xs uppercase tracking-widest text-muted-foreground font-bold block">
+                              Why This Target Was Prioritized:
+                            </span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {selectedTarget.reasons?.map((reason: string, rIdx: number) => (
+                                <div key={rIdx} className="p-2 rounded bg-zinc-950/60 border border-white/5 text-3xs text-zinc-300 flex items-start gap-2">
+                                  <span className="text-accent font-bold">●</span>
+                                  <span>{reason}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* AI Strategy Reasoning & Hypotheses */}
+                      {decision.aiRecommendation && (
+                        <div className="space-y-3 p-4 rounded-xl bg-zinc-900/30 border border-white/5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-3xs uppercase tracking-wider font-bold text-muted-foreground">
+                              AI Strategy Reasoning & Hypotheses
+                            </span>
+                            <span className="text-3xs px-2 py-0.5 rounded bg-white/5 text-muted-foreground">
+                              Focus: {decision.aiRecommendation.recommendedFocus}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground bg-zinc-950/40 p-3 rounded-lg border border-white/5">
+                            {decision.aiRecommendation.strategyRationale}
+                          </p>
+
+                          {decision.aiRecommendation.investigationHypotheses?.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-3xs uppercase tracking-wider text-muted-foreground block">
+                                Strategy Investigation Hypotheses:
+                              </span>
+                              {decision.aiRecommendation.investigationHypotheses.map((h: any, hIdx: number) => (
+                                <div key={hIdx} className="p-2 rounded bg-zinc-950/40 border border-white/5 text-3xs text-zinc-300 flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="font-bold text-accent mr-2">[{h.confidence?.toUpperCase()}]</span>
+                                    <span>{h.description}</span>
+                                    {h.supportingEvidence && (
+                                      <p className="text-muted-foreground text-4xs mt-0.5">Evidence: {h.supportingEvidence}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-muted-foreground text-4xs truncate max-w-xs">{h.targetUrl}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Deterministic Rankings Table */}
+                      {decision.deterministicRankings && decision.deterministicRankings.length > 0 && (
+                        <div>
+                          <span className="text-3xs uppercase tracking-widest text-muted-foreground font-bold block mb-2">
+                            Top Ranked Candidate Targets (Iteration {decision.iteration})
+                          </span>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-3xs">
+                              <thead>
+                                <tr className="border-b border-white/10 text-muted-foreground">
+                                  <th className="pb-2 font-semibold">Target ID</th>
+                                  <th className="pb-2 font-semibold">Priority Score</th>
+                                  <th className="pb-2 font-semibold">Primary Deterministic Reason</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {decision.deterministicRankings.slice(0, 5).map((rank: any, rkIdx: number) => (
+                                  <tr key={rkIdx} className="hover:bg-white/5">
+                                    <td className="py-2 text-foreground font-mono font-semibold">{rank.targetId}</td>
+                                    <td className="py-2">
+                                      <span className="px-2 py-0.5 rounded bg-accent/10 text-accent font-bold">
+                                        {rank.score} / 100
+                                      </span>
+                                    </td>
+                                    <td className="py-2 text-muted-foreground truncate max-w-md">
+                                      {rank.reasons?.[0] || 'Standard candidate priority'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
 

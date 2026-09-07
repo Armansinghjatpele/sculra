@@ -347,7 +347,14 @@ flowchart TD
 6. **Issue Intelligence & Evidence Integration**:
    - Distinguishes `CONFIRMED` defects (directly verified by deterministic failure/observation) from `SUSPECTED` anomalies.
    - Persists `ai_qa_plan`, `ai_qa_result`, `ai_qa_state_summary`, and `ai_qa_stop` evidence rows into `public.test_evidence`.
-   - Authoritative issue deduplication via SHA-256 fingerprinting.
+7. **Autonomous Strategy & Prioritization Engine (`worker/src/strategy/`)**:
+   - Synthesizes candidate targets (`PAGE`, `BUTTON`, `FORM`, `PREVIOUS_FAILURE`, `RESPONSIVE_VIEW`) across discovery, telemetry, and hypotheses.
+   - Deterministically evaluates optimal strategy modes: `FAILURE_DRIVEN`, `DEPTH_FIRST`, `RELEASE_GAP`, `REGRESSION_FOCUSED`, `BREADTH_FIRST`.
+   - Computes bounded deterministic priority scores (`0–100`) with human-readable explanations.
+   - Enriches selection with OpenAI/Mock strategy reasoning (`analyzeTestStrategy`) and guarantees AI cannot invent arbitrary target IDs.
+   - Enforces cooldowns on failed targets and manages bounded exploration budgets.
+   - Persists `strategy_decision` evidence in `public.test_evidence`.
+
 
 
 

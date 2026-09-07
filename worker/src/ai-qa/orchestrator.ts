@@ -29,6 +29,7 @@ import { JourneyExecutor, Journey, JourneyResult, JourneyObservation } from '../
 import { ApplicationMap, CancellationToken } from '../types';
 import { BugObservation } from '../issues/types';
 import { WorkerLogger } from '../logger';
+import { AutonomousStrategyEngine, StrategyDecision, TestTarget } from '../strategy';
 
 export interface AIQAOrchestratorOptions {
   provider?: AIQAProvider;
@@ -47,6 +48,8 @@ export interface AIQAOrchestratorExecutionResult {
   iterationsCount: number;
   finalState?: AIQAState;
   stateSummary?: AIQAStateSummary;
+  strategyDecisions?: StrategyDecision[];
+  strategyTargets?: TestTarget[];
 }
 
 export class AIQAOrchestrator {
@@ -118,6 +121,14 @@ export class AIQAOrchestrator {
       budget: budgetTracker.getBudgetState(),
     });
 
+    // Initialize Autonomous Strategy Engine
+    const strategyEngine = new AutonomousStrategyEngine(
+      this.targetUrl,
+      { maxIterations: this.config.maxIterations },
+      this.provider,
+      this.logger
+    );
+
     let finalStopReason: AIQAStopReason = 'GOAL_ACHIEVED';
 
     // Multi-iteration Bounded Adaptive AI QA Loop
@@ -139,9 +150,29 @@ export class AIQAOrchestrator {
         break;
       }
 
+      // 2b. Plan Strategy Iteration
+      const strategyOutput = await strategyEngine.planIteration(
+        testRunId,
+        applicationMap,
+        state,
+        initialIssues,
+        accumulatedJourneys,
+        [],
+        [],
+        state.testedViewports,
+        cancellationToken
+      );
+
+      if (strategyOutput.shouldStop) {
+        finalStopReason = (strategyOutput.stopReason as any) || 'GOAL_ACHIEVED';
+        state.terminationReason = finalStopReason;
+        this.logger?.log('ai_qa_strategy_stop', { reason: finalStopReason });
+        break;
+      }
+
       const iteration = budgetTracker.incrementIteration();
       const iterStartTime = Date.now();
-      this.logger?.log('ai_qa_iteration_started', { iteration });
+      this.logger?.log('ai_qa_iteration_started', { iteration, strategyMode: strategyOutput.decision.mode });
 
       // 3. Generate Compact State Summary & Build Sanitized Context
       const stateSummary = AIQAStateManager.generateCompactStateSummary(state);
@@ -309,7 +340,7 @@ export class AIQAOrchestrator {
 
       issuesIdentified.push(...iterIssues);
 
-      // 10. Update Adaptive State
+      // 10. Update Adaptive State & Strategy Target Outcomes
       state = AIQAStateManager.updateAfterIteration(
         state,
         iteration,
@@ -321,6 +352,12 @@ export class AIQAOrchestrator {
         budgetTracker.getBudgetState(),
         applicationMap
       );
+
+      if (strategyOutput.selectedTargets && strategyOutput.selectedTargets.length > 0) {
+        for (const t of strategyOutput.selectedTargets) {
+          strategyEngine.recordTargetOutcome(t.id, journeyResult.status === 'PASSED' ? 'PASSED' : 'FAILED');
+        }
+      }
 
       // 11. Record Iteration Result
       const iterResult: AIQAResult = {
@@ -390,6 +427,9 @@ export class AIQAOrchestrator {
       iterationsCount: plans.length,
       finalState: state,
       stateSummary: finalStateSummary,
+      strategyDecisions: strategyEngine.getDecisions(),
+      strategyTargets: strategyEngine.getTargetRegistry(),
     };
   }
 }
+

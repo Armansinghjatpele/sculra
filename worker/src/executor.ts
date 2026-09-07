@@ -350,6 +350,27 @@ export class JobExecutor {
         });
       }
 
+      // 5l. Persist Strategy Decisions
+      if (result.strategyDecisions && result.strategyDecisions.length > 0) {
+        for (const decision of result.strategyDecisions) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'strategy_decision',
+            title: `AI Test Strategy (Iter ${decision.iteration}) — ${decision.mode}`,
+            url: result.finalUrl || targetUrl,
+            message: `Strategy Mode: ${decision.mode}. Selected ${decision.selectedTargets.length} target(s). Fallback: ${decision.isFallback ? 'Yes' : 'No'}. ${decision.aiRecommendation?.strategyRationale || ''}`,
+            metadata: {
+              decision,
+              mode: decision.mode,
+              iteration: decision.iteration,
+              selectedTargets: decision.selectedTargets,
+              isFallback: decision.isFallback,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }

@@ -270,5 +270,63 @@ flowchart TD
 - **AI Role**: Explanation and risk synthesis only; does not override numeric scores or blockers.
 - **Full Specification**: See [RELEASE_READINESS.md](RELEASE_READINESS.md) for full scoring models, schemas, and evidence structures.
 
+---
+
+## 8. AI QA Prioritization & Autonomous Test Strategy Engine
+
+Sculra includes an iterative, deterministic + AI-assisted **Test Strategy Engine** that dynamically allocates testing budgets based on real-time application state and risk analysis:
+
+```mermaid
+flowchart TD
+    AppMap[ApplicationMap & Discovered Routes] --> CandGen[Candidate Target Generator]
+    QAState[AIQAState: Visited, Forms, Hypotheses] --> CandGen
+    Telemetry[Defects, 5xx Errors, Console Crashes] --> CandGen
+    Responsive[Missing Viewport Matrix] --> CandGen
+    
+    CandGen --> Candidates[Typed TestTarget Pool: PAGE, FORM, BUTTON, FAILURE, RESPONSIVE]
+    
+    Candidates --> ModeEval[StrategyModeEvaluator: Deterministic Mode Selection]
+    ModeEval --> Mode{Active Mode}
+    Mode -- "Critical Bugs / 5xx / Crashes" --> FAILURE_DRIVEN[FAILURE_DRIVEN Mode]
+    Mode -- "Active Hypotheses / Form Testing" --> DEPTH_FIRST[DEPTH_FIRST Mode]
+    Mode -- "Untested Viewports / Forms" --> RELEASE_GAP[RELEASE_GAP Mode]
+    Mode -- "Historical Known Issues" --> REGRESSION_FOCUSED[REGRESSION_FOCUSED Mode]
+    Mode -- "Initial Exploration" --> BREADTH_FIRST[BREADTH_FIRST Mode]
+    
+    Mode --> Prioritizer[DeterministicPrioritizer: Bounded 0-100 Scoring & Reasons]
+    Prioritizer --> RankedTargets[Ranked Targets with Human-Readable Explanations]
+    
+    RankedTargets --> AIReason[StrategyAnalyzer: OpenAI / Mock Provider]
+    AIReason -- "Validate & Normalize (Strip Invented IDs)" --> TargetSelect[Selected Target Batch]
+    AIReason -- "On Error / Timeout" --> Fallback[Deterministic Fallback]
+    Fallback --> TargetSelect
+    
+    TargetSelect --> SafeExec[Deterministic JourneyExecutor & Playwright]
+    SafeExec --> EvidencePersist[(public.test_evidence: strategy_decision, ai_qa_stop)]
+    SafeExec --> StateUpdate[Update AIQAState & Cooldown Registry]
+    StateUpdate -- "Next Iteration" --> CandGen
+```
+
+### 1. Strongly Typed Test Targets (`TestTarget`)
+Targets represent actionable, prioritizable units of testing:
+- **Target Types**: `PAGE`, `BUTTON`, `FORM`, `INPUT`, `SELECT`, `NAVIGATION_PATH`, `RESPONSIVE_VIEW`, `PREVIOUS_FAILURE`, `SUSPECTED_ISSUE`, `VISUAL_AREA`.
+- **Deterministic Priority Score**: Bounded `[0, 100]` incorporating coverage value, risk modifiers, failure history, novelty, and cost deductions.
+- **Explainability**: Every target contains human-readable deterministic explanations (`reasons: string[]`) answering **"Why this target was prioritized"**.
+- **Prerequisite Dependencies**: Dependency resolution ensures prerequisite page visits happen before nested form fills or deep interactions.
+
+### 2. Explicit Strategy Modes
+- **`FAILURE_DRIVEN`**: Triggered by critical/high defects, HTTP 5xx errors, or uncaught console runtime exceptions. Prioritizes isolating failure conditions and verifying reproducibility.
+- **`DEPTH_FIRST`**: Triggered when active hypotheses are in `TESTING` status or multi-step validation flows need parameter variation.
+- **`RELEASE_GAP`**: Triggered when target viewports (mobile/tablet) or functional forms remain unexercised.
+- **`REGRESSION_FOCUSED`**: Re-tests areas linked with historical project issues.
+- **`BREADTH_FIRST`**: Maximizes structural coverage across unvisited routes.
+
+### 3. AI Strategy Reasoning with Strict Schema & Invariants
+- The AI receives sanitized candidate targets and outputs structured JSON conforming to `AI_STRATEGY_DECISION_JSON_SCHEMA`.
+- **Safety Invariant**: AI MUST ONLY select from candidate target IDs provided. Invented or non-existent target IDs are automatically stripped during validation.
+- **Deterministic Fallback**: If the AI provider is unavailable, times out, or fails, the engine seamlessly selects the top deterministic target without failing the test run.
+- **Redundancy Cooldown**: Failed targets enter a temporary cooldown period to prevent infinite retry loops.
+
+
 
 

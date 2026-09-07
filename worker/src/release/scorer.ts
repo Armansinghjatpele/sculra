@@ -230,7 +230,7 @@ export class DeterministicReleaseScorer {
     }
 
     if (visualResult) {
-      for (const vp of visualResult.viewports || []) {
+      for (const vp of visualResult.viewports || (visualResult as any).viewportsTested || []) {
         viewportsTestedSet.add(vp.name);
       }
       for (const snap of visualResult.snapshots || []) {

@@ -58,6 +58,9 @@ export interface TestEvidence {
     | 'ai_qa_result'
     | 'ai_qa_state_summary'
     | 'ai_qa_stop'
+    | 'strategy_decision'
+    | 'test_target_selected'
+    | 'strategy_stop'
     | 'release_report';
   title: string;
   url?: string;

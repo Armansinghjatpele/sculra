@@ -337,6 +337,94 @@ Please analyze this deterministic assessment and produce a structured AIReleaseA
     return validateAndNormalizeReleaseAnalysis(parsed);
   }
 
+  async analyzeTestStrategy(
+    context: import('../strategy/types').StrategyAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<import('../strategy/types').AIStrategyRecommendation> {
+    if (cancellationToken?.isCancelled) {
+      throw new AIProviderError(
+        'AI test strategy analysis was cancelled by user.',
+        'AI_PROVIDER_CANCELLED',
+        'openai'
+      );
+    }
+
+    const systemPrompt = `=== TRUSTED QA TEST STRATEGY SYSTEM INSTRUCTIONS ===
+You are Sculra's Principal QA Test Strategist.
+Your objective is to evaluate current QA state, risk indicators, and candidate targets to allocate testing budget effectively.
+
+CRITICAL CONSTRAINTS:
+1. You MUST ONLY select target IDs from the provided candidate list. NEVER invent arbitrary target IDs.
+2. Recommend the optimal strategy mode:
+   - FAILURE_DRIVEN: When critical defects, 5xx server errors, or console exceptions require isolation.
+   - DEPTH_FIRST: When active hypotheses or complex form validation require deep verification.
+   - RELEASE_GAP: When missing viewports (mobile/tablet) or unexercised forms block release readiness.
+   - REGRESSION_FOCUSED: When historical defects need re-test.
+   - BREADTH_FIRST: For unvisited routes and broad structural discovery.
+3. Formulate falsifiable investigation hypotheses for suspicious behavior.
+4. Output strict JSON conforming to the schema.`;
+
+    const userPrompt = `=== UNTRUSTED APPLICATION STRATEGY CONTEXT ===
+Target Application URL: ${context.targetUrl}
+Test Run ID: ${context.testRunId}
+Iteration: ${context.iteration} of ${context.budget.maxIterations}
+Current Mode: ${context.currentMode}
+Remaining Budget: ${Math.max(0, context.budget.maxTargets - context.budget.targetsExecuted)} targets remaining
+
+CANDIDATE TEST TARGETS:
+${JSON.stringify(context.candidates, null, 2)}
+
+QA STATE SUMMARY:
+${context.stateSummary ? JSON.stringify(context.stateSummary, null, 2) : 'No prior state summary.'}
+
+Please prioritize the candidate targets, select the top target IDs from the candidates list, and formulate your strategy recommendation.`;
+
+    const abortController = new AbortController();
+    if (cancellationToken) {
+      const originalOnCancel = cancellationToken.onCancel;
+      cancellationToken.onCancel = () => {
+        abortController.abort();
+        if (originalOnCancel) originalOnCancel();
+      };
+    }
+
+    const { AI_STRATEGY_DECISION_JSON_SCHEMA, validateAndNormalizeStrategyDecision } = await import('../strategy/schema');
+
+    const response = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: AI_STRATEGY_DECISION_JSON_SCHEMA,
+        },
+        temperature: 0.1,
+      },
+      {
+        signal: abortController.signal,
+      }
+    );
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new AIProviderError(
+        'OpenAI returned empty strategy analysis completion.',
+        'AI_PROVIDER_INVALID_RESPONSE',
+        'openai'
+      );
+    }
+
+    const parsed = JSON.parse(content);
+    return validateAndNormalizeStrategyDecision(
+      parsed,
+      context.candidates as any,
+      context.currentMode
+    );
+  }
+
   private buildSystemPrompt(): string {
     return `=== TRUSTED QA SYSTEM INSTRUCTIONS ===
 You are Sculra's AI QA Engineer — an autonomous, senior software quality engineer.

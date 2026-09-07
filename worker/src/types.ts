@@ -166,6 +166,8 @@ export interface TestExecutionResult {
   aiQaPlans?: AIQAPlan[];
   aiQaResults?: AIQAResult[];
   aiQaStateSummary?: import('./ai-qa/state').AIQAStateSummary;
+  strategyDecisions?: import('./strategy/types').StrategyDecision[];
+  strategyTargets?: import('./strategy/types').TestTarget[];
   failureReason?: string;
 }
 

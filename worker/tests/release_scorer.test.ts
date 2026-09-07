@@ -69,10 +69,10 @@ describe('DeterministicReleaseScorer', () => {
     projectId: 'proj-1',
     targetUrl: 'http://127.0.0.1:3000',
     executedAt: new Date().toISOString(),
-    viewportsTested: [
-      { name: 'desktop', width: 1440, height: 900, scaleFactor: 1, isMobile: false, hasTouch: false },
-      { name: 'tablet', width: 768, height: 1024, scaleFactor: 2, isMobile: false, hasTouch: true },
-      { name: 'mobile', width: 390, height: 844, scaleFactor: 3, isMobile: true, hasTouch: true },
+    viewports: [
+      { name: 'desktop', width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
+      { name: 'tablet', width: 768, height: 1024, deviceScaleFactor: 2, isMobile: false, hasTouch: true },
+      { name: 'mobile', width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
     ],
     snapshots: [],
     comparisons: [
