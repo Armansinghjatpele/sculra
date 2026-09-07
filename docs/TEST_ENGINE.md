@@ -82,6 +82,12 @@ The worker reads standard environment variables from `.env` or system environmen
 | :--- | :--- | :--- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project API URL | Required for DB sync |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase privileged service role key | Required for worker writes |
+| `SCULRA_AI_PROVIDER` | AI QA provider implementation (`mock`, `openai`) | `mock` |
+| `OPENAI_API_KEY` | OpenAI API Secret Key | Required if `SCULRA_AI_PROVIDER=openai` |
+| `OPENAI_MODEL` | OpenAI Model ID for structured QA planning | `gpt-4o-mini` |
+| `OPENAI_MAX_RETRIES` | Max retries for transient 429/5xx errors | `3` |
+| `OPENAI_TIMEOUT_MS` | Per-request timeout limit in milliseconds | `30000` |
+| `OPENAI_BASE_URL` | Optional custom base URL for OpenAI-compatible proxies | `undefined` |
 | `WORKER_POLL_INTERVAL_MS` | Queue polling frequency in milliseconds | `2000` |
 | `WORKER_CONCURRENCY` | Maximum concurrent browser executions | `1` |
 | `TEST_BROWSER` | Playwright browser engine (`chromium`) | `chromium` |
@@ -315,13 +321,16 @@ flowchart TD
 ```
 
 ### Core Components
-1. **Provider Abstraction (`AIQAProvider`)**:
-   - Strongly-typed, provider-agnostic interface enabling future model integrations (OpenAI, Anthropic, local model) without altering test engine actuation.
-   - Deterministic `MockAIQAProvider` enables offline verification, unit tests, and CI/CD without external API keys.
+1. **Provider Abstraction & Production Providers (`worker/src/ai-qa/`)**:
+   - Strongly-typed, provider-agnostic interface enabling modular model backends.
+   - `MockAIQAProvider`: Deterministic offline provider for fast unit tests, regression suites, and CI/CD without API keys.
+   - `OpenAIQAProvider`: Production provider using OpenAI's Structured Outputs API (`json_schema` response format) with strict JSON schema compliance.
+   - Factory pattern (`createAIQAProvider`) enabling zero-code runtime switching via `SCULRA_AI_PROVIDER=openai|mock`.
 2. **Context Sanitization & Prompt Injection Defense (`AIQAContextSanitizer`)**:
    - Treats all browser DOM text, titles, button labels, form labels, and errors as **untrusted data**.
    - Redacts JWTs, bearer tokens, API keys, passwords, and private credentials.
    - Quarantines prompt injection patterns (e.g. `Ignore previous instructions...`) to prevent malicious page content from redefining safety rules or budgets.
+   - Uses strict system prompt delimiters (`=== TRUSTED QA SYSTEM INSTRUCTIONS ===` and `=== UNTRUSTED APPLICATION EVIDENCE ===`).
 3. **Strict Safety Validator (`AIQASafetyValidator`)**:
    - Validates allowlisted action vocabulary: `NAVIGATE`, `CLICK`, `FILL`, `SELECT`, `CHECK`, `UNCHECK`, `PRESS`, `WAIT_FOR_NAVIGATION`, `ASSERT_VISIBLE`, `ASSERT_URL`, `ASSERT_TITLE`, `VALIDATE_FORM`.
    - Enforces SSRF and scope boundaries: blocks cross-origin navigations, loopback addresses, and cloud metadata endpoints.
@@ -334,6 +343,7 @@ flowchart TD
    - Distinguishes `CONFIRMED` defects (directly verified by deterministic failure/observation) from `SUSPECTED` anomalies.
    - Persists `ai_qa_plan` and `ai_qa_result` evidence rows into `public.test_evidence`.
    - Authoritative issue deduplication via SHA-256 fingerprinting.
+
 
 
 

@@ -19,7 +19,7 @@ import {
   DEFAULT_AI_QA_CONFIG,
 } from './types';
 import { AIQAProvider } from './provider';
-import { MockAIQAProvider } from './mock-provider';
+import { createAIQAProvider } from './factory';
 import { AIQAContextBuilder } from './context';
 import { AIQASafetyValidator } from './validator';
 import { AIQABudgetTracker } from './budget';
@@ -63,11 +63,11 @@ export class AIQAOrchestrator {
       this.scopeOrigin = targetUrl;
     }
 
-    this.provider = options.provider || new MockAIQAProvider();
     this.config = {
       ...DEFAULT_AI_QA_CONFIG,
       ...(options.config || {}),
     };
+    this.provider = options.provider || createAIQAProvider(this.config);
     this.logger = options.logger;
     this.allowLocalhost = options.allowLocalhost ?? false;
   }
