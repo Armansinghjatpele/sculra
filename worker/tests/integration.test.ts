@@ -73,7 +73,7 @@ describe('Playwright Real Browser Execution Integration Test', () => {
     expect(result.durationMs).toBeGreaterThan(0);
 
     // 2. Assert real screenshot capture (PNG magic bytes)
-    expect(result.screenshots.length).toBe(1);
+    expect(result.screenshots.length).toBeGreaterThanOrEqual(1);
     const screenshot = result.screenshots[0];
     expect(screenshot.title).toContain('Sculra Local Test Target');
     expect(screenshot.mimeType).toBe('image/png');

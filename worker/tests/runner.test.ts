@@ -44,6 +44,7 @@ describe('BrowserRunner Deterministic Execution', () => {
 
     const runner = new BrowserRunner('test-run-1', 'proj-1', {
       allowLocalhost: false,
+      enableDiscovery: false,
     });
 
     const result = await runner.run('https://sculra.com');
@@ -64,6 +65,7 @@ describe('BrowserRunner Deterministic Execution', () => {
 
     const runner = new BrowserRunner('test-run-2', 'proj-1', {
       allowLocalhost: false,
+      enableDiscovery: false,
     });
 
     const result = await runner.run('https://sculra.com/error');
@@ -78,6 +80,7 @@ describe('BrowserRunner Deterministic Execution', () => {
 
     const runner = new BrowserRunner('test-run-3', 'proj-1', {
       allowLocalhost: false,
+      enableDiscovery: false,
     });
 
     const result = await runner.run('http://169.254.169.254/metadata');
@@ -88,7 +91,9 @@ describe('BrowserRunner Deterministic Execution', () => {
   });
 
   it('should handle cancellation tokens cleanly', async () => {
-    const runner = new BrowserRunner('test-run-4', 'proj-1');
+    const runner = new BrowserRunner('test-run-4', 'proj-1', {
+      enableDiscovery: false,
+    });
 
     const result = await runner.run('https://sculra.com', {
       isCancelled: true,
@@ -138,7 +143,9 @@ describe('BrowserRunner Deterministic Execution', () => {
       return { status: () => 200 };
     });
 
-    const runner = new BrowserRunner('test-run-5', 'proj-1');
+    const runner = new BrowserRunner('test-run-5', 'proj-1', {
+      enableDiscovery: false,
+    });
     const result = await runner.run('https://sculra.com');
 
     expect(result.status).toBe('passed');

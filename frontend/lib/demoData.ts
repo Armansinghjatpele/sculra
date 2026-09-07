@@ -37,7 +37,15 @@ export interface TestEvidence {
   id: string;
   testRunId: string;
   projectId: string;
-  type: 'screenshot' | 'console_error' | 'network_error' | 'dom_snapshot' | 'navigation';
+  type:
+    | 'screenshot'
+    | 'console_error'
+    | 'network_error'
+    | 'dom_snapshot'
+    | 'navigation'
+    | 'application_map'
+    | 'discovered_page'
+    | 'responsive_capture';
   title: string;
   url?: string;
   message?: string;

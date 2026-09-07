@@ -4,16 +4,24 @@
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
+export interface ViewportConfig {
+  width: number;
+  height: number;
+  name: 'desktop' | 'tablet' | 'mobile';
+}
+
 export interface RunnerOptions {
   browserType?: BrowserType;
   headless?: boolean;
   navigationTimeoutMs?: number;
   runTimeoutMs?: number;
   allowLocalhost?: boolean;
+  enableDiscovery?: boolean;
   viewport?: {
     width: number;
     height: number;
   };
+  discoveryLimits?: Partial<DiscoveryLimits>;
 }
 
 export interface CapturedConsoleError {
@@ -38,6 +46,101 @@ export interface CapturedScreenshot {
   mimeType: string;
   storagePath?: string;
   timestamp: string;
+  viewportName?: 'desktop' | 'tablet' | 'mobile';
+}
+
+export interface DiscoveredElement {
+  type: 'button' | 'link' | 'input' | 'select' | 'checkbox' | 'radio' | 'navigation' | 'interactive';
+  role?: string;
+  accessibleName?: string;
+  text?: string;
+  tagName: string;
+  href?: string;
+  selector: string;
+  sourcePage: string;
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  attributes?: Record<string, string>;
+}
+
+export interface DiscoveredFormField {
+  name: string;
+  type: string;
+  label?: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  selector: string;
+}
+
+export interface DiscoveredForm {
+  id?: string;
+  action?: string;
+  method: string;
+  fields: DiscoveredFormField[];
+  submitSelector?: string;
+  submitText?: string;
+  sourcePage: string;
+}
+
+export interface DiscoveredLink {
+  text: string;
+  href: string;
+  isInternal: boolean;
+  sourcePage: string;
+}
+
+export interface DiscoveredPage {
+  url: string;
+  title: string;
+  depth: number;
+  sourceUrl?: string;
+  screenshot?: CapturedScreenshot;
+  elementsCount: number;
+  elements: DiscoveredElement[];
+  forms: DiscoveredForm[];
+  links: DiscoveredLink[];
+  consoleErrors: CapturedConsoleError[];
+  networkErrors: CapturedNetworkError[];
+  timestamp: string;
+}
+
+export interface ViewportCapture {
+  viewport: ViewportConfig;
+  pageUrl: string;
+  title: string;
+  screenshot?: CapturedScreenshot;
+  layoutMetadata: {
+    bodyWidth: number;
+    bodyHeight: number;
+    scrollWidth: number;
+    scrollHeight: number;
+  };
+}
+
+export interface ApplicationMap {
+  startUrl: string;
+  discoveredAt: string;
+  totalPages: number;
+  totalLinks: number;
+  totalButtons: number;
+  totalForms: number;
+  totalInputs: number;
+  pages: DiscoveredPage[];
+  responsiveCaptures?: ViewportCapture[];
+}
+
+export interface DiscoveryLimits {
+  maxPages: number;
+  maxDepth: number;
+  maxLinksPerPage: number;
+  maxInteractionsPerPage: number;
+  maxTotalDiscoveryTimeMs: number;
+  viewports?: ViewportConfig[];
 }
 
 export interface TestExecutionResult {
@@ -49,6 +152,7 @@ export interface TestExecutionResult {
   consoleErrors: CapturedConsoleError[];
   networkErrors: CapturedNetworkError[];
   screenshots: CapturedScreenshot[];
+  applicationMap?: ApplicationMap;
   failureReason?: string;
 }
 

@@ -192,6 +192,21 @@ export class JobExecutor {
         },
       });
 
+      // 5e. Save Application Discovery Map
+      if (result.applicationMap) {
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'application_map',
+          title: `Application Discovery Map (${result.applicationMap.totalPages} Pages Mapped)`,
+          url: result.applicationMap.startUrl,
+          message: `Discovered ${result.applicationMap.totalPages} pages, ${result.applicationMap.totalForms} forms, ${result.applicationMap.totalButtons} buttons, and ${result.applicationMap.totalLinks} links.`,
+          metadata: {
+            applicationMap: result.applicationMap,
+          },
+        });
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }

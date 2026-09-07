@@ -27,6 +27,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const [cancelling, setCancelling] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
   const [selectedScreenshot, setSelectedScreenshot] = React.useState<string | null>(null);
+  const [expandedPageUrl, setExpandedPageUrl] = React.useState<string | null>(null);
 
   const fetchRunDetails = React.useCallback(async () => {
     try {
@@ -99,10 +100,12 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   }
 
   // Evidence groupings
-  const screenshots = evidence.filter((e) => e.type === 'screenshot');
+  const screenshots = evidence.filter((e) => e.type === 'screenshot' || e.type === 'responsive_capture');
   const consoleErrors = evidence.filter((e) => e.type === 'console_error');
   const networkErrors = evidence.filter((e) => e.type === 'network_error');
   const navigationItem = evidence.find((e) => e.type === 'navigation');
+  const appMapEvidence = evidence.find((e) => e.type === 'application_map');
+  const appMap = appMapEvidence?.metadata?.applicationMap;
 
   const isTerminal = testRun.status === 'passed' || testRun.status === 'failed' || testRun.status === 'cancelled';
 
@@ -163,9 +166,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
               </svg>
             </div>
             <div>
-              <span className="font-bold text-foreground block">Browser Execution in Progress</span>
+              <span className="font-bold text-foreground block">Browser Execution & Discovery in Progress</span>
               <p className="text-muted-foreground text-3xs mt-0.5">
-                Navigating to target URL, capturing viewport traces, and logging network telemetry...
+                Navigating to target URL, mapping application structure, capturing viewports, and logging network telemetry...
               </p>
             </div>
           </div>
@@ -184,7 +187,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
             <div>
               <span className="font-bold text-foreground block">Test Execution Completed (Passed)</span>
               <p className="text-muted-foreground text-3xs mt-0.5">
-                Target responded successfully with HTTP 200 OK. No fatal network exceptions recorded.
+                Target responded successfully with HTTP 200 OK. Application structure discovery mapped successfully.
               </p>
             </div>
           </div>
@@ -260,25 +263,25 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
 
         <Card className="glass-panel text-center py-5">
           <CardHeader className="p-0">
-            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Console Errors</CardDescription>
-            <CardTitle className={`text-lg font-extrabold mt-1 font-mono ${consoleErrors.length > 0 ? 'text-danger' : 'text-success'}`}>
-              {consoleErrors.length}
+            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Discovered Pages</CardDescription>
+            <CardTitle className="text-lg font-extrabold mt-1 font-mono text-accent">
+              {appMap ? appMap.totalPages : '--'}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 mt-2 text-3xs text-muted-foreground font-mono">
-            Captured from browser
+            {appMap ? `${appMap.totalButtons} buttons · ${appMap.totalForms} forms` : 'Awaiting discovery'}
           </CardContent>
         </Card>
 
         <Card className="glass-panel text-center py-5">
           <CardHeader className="p-0">
-            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Network Failures</CardDescription>
-            <CardTitle className={`text-lg font-extrabold mt-1 font-mono ${networkErrors.length > 0 ? 'text-danger' : 'text-success'}`}>
-              {networkErrors.length}
+            <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Issues Detected</CardDescription>
+            <CardTitle className={`text-lg font-extrabold mt-1 font-mono ${consoleErrors.length + networkErrors.length > 0 ? 'text-danger' : 'text-success'}`}>
+              {consoleErrors.length + networkErrors.length}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 mt-2 text-3xs text-muted-foreground font-mono">
-            4xx / 5xx HTTP responses
+            {consoleErrors.length} console · {networkErrors.length} network
           </CardContent>
         </Card>
       </Grid>
@@ -287,6 +290,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview & Navigation</TabsTrigger>
+          <TabsTrigger value="appmap">
+            Application Map {appMap && `(${appMap.totalPages})`}
+          </TabsTrigger>
           <TabsTrigger value="screenshots">
             Screenshots {screenshots.length > 0 && `(${screenshots.length})`}
           </TabsTrigger>
@@ -339,7 +345,191 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Screenshots */}
+        {/* Tab 2: Application Map (Prompt 13 Addition) */}
+        <TabsContent value="appmap">
+          <div className="mt-4 space-y-6">
+            {!appMap ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground font-mono">
+                {testRun.status === 'queued' || testRun.status === 'running'
+                  ? 'Mapping application structure in background...'
+                  : 'No application structure discovered for this run.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Discovery Metrics Header */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center font-mono">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Pages</span>
+                    <span className="text-lg font-bold text-foreground">{appMap.totalPages}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center font-mono">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Forms</span>
+                    <span className="text-lg font-bold text-foreground">{appMap.totalForms}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center font-mono">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Buttons</span>
+                    <span className="text-lg font-bold text-foreground">{appMap.totalButtons}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center font-mono">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Inputs</span>
+                    <span className="text-lg font-bold text-foreground">{appMap.totalInputs}</span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center font-mono">
+                    <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Links</span>
+                    <span className="text-lg font-bold text-foreground">{appMap.totalLinks}</span>
+                  </div>
+                </div>
+
+                {/* Responsive Viewport Preview Cards */}
+                {appMap.responsiveCaptures && appMap.responsiveCaptures.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider font-mono">
+                      Responsive Viewport Captures
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {appMap.responsiveCaptures.map((cap: any, idx: number) => (
+                        <Card key={idx} className="glass-panel overflow-hidden border border-white/10">
+                          <CardHeader className="p-3 pb-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-3xs uppercase font-bold text-accent font-mono">
+                                {cap.viewport.name} ({cap.viewport.width}×{cap.viewport.height})
+                              </span>
+                              <span className="text-4xs text-muted-foreground font-mono">
+                                Body: {cap.layoutMetadata.bodyWidth}×{cap.layoutMetadata.bodyHeight}px
+                              </span>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-3 pt-2">
+                            {cap.screenshot && (
+                              <div className="rounded-lg overflow-hidden border border-white/5 bg-zinc-950/40 p-2 text-center text-3xs font-mono text-muted-foreground">
+                                Viewport Captured ({cap.viewport.width}x{cap.viewport.height})
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Discovered Pages List */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider font-mono">
+                    Discovered Application Pages ({appMap.pages.length})
+                  </h3>
+
+                  <div className="space-y-3">
+                    {appMap.pages.map((p: any, idx: number) => {
+                      const isExpanded = expandedPageUrl === p.url || (expandedPageUrl === null && idx === 0);
+                      return (
+                        <div
+                          key={idx}
+                          className="border border-white/10 bg-zinc-900/30 rounded-xl overflow-hidden font-mono text-xs transition-all"
+                        >
+                          <div
+                            className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5"
+                            onClick={() => setExpandedPageUrl(isExpanded ? '' : p.url)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="h-6 w-6 rounded-full bg-accent/10 border border-accent/20 text-accent flex items-center justify-center font-bold text-3xs">
+                                {p.depth}
+                              </span>
+                              <div>
+                                <span className="font-bold text-foreground block">{p.title || 'Untitled Page'}</span>
+                                <span className="text-3xs text-muted-foreground">{p.url}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-3xs text-muted-foreground">
+                              <span>{p.forms.length} forms</span>
+                              <span>·</span>
+                              <span>{p.elements.filter((e: any) => e.type === 'button').length} buttons</span>
+                              <span>·</span>
+                              <span>{p.links.length} links</span>
+                              <span className="text-sm font-bold text-foreground">{isExpanded ? '−' : '+'}</span>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="p-4 pt-0 border-t border-white/5 space-y-4 text-3xs">
+                              {/* Forms Section */}
+                              {p.forms.length > 0 && (
+                                <div className="space-y-2 mt-3">
+                                  <span className="font-bold text-accent uppercase tracking-wider block">
+                                    Discovered Forms ({p.forms.length})
+                                  </span>
+                                  <div className="space-y-2">
+                                    {p.forms.map((form: any, fIdx: number) => (
+                                      <div key={fIdx} className="p-3 bg-zinc-950/40 rounded-lg border border-white/5 space-y-2">
+                                        <div className="flex items-center justify-between text-muted-foreground">
+                                          <span className="text-foreground font-semibold">
+                                            {form.method} {form.action || 'Default Action'}
+                                          </span>
+                                          <span>{form.fields.length} input fields</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
+                                          {form.fields.map((fld: any, flIdx: number) => (
+                                            <div key={flIdx} className="p-2 bg-zinc-900/60 rounded border border-white/5 text-muted-foreground">
+                                              <span className="text-foreground font-semibold block">{fld.name} ({fld.type})</span>
+                                              {fld.label && <span>Label: {fld.label} · </span>}
+                                              {fld.required && <span className="text-danger font-bold">Required · </span>}
+                                              <span className="text-muted-foreground text-[10px]">Selector: {fld.selector}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Interactive Elements / Buttons */}
+                              {p.elements.filter((e: any) => e.type === 'button').length > 0 && (
+                                <div className="space-y-2">
+                                  <span className="font-bold text-accent uppercase tracking-wider block">
+                                    Interactive Buttons ({p.elements.filter((e: any) => e.type === 'button').length})
+                                  </span>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {p.elements.filter((e: any) => e.type === 'button').map((btn: any, bIdx: number) => (
+                                      <div key={bIdx} className="p-2 bg-zinc-950/40 rounded border border-white/5">
+                                        <span className="text-foreground font-bold block">{btn.text || btn.accessibleName || 'Button'}</span>
+                                        <span className="text-muted-foreground text-[10px]">Selector: {btn.selector}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Links */}
+                              {p.links.length > 0 && (
+                                <div className="space-y-2">
+                                  <span className="font-bold text-muted-foreground uppercase tracking-wider block">
+                                    Discovered Links ({p.links.length})
+                                  </span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {p.links.map((l: any, lIdx: number) => (
+                                      <span
+                                        key={lIdx}
+                                        className={`px-2 py-1 rounded text-[10px] border ${l.isInternal ? 'bg-accent/5 text-accent border-accent/20' : 'bg-zinc-800 text-muted-foreground border-white/5'}`}
+                                      >
+                                        {l.text || l.href}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Screenshots */}
         <TabsContent value="screenshots">
           <div className="mt-4 space-y-4">
             {screenshots.length === 0 ? (
@@ -384,7 +574,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 3: Console Logs */}
+        {/* Tab 4: Console Logs */}
         <TabsContent value="console">
           <div className="mt-4 space-y-4">
             {consoleErrors.length === 0 ? (
@@ -421,7 +611,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 4: Network Requests */}
+        {/* Tab 5: Network Requests */}
         <TabsContent value="network">
           <div className="mt-4 space-y-4">
             {networkErrors.length === 0 ? (

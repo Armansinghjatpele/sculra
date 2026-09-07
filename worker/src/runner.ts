@@ -2,7 +2,7 @@
 // Sculra Deterministic Playwright Browser Runner (worker/src/runner.ts)
 // ==============================================================================
 // Headless browser automation executing deterministic page navigation,
-// evidence extraction (screenshots, console errors, network failures), and status resolution.
+// application discovery, evidence extraction, and status resolution.
 
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import {
@@ -12,9 +12,11 @@ import {
   CapturedNetworkError,
   CapturedScreenshot,
   CancellationToken,
+  ApplicationMap,
 } from './types';
 import { validateTargetUrl } from './security';
 import { WorkerLogger } from './logger';
+import { ApplicationDiscovery } from './discovery';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -40,7 +42,9 @@ export class BrowserRunner {
           ? parseInt(process.env.TEST_RUN_TIMEOUT_MS, 10)
           : 30000),
       allowLocalhost: options.allowLocalhost ?? (process.env.NODE_ENV === 'test'),
+      enableDiscovery: options.enableDiscovery ?? true,
       viewport: options.viewport ?? { width: 1280, height: 720 },
+      discoveryLimits: options.discoveryLimits,
     };
   }
 
@@ -82,6 +86,7 @@ export class BrowserRunner {
     let statusCode: number | undefined;
     let failureReason: string | undefined;
     let status: 'passed' | 'failed' | 'cancelled' = 'passed';
+    let applicationMap: ApplicationMap | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -240,6 +245,51 @@ export class BrowserRunner {
         });
       }
 
+      // Close the initial probe page and context before discovery
+      await page.close().catch(() => {});
+      page = null;
+      await context.close().catch(() => {});
+      context = null;
+
+      // 8. Run Application Discovery if enabled and initial navigation did not fatally fail
+      if (this.options.enableDiscovery !== false && status !== 'failed' && !cancellationToken?.isCancelled) {
+        this.logger.log('invoking_application_discovery');
+        const discovery = new ApplicationDiscovery(browser, safeUrl, {
+          limits: this.options.discoveryLimits,
+          allowLocalhost: this.options.allowLocalhost,
+          cancellationToken,
+          logger: this.logger,
+        });
+
+        applicationMap = await discovery.discover();
+
+        // Collect discovery evidence into runner result
+        for (const discoveredPage of applicationMap.pages) {
+          if (discoveredPage.screenshot) {
+            screenshots.push(discoveredPage.screenshot);
+          }
+          for (const cErr of discoveredPage.consoleErrors) {
+            if (!consoleErrors.some((e) => e.message === cErr.message && e.url === cErr.url)) {
+              consoleErrors.push(cErr);
+            }
+          }
+          for (const nErr of discoveredPage.networkErrors) {
+            if (!networkErrors.some((e) => e.url === nErr.url && e.status === nErr.status)) {
+              networkErrors.push(nErr);
+            }
+          }
+        }
+
+        // Collect responsive viewport screenshots
+        if (applicationMap.responsiveCaptures) {
+          for (const rCap of applicationMap.responsiveCaptures) {
+            if (rCap.screenshot) {
+              screenshots.push(rCap.screenshot);
+            }
+          }
+        }
+      }
+
     } catch (err: any) {
       status = 'failed';
       failureReason = err.message || 'Browser execution failed';
@@ -264,6 +314,7 @@ export class BrowserRunner {
       consoleErrorsCount: consoleErrors.length,
       networkErrorsCount: networkErrors.length,
       screenshotsCount: screenshots.length,
+      totalPagesDiscovered: applicationMap?.totalPages || 0,
     });
 
     return {
@@ -275,6 +326,7 @@ export class BrowserRunner {
       consoleErrors,
       networkErrors,
       screenshots,
+      applicationMap,
       failureReason,
     };
   }

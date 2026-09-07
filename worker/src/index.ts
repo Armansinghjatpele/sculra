@@ -14,6 +14,8 @@ export * from './types';
 export * from './runner';
 export * from './executor';
 export * from './daemon';
+export * from './discovery';
+export * from './discoveryUtils';
 export * from './security';
 export * from './logger';
 export * from './storage';
