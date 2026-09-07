@@ -122,7 +122,19 @@ export class DeterministicPrioritizer {
         reasons.push('Risk modifier: High severity risk');
       }
 
-      // 4. Status, Attempts & Redundancy Cooldown
+      // 4. Product Business Criticality Modifier
+      if (candidate.criticalityLevel === 'CRITICAL' || (candidate.criticalityScore && candidate.criticalityScore >= 90)) {
+        baseScore += 20;
+        reasons.push('Product Criticality: Part of CRITICAL business workflow (+20 pts)');
+      } else if (candidate.criticalityLevel === 'HIGH' || (candidate.criticalityScore && candidate.criticalityScore >= 70)) {
+        baseScore += 12;
+        reasons.push('Product Criticality: Part of HIGH criticality product workflow (+12 pts)');
+      } else if (candidate.criticalityLevel === 'MEDIUM' || (candidate.criticalityScore && candidate.criticalityScore >= 45)) {
+        baseScore += 5;
+        reasons.push('Product Criticality: Part of MEDIUM criticality product capability (+5 pts)');
+      }
+
+      // 5. Status, Attempts & Redundancy Cooldown
       if (completed.has(candidate.id) || candidate.status === 'EXECUTED') {
         baseScore -= 40;
         reasons.push('Redundancy penalty: Target previously executed in this test run');

@@ -61,6 +61,12 @@ export interface TestEvidence {
     | 'strategy_decision'
     | 'test_target_selected'
     | 'strategy_stop'
+    | 'product_model'
+    | 'product_workflow'
+    | 'product_feature'
+    | 'product_role'
+    | 'product_criticality'
+    | 'product_coverage'
     | 'release_report';
   title: string;
   url?: string;

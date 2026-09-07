@@ -3,6 +3,7 @@ import { CancellationToken } from '../types';
 import { ReleaseAnalysisContext } from '../release/analyzer';
 import { AIReleaseAnalysis } from '../release/types';
 import { StrategyAnalysisContext, AIStrategyRecommendation } from '../strategy/types';
+import { ProductAnalysisContext, AIProductUnderstandingRecommendation } from '../product/types';
 
 export interface AIQAProvider {
   readonly metadata: AIQAProviderMetadata;
@@ -33,5 +34,14 @@ export interface AIQAProvider {
     context: StrategyAnalysisContext,
     cancellationToken?: CancellationToken
   ): Promise<AIStrategyRecommendation>;
+
+  /**
+   * Enhances product understanding, feature grouping, role discovery, and workflows given ProductAnalysisContext.
+   * Must not invent unknown routes or non-existent entity IDs.
+   */
+  analyzeProductUnderstanding?(
+    context: ProductAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<AIProductUnderstandingRecommendation>;
 }
 

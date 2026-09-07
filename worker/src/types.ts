@@ -168,6 +168,8 @@ export interface TestExecutionResult {
   aiQaStateSummary?: import('./ai-qa/state').AIQAStateSummary;
   strategyDecisions?: import('./strategy/types').StrategyDecision[];
   strategyTargets?: import('./strategy/types').TestTarget[];
+  productModel?: import('./product/types').ProductModel;
+  productCoverage?: import('./product/types').CoverageAgainstProductModel;
   failureReason?: string;
 }
 

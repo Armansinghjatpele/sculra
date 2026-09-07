@@ -320,6 +320,61 @@ export class MockAIQAProvider implements AIQAProvider {
     };
   }
 
+  async analyzeProductUnderstanding(
+    context: import('../product/types').ProductAnalysisContext,
+    cancellationToken?: CancellationToken
+  ): Promise<import('../product/types').AIProductUnderstandingRecommendation> {
+    if (cancellationToken?.isCancelled) {
+      return {
+        refinedApplicationType: context.applicationProfile.primaryType,
+        additionalFeatures: [],
+        additionalWorkflows: [],
+        roleHypotheses: [],
+        suggestedRelationships: [],
+      };
+    }
+
+    const additionalWorkflows: import('../product/types').AIProductUnderstandingRecommendation['additionalWorkflows'] = [];
+    const pages = context.pageSummaries;
+
+    // Check if there is an unexercised multi-step flow
+    if (pages.length >= 2) {
+      const p1 = pages[0];
+      const p2 = pages[1];
+      additionalWorkflows.push({
+        name: `Primary ${p1.category} to ${p2.category} User Flow`,
+        goal: `Explore interaction transitions from ${p1.url} to ${p2.url}`,
+        roleName: 'Visitor / User',
+        entryRoute: p1.url,
+        exitRoute: p2.url,
+        steps: [
+          {
+            action: 'NAVIGATE',
+            route: p1.url,
+            targetDescription: `Entry page: ${p1.title || p1.url}`,
+            expectedTransition: `Navigate to ${p1.url}`,
+          },
+          {
+            action: 'CLICK',
+            route: p2.url,
+            targetDescription: `Transition link to ${p2.title || p2.url}`,
+            expectedTransition: `Transition to ${p2.url}`,
+          },
+        ],
+        confidence: 0.85,
+        criticality: 'HIGH',
+      });
+    }
+
+    return {
+      refinedApplicationType: context.applicationProfile.primaryType,
+      additionalFeatures: [],
+      additionalWorkflows,
+      roleHypotheses: [],
+      suggestedRelationships: [],
+    };
+  }
+
   private createCancelledPlan(context: AIQAContext): AIQAPlan {
     return {
       version: '1.0',

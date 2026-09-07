@@ -371,6 +371,45 @@ export class JobExecutor {
         }
       }
 
+      // 5m. Persist AI Product Understanding & Workflow Discovery Evidence
+      if (result.productModel) {
+        const pm = result.productModel;
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'product_model',
+          title: `AI Product Model — ${pm.applicationProfile.primaryType} (${pm.features.length} features, ${pm.workflows.length} workflows)`,
+          url: result.finalUrl || targetUrl,
+          message: `Identified as "${pm.applicationProfile.primaryType}" with ${pm.features.length} feature capabilities, ${pm.workflows.length} workflows (${pm.coverage.highCriticalityWorkflowsTotal} high/critical), ${pm.roles.length} roles. Workflow Coverage: ${(pm.coverage.workflowCoverageRatio * 100).toFixed(0)}%.`,
+          metadata: {
+            productModel: pm,
+            applicationProfile: pm.applicationProfile,
+            coverage: pm.coverage,
+            featuresCount: pm.features.length,
+            workflowsCount: pm.workflows.length,
+            rolesCount: pm.roles.length,
+          },
+        });
+
+        // Persist individual high-criticality workflows
+        for (const wf of pm.workflows) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'product_workflow',
+            title: `Product Workflow: ${wf.name} [${wf.criticality.level}] (${wf.executionStatus})`,
+            url: wf.entryPoint || result.finalUrl || targetUrl,
+            message: `Goal: ${wf.goal}. Role: ${wf.roleName || 'User'}. Steps: ${wf.steps.length}. Status: ${wf.executionStatus}. Criticality Score: ${wf.criticality.score}/100.`,
+            metadata: {
+              workflow: wf,
+              criticality: wf.criticality,
+              steps: wf.steps,
+              executionStatus: wf.executionStatus,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }

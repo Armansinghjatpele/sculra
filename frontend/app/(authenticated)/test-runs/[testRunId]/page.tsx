@@ -127,6 +127,12 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
     .filter((e) => e.type === 'strategy_decision')
     .map((e) => e.metadata?.decision)
     .filter(Boolean);
+  const productModelEvidence = evidence.find((e) => e.type === 'product_model');
+  const productModel = productModelEvidence?.metadata?.productModel;
+  const productWorkflows: any[] = evidence
+    .filter((e) => e.type === 'product_workflow')
+    .map((e) => e.metadata?.workflow)
+    .filter(Boolean);
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -340,6 +346,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </TabsTrigger>
           <TabsTrigger value="visual">
             Visual QA {visualComparisons.length > 0 && `(${visualComparisons.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="product">
+            Product Model {productModel && `(${productModel.workflows?.length || 0})`}
           </TabsTrigger>
           <TabsTrigger value="strategy">
             AI Strategy {strategyDecisions.length > 0 && `(${strategyDecisions.length})`}
@@ -1061,6 +1070,292 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                 </div>
               )}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab: Product Model & Business Workflows */}
+        <TabsContent value="product">
+          <div className="space-y-6 font-mono">
+            {/* Header Banner */}
+            <div className="border border-accent/20 bg-accent/5 rounded-2xl p-5 text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-foreground uppercase tracking-wider text-xs">
+                    Product Understanding & Business Workflows
+                  </span>
+                  {productModel?.applicationProfile && (
+                    <span className="px-2.5 py-0.5 rounded bg-accent/15 border border-accent/30 text-accent text-[10px] uppercase font-bold">
+                      Category: {productModel.applicationProfile.primaryType}
+                    </span>
+                  )}
+                  {productModel?.applicationProfile?.authenticationPresent && (
+                    <span className="px-2 py-0.5 rounded bg-success/10 border border-success/20 text-success text-[10px] uppercase font-bold">
+                      Auth Gateway
+                    </span>
+                  )}
+                  {productModel?.applicationProfile?.multiRoleSignals && (
+                    <span className="px-2 py-0.5 rounded bg-white/10 border border-white/10 text-muted-foreground text-[10px] uppercase">
+                      Multi-Role Signals
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-3xs max-w-2xl">
+                  Understands application architecture as a product: maps user roles, feature capabilities, and business-critical workflows grounded in deterministic evidence.
+                </p>
+              </div>
+              {productModel?.applicationProfile && (
+                <div className="text-right">
+                  <span className="text-3xs uppercase tracking-widest text-muted-foreground block">Classification Confidence</span>
+                  <span className="text-sm font-bold text-accent font-mono">
+                    {(productModel.applicationProfile.confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {!productModel ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground">
+                Product understanding analysis has not yet completed for this test run.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Product Coverage KPI Strip */}
+                {productModel.coverage && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Product Model QA Coverage
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                        <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Features Covered</span>
+                        <span className="text-lg font-bold text-foreground">
+                          {productModel.coverage.testedFeatures} / {productModel.coverage.totalFeatures}
+                        </span>
+                        <span className="text-4xs text-muted-foreground block mt-1">
+                          {((productModel.coverage.featureCoverageRatio || 0) * 100).toFixed(0)}% capability coverage
+                        </span>
+                      </div>
+                      <div className="bg-zinc-900/40 border border-accent/20 rounded-xl p-4 text-center">
+                        <span className="text-3xs uppercase tracking-wider text-accent block">Workflows Tested</span>
+                        <span className="text-lg font-bold text-accent">
+                          {productModel.coverage.testedWorkflows} / {productModel.coverage.totalWorkflows}
+                        </span>
+                        <span className="text-4xs text-muted-foreground block mt-1">
+                          {productModel.coverage.partiallyTestedWorkflows} partially tested
+                        </span>
+                      </div>
+                      <div className="bg-zinc-900/40 border border-warning/20 rounded-xl p-4 text-center">
+                        <span className="text-3xs uppercase tracking-wider text-warning block">High-Criticality Paths</span>
+                        <span className="text-lg font-bold text-warning">
+                          {productModel.coverage.highCriticalityWorkflowsTested} / {productModel.coverage.highCriticalityWorkflowsTotal}
+                        </span>
+                        <span className="text-4xs text-muted-foreground block mt-1">
+                          {productModel.coverage.highCriticalityWorkflowsUntested} untested critical paths
+                        </span>
+                      </div>
+                      <div className="bg-zinc-900/40 border border-success/20 rounded-xl p-4 text-center">
+                        <span className="text-3xs uppercase tracking-wider text-success block">User Roles Tested</span>
+                        <span className="text-lg font-bold text-success">
+                          {productModel.coverage.rolesWithTestedWorkflows} / {productModel.coverage.totalRoles}
+                        </span>
+                        <span className="text-4xs text-muted-foreground block mt-1">
+                          {productModel.roles.map((r: any) => r.name).join(', ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Business-Critical Workflows */}
+                <div>
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                    Discovered Business-Critical Workflows ({productModel.workflows.length})
+                  </h3>
+                  <div className="space-y-4">
+                    {productModel.workflows.map((wf: any) => {
+                      const isCritical = wf.criticality.level === 'CRITICAL';
+                      const isHigh = wf.criticality.level === 'HIGH';
+                      const isPassed = wf.executionStatus === 'TESTED';
+                      const isFailed = wf.executionStatus === 'FAILED';
+
+                      return (
+                        <div
+                          key={wf.id}
+                          className={`p-4 rounded-xl border space-y-3 ${
+                            isFailed
+                              ? 'bg-danger/5 border-danger/30'
+                              : isPassed
+                              ? 'bg-zinc-950/40 border-success/20'
+                              : isCritical
+                              ? 'bg-danger/5 border-danger/20'
+                              : 'bg-zinc-950/40 border-white/10'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-bold text-foreground">{wf.name}</span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                                    isCritical
+                                      ? 'bg-danger/20 text-danger border border-danger/30'
+                                      : isHigh
+                                      ? 'bg-warning/20 text-warning border border-warning/30'
+                                      : 'bg-accent/10 text-accent border border-accent/20'
+                                  }`}
+                                >
+                                  {wf.criticality.level} ({wf.criticality.score}/100)
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-white/5 text-muted-foreground text-[10px]">
+                                  Role: {wf.roleName || 'User'}
+                                </span>
+                              </div>
+                              <p className="text-3xs text-muted-foreground">{wf.goal}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${
+                                  isPassed
+                                    ? 'bg-success/20 text-success border border-success/30'
+                                    : isFailed
+                                    ? 'bg-danger/20 text-danger border border-danger/30'
+                                    : wf.executionStatus === 'PARTIALLY_TESTED'
+                                    ? 'bg-warning/20 text-warning border border-warning/30'
+                                    : 'bg-white/5 text-muted-foreground border border-white/10'
+                                }`}
+                              >
+                                {wf.executionStatus}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Criticality Rationale */}
+                          {wf.criticality.reasons && wf.criticality.reasons.length > 0 && (
+                            <div className="text-4xs text-muted-foreground space-y-1 bg-white/[0.02] p-2.5 rounded-lg">
+                              <span className="font-bold text-accent uppercase tracking-wider block">Business Criticality Rationale:</span>
+                              <ul className="list-disc list-inside space-y-0.5">
+                                {wf.criticality.reasons.map((r: string, rIdx: number) => (
+                                  <li key={rIdx}>{r}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Workflow Step Sequence */}
+                          {wf.steps && wf.steps.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">
+                                Workflow Step Sequence ({wf.steps.length} Steps)
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                {wf.steps.map((step: any, sIdx: number) => (
+                                  <div key={sIdx} className="p-2.5 bg-zinc-900/60 rounded-lg border border-white/5 text-3xs space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-4xs font-bold text-accent">Step {step.stepNumber}</span>
+                                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground text-4xs uppercase font-bold">
+                                        {step.actionType}
+                                      </span>
+                                    </div>
+                                    <p className="text-foreground font-semibold truncate">{step.targetDescription || step.expectedTransition}</p>
+                                    <span className="text-muted-foreground text-4xs truncate block">{step.pageUrl}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Features & Capabilities Table */}
+                <div>
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                    Discovered Product Capabilities & Features ({productModel.features.length})
+                  </h3>
+                  <div className="border border-white/10 rounded-xl overflow-hidden">
+                    <table className="w-full text-left text-3xs">
+                      <thead className="bg-white/5 text-muted-foreground border-b border-white/10">
+                        <tr>
+                          <th className="p-3 font-semibold">Feature Capability</th>
+                          <th className="p-3 font-semibold">Category</th>
+                          <th className="p-3 font-semibold">Associated Routes</th>
+                          <th className="p-3 font-semibold">Criticality</th>
+                          <th className="p-3 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 bg-zinc-950/40">
+                        {productModel.features.map((feat: any) => (
+                          <tr key={feat.id} className="hover:bg-white/5">
+                            <td className="p-3">
+                              <span className="text-foreground font-bold block">{feat.name}</span>
+                              <span className="text-muted-foreground text-4xs">{feat.description}</span>
+                            </td>
+                            <td className="p-3 text-muted-foreground">{feat.category || 'General'}</td>
+                            <td className="p-3 text-muted-foreground truncate max-w-xs font-mono">
+                              {feat.relatedRoutes?.join(', ') || feat.relatedPages?.join(', ')}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`px-2 py-0.5 rounded text-4xs font-bold uppercase ${
+                                  feat.criticality.level === 'CRITICAL'
+                                    ? 'bg-danger/20 text-danger'
+                                    : feat.criticality.level === 'HIGH'
+                                    ? 'bg-warning/20 text-warning'
+                                    : 'bg-accent/10 text-accent'
+                                }`}
+                              >
+                                {feat.criticality.level} ({feat.criticality.score})
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded bg-white/10 text-muted-foreground text-4xs uppercase">
+                                {feat.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Discovered User Roles */}
+                {productModel.roles.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Inferred User Roles ({productModel.roles.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {productModel.roles.map((role: any) => (
+                        <div key={role.id} className="p-4 bg-zinc-950/40 border border-white/10 rounded-xl space-y-2 text-3xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-foreground font-bold">{role.name}</span>
+                            <span className="px-2 py-0.5 rounded bg-accent/10 text-accent text-4xs font-bold uppercase">
+                              {role.status}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground text-4xs">
+                            Confidence: {(role.confidence * 100).toFixed(0)}%
+                          </p>
+                          {role.observedCapabilities && role.observedCapabilities.length > 0 && (
+                            <div className="space-y-1">
+                              <span className="text-4xs uppercase tracking-widest text-muted-foreground font-bold block">Capabilities:</span>
+                              <ul className="list-disc list-inside text-4xs text-muted-foreground space-y-0.5">
+                                {role.observedCapabilities.map((cap: string, cIdx: number) => (
+                                  <li key={cIdx}>{cap}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
 

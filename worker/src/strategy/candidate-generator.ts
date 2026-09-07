@@ -13,6 +13,7 @@ import { JourneyResult } from '../journeys/types';
 export interface CandidateGenerationContext {
   targetUrl: string;
   applicationMap?: ApplicationMap;
+  productModel?: import('../product/types').ProductModel;
   state?: AIQAState;
   bugObservations?: BugObservation[];
   journeyResults?: JourneyResult[];
@@ -314,6 +315,44 @@ export class CandidateGenerator {
             evidenceCount: 0,
             attemptsCount: 0,
           });
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // 5. Enrich Candidates with Product Model Metadata & Criticality
+    // ---------------------------------------------------------------------------
+    if (context.productModel) {
+      const pm = context.productModel;
+      for (const cand of candidates) {
+        const normUrl = cand.pageUrl.replace(/\/$/, '');
+
+        // Find matching workflow
+        const matchingWorkflow = pm.workflows.find((w) =>
+          w.steps.some((s) => s.pageUrl.replace(/\/$/, '') === normUrl)
+        );
+
+        if (matchingWorkflow) {
+          cand.workflowId = matchingWorkflow.id;
+          cand.roleId = matchingWorkflow.roleId;
+          cand.criticalityScore = matchingWorkflow.criticality.score;
+          cand.criticalityLevel = matchingWorkflow.criticality.level;
+          cand.productReason = `Part of ${matchingWorkflow.criticality.level} workflow: "${matchingWorkflow.name}"`;
+          cand.reasons.push(cand.productReason);
+        }
+
+        // Find matching feature
+        const matchingFeature = pm.features.find((f) =>
+          f.relatedPages.some((p) => p.replace(/\/$/, '') === normUrl)
+        );
+        if (matchingFeature) {
+          cand.productFeatureId = matchingFeature.id;
+          if (!cand.criticalityScore) {
+            cand.criticalityScore = matchingFeature.criticality.score;
+            cand.criticalityLevel = matchingFeature.criticality.level;
+            cand.productReason = `Belongs to ${matchingFeature.criticality.level} feature: "${matchingFeature.name}"`;
+            cand.reasons.push(cand.productReason);
+          }
         }
       }
     }

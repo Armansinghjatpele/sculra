@@ -68,6 +68,12 @@ export interface TestTarget {
   lastAttemptedIteration?: number;
   hypothesisId?: string;
   relatedIssueFingerprint?: string;
+  productFeatureId?: string;
+  workflowId?: string;
+  roleId?: string;
+  criticalityScore?: number;
+  criticalityLevel?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+  productReason?: string;
   metadata?: Record<string, any>;
 }
 

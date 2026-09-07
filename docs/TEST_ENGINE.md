@@ -352,11 +352,59 @@ flowchart TD
    - Deterministically evaluates optimal strategy modes: `FAILURE_DRIVEN`, `DEPTH_FIRST`, `RELEASE_GAP`, `REGRESSION_FOCUSED`, `BREADTH_FIRST`.
    - Computes bounded deterministic priority scores (`0–100`) with human-readable explanations.
    - Enriches selection with OpenAI/Mock strategy reasoning (`analyzeTestStrategy`) and guarantees AI cannot invent arbitrary target IDs.
-   - Enforces cooldowns on failed targets and manages bounded exploration budgets.
-   - Persists `strategy_decision` evidence in `public.test_evidence`.
+---
 
+## 12. AI Product Understanding & Business-Critical Workflow Discovery Engine
 
+> **Important Architecture Principle**: *The system elevates raw URLs and selectors into a structured Product Model.* The engine understands what the application is (SaaS, marketplace, CRM, etc.), categorizes pages semantically, discovers product features and personas, infers business-critical workflows, scores criticality deterministically (0–100), and traces failure impact across the product graph.
 
+```mermaid
+flowchart TD
+    Discovery[Application Discovery & Telemetry] --> Extractor[ProductEvidenceExtractor]
+    Extractor --> Classifier[SemanticPageClassifier]
+    Extractor --> Features[FeatureDiscoveryEngine]
+    Extractor --> Roles[RoleDiscoveryEngine]
+    Extractor --> Workflows[WorkflowDiscoveryEngine]
+    
+    Classifier & Features & Roles & Workflows --> Graph[ProductGraph & Impact Tracer]
+    Graph --> Criticality[BusinessCriticalityEvaluator]
+    
+    Criticality --> AIAdvisor[ProductAnalyzer: OpenAI / Mock]
+    AIAdvisor --> Validator[ProductModelValidator & Hallucination Filter]
+    Validator --> Builder[ProductModelBuilder]
+    
+    Builder --> Model[(ProductModel)]
+    Builder --> Coverage[(CoverageAgainstProductModel)]
+    
+    Model --> Strategy[Test Strategy Prioritization (+Criticality Boost)]
+    Model --> Impact[Failure Impact Tracing (Issues)]
+    Model --> Readiness[Release Readiness Blocker Evaluation]
+    Model --> Evidence[(test_evidence: product_model, product_workflow)]
+```
 
-
-
+### Core Components (`worker/src/product/`)
+1. **Product Evidence Extractor (`evidence.ts`)**:
+   - Compiles grounded, sanitized route summaries, navigation topology, forms, actions, and headings from discovery and journey telemetry.
+   - Redacts all query parameters and secrets.
+2. **Semantic Page Classifier (`classifier.ts`)**:
+   - Categorizes routes deterministically into standardized semantics: `LANDING`, `AUTH`, `DASHBOARD`, `SETTINGS`, `PROFILE`, `BILLING`, `ONBOARDING`, `DOCUMENTATION`, `CHECKOUT`, `CART`, `PRODUCT_LIST`, `PRODUCT_DETAIL`, `ADMIN`, `CRUD`, `MESSAGING`, `SEARCH`, `UNKNOWN`.
+   - Distinguishes authenticated vs public routes.
+3. **Feature & Role Discovery Engines (`features.ts`, `roles.ts`)**:
+   - `FeatureDiscoveryEngine`: Groups related routes, interactive controls, and capabilities into cohesive product features (e.g. "Authentication & Identity", "Billing & Subscriptions").
+   - `RoleDiscoveryEngine`: Discovers personas (`VISITOR`, `MEMBER`, `ADMIN`, `CUSTOMER`, `SUPERADMIN`) from observed navigation, admin controls, and team invite elements.
+4. **Business-Critical Workflow Discovery Engine (`workflows.ts`)**:
+   - Identifies multi-step user goals (e.g. "User Registration & Onboarding", "Subscription Upgrade", "Item Checkout") with explicit entry points, ordered step sequences, and terminal success criteria.
+   - Tracks execution status (`NOT_TESTED`, `PARTIALLY_TESTED`, `FULLY_TESTED`, `FAILED`, `BLOCKED`) and lifecycle status (`HYPOTHESIZED`, `INFERRED`, `CONFIRMED`).
+5. **Deterministic Criticality Scoring (`criticality.ts`)**:
+   - Computes integer scores (0–100) and tiers (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`) based on revenue/payment paths (+35), auth/identity boundaries (+30), core data creation/mutation (+20), and downstream dependency fan-out (+15).
+   - Generates transparent, human-readable explanations (`reasons: string[]`) for every score.
+6. **Product Graph & Failure Impact Tracing (`graph.ts`)**:
+   - Constructs directed relationships (`CONTAINS`, `DEPENDS_ON`, `WORKFLOW_STEP`, `ACCESSIBLE_BY`, `MUTATES`, `AUTHENTICATES`).
+   - `traceFailureImpact(pageUrl, selector?)`: Traces which workflows, features, and user roles are directly or transitively degraded when a defect occurs on a specific route.
+7. **Advisory AI Model Integration (`analyzer.ts`, `schema.ts`)**:
+   - Structured Outputs schema (`AI_PRODUCT_UNDERSTANDING_JSON_SCHEMA`) enabling OpenAI to recommend application profile, features, workflows, and missing high-priority journeys.
+   - Strict hallucination filters strip any suggested route or step not present in the discovered application.
+8. **Integrations Across the Testing Engine**:
+   - **Test Strategy Engine**: Enriches candidate targets with workflow criticality multipliers (+20 bonus for `CRITICAL` workflows).
+   - **Release Readiness Engine**: Flags failures in business-critical workflows as hard blockers with risk escalation.
+   - **Persistence & UI**: Stores `product_model` and `product_workflow` in `public.test_evidence` and renders the rich **Product Understanding** dashboard tab on `/test-runs/[testRunId]`.

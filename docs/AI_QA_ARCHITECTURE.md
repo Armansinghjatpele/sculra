@@ -327,6 +327,57 @@ Targets represent actionable, prioritizable units of testing:
 - **Deterministic Fallback**: If the AI provider is unavailable, times out, or fails, the engine seamlessly selects the top deterministic target without failing the test run.
 - **Redundancy Cooldown**: Failed targets enter a temporary cooldown period to prevent infinite retry loops.
 
+---
+
+## 9. AI Product Understanding & Business-Critical Workflow Discovery Engine
+
+Sculra includes an autonomous **Product Understanding Engine** (`worker/src/product/`) that elevates the testing model from low-level DOM exploration into understanding the application as a **PRODUCT**:
+
+```mermaid
+flowchart TD
+    Discovery[ApplicationMap & Observation Evidence] --> Extractor[ProductEvidenceExtractor: Secret Redaction & Sanitization]
+    Extractor --> Evidence[Grounded Product Evidence]
+    
+    Evidence --> Classifier[SemanticPageClassifier: LANDING, AUTH, DASHBOARD, CRUD, PAYMENT]
+    Classifier --> Classifications[Semantic Page Classifications]
+    
+    Classifications --> FeatEng[FeatureDiscoveryEngine: Grouping Capabilities]
+    Classifications --> RoleEng[RoleDiscoveryEngine: Visitor, Member, Admin, Customer]
+    Classifications --> WfEng[WorkflowDiscoveryEngine: Multi-step Goal Workflows]
+    
+    FeatEng --> Feats[Product Features]
+    RoleEng --> Roles[User Roles]
+    WfEng --> Workflows[Product Workflows: Entry, Steps, Exit, Status]
+    
+    Classifications & Feats & Workflows --> CritEval[BusinessCriticalityEvaluator: 0-100 Scoring & Transparent Reasons]
+    CritEval --> ScoredCrit[Criticality Assessments: CRITICAL, HIGH, MEDIUM, LOW]
+    
+    Roles & Workflows & Feats --> Graph[ProductGraph: Roles ➔ Workflows ➔ Features ➔ Pages ➔ Controls]
+    
+    Graph --> AIAnalyzer[ProductAnalyzer: OpenAI / Mock Provider]
+    AIAnalyzer --> SchemaVal[validateAndNormalizeProductUnderstanding]
+    SchemaVal --> ValidatedModel[Validated ProductModel & Coverage]
+    
+    ValidatedModel --> StrategyEngine[Strategy Engine: Target Criticality Modifiers]
+    ValidatedModel --> ImpactTracer[Failure Impact Tracer]
+    ValidatedModel --> ReleaseScorer[Release Readiness Integration]
+    ValidatedModel --> DBEvidence[(public.test_evidence: product_model, product_workflow)]
+```
+
+### 1. Semantic Page Classification & Features
+- **Semantic Categories**: `LANDING`, `AUTH`, `SIGN_UP`, `LOGIN`, `DASHBOARD`, `LIST`, `DETAIL`, `CREATE`, `EDIT`, `SETTINGS`, `PROFILE`, `ADMIN`, `SEARCH`, `ANALYTICS`, `REPORT`, `CHECKOUT`, `PAYMENT`, `CART`, `PRODUCT`, `CONTENT`, `HELP`.
+- **Feature Aggregation**: Combines semantic routes, forms, and primary controls into cohesive capabilities (e.g. `User Authentication`, `Project Management`, `Billing & Checkout`, `Dashboard Analytics`, `Settings & Admin`).
+
+### 2. Grounded User Roles & Workflows
+- **Roles**: Discovers user personas (`visitor`, `member`, `admin`, `customer`) strictly grounded in observed evidence.
+- **Workflow Steps**: Multi-step goal-oriented flows modeled with safe action types (`NAVIGATE`, `CLICK`, `FILL`, `SELECT`, `SUBMIT`, `TRANSITION`) and explicit assertions.
+- **Hypothesis Lifecycle**: Workflows track execution status (`TESTED`, `PARTIALLY_TESTED`, `UNTESTED`, `FAILED`) and hypothesis lifecycle (`OBSERVED`, `INFERRED`, `CONFIRMED`, `DISPROVEN`).
+
+### 3. Business Criticality & Failure Impact Mapping
+- **Criticality Scoring**: Pure deterministic 0–100 score + level (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`) evaluating auth boundaries, payment signals, core CRUD mutations, and downstream dependency counts.
+- **Failure Impact Tracing**: When a control or route fails, the `ProductGraph` traces the failure upward to identify all affected features, business workflows, and user roles.
+
+
 
 
 

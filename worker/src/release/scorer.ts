@@ -36,6 +36,7 @@ export interface CalculateAssessmentOptions {
   consoleErrors?: CapturedConsoleError[];
   networkErrors?: CapturedNetworkError[];
   aiQaStateSummary?: AIQAStateSummary;
+  productModel?: import('../product/types').ProductModel;
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -449,6 +450,23 @@ export class DeterministicReleaseScorer {
         severity: 'high',
         evidenceSummary: `${overflowCount} pages suffer from mobile viewport clipping or horizontal scrolling.`,
       });
+    }
+
+    // Blocker 5: Business-Critical Workflow Failure
+    if (options.productModel && options.productModel.coverage.criticalWorkflowsWithFailures > 0) {
+      const failedCriticalWorkflows = options.productModel.workflows.filter(
+        (w) => w.executionStatus === 'FAILED' && (w.criticality.level === 'CRITICAL' || w.criticality.level === 'HIGH')
+      );
+      if (failedCriticalWorkflows.length > 0) {
+        blockers.push({
+          id: 'blocker-critical-workflow-failure',
+          title: 'Business-Critical Workflow Failure',
+          reason: `${failedCriticalWorkflows.length} high/critical business workflow(s) failed during execution: ${failedCriticalWorkflows.map((w) => w.name).join(', ')}.`,
+          category: 'functional',
+          severity: 'critical',
+          evidenceSummary: failedCriticalWorkflows.map((w) => `${w.name} [${w.criticality.level}]`).join('; '),
+        });
+      }
     }
 
     // 9. Calculate Overall Composite Score & Apply Blocker Bounds

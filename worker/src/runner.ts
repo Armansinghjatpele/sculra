@@ -21,6 +21,7 @@ import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './j
 import { DeterministicIssueClassifier, BugObservation } from './issues';
 import { ResponsiveVisualEngine, ResponsiveExecutionResult } from './visual';
 import { AIQAOrchestrator, AIQAPlan, AIQAResult } from './ai-qa';
+import { ProductModelBuilder, ProductModel, CoverageAgainstProductModel } from './product';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -102,6 +103,8 @@ export class BrowserRunner {
     let aiQaStateSummary: import('./ai-qa/state').AIQAStateSummary | undefined;
     let strategyDecisions: import('./strategy/types').StrategyDecision[] | undefined;
     let strategyTargets: import('./strategy/types').TestTarget[] | undefined;
+    let productModel: ProductModel | undefined;
+    let productCoverage: CoverageAgainstProductModel | undefined;
     let bugObservations: BugObservation[] = [];
 
     try {
@@ -486,6 +489,26 @@ export class BrowserRunner {
             failureReason ||
             `Detected ${bugObservations.length} deterministic issue(s).`;
         }
+        // 13. AI Product Understanding & Workflow Discovery
+        if (applicationMap && !cancellationToken?.isCancelled) {
+          this.logger.log('invoking_product_model_builder');
+          try {
+            productModel = await ProductModelBuilder.build({
+              testRunId: this.testRunId,
+              targetUrl: safeUrl,
+              applicationMap,
+              journeyResults,
+              bugObservations,
+              logger: this.logger,
+              cancellationToken,
+            });
+            productCoverage = productModel.coverage;
+          } catch (prodErr: any) {
+            this.logger.warn('product_model_builder_warning', {
+              message: prodErr.message,
+            });
+          }
+        }
       }
 
     } catch (err: any) {
@@ -535,6 +558,8 @@ export class BrowserRunner {
       aiQaStateSummary,
       strategyDecisions,
       strategyTargets,
+      productModel,
+      productCoverage,
       failureReason,
     };
   }
