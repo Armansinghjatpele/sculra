@@ -196,14 +196,11 @@ export class JobExecutor {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
 
-    // 6. Update Test Run Final Status
-    const finalScore =
-      result.status === 'passed' ? 100 : result.status === 'cancelled' ? 0 : 50;
-
+    // 6. Update Test Run Final Status (overall_score remains null until AI scoring engine is built)
     await this.updateTestRunState(testRunId, result.status, {
       completed_at: completedAt,
       duration_ms: result.durationMs,
-      overall_score: finalScore,
+      overall_score: null,
     });
 
     logger.log('job_execution_finished', {

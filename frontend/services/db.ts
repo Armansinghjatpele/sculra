@@ -274,7 +274,7 @@ export async function getTestRuns(clerkToken: string, clerkOrgId?: string | null
     projectName: 'Synced Project',
     status: r.status,
     issuesCount: 0,
-    releaseScore: r.overall_score || 100,
+    releaseScore: r.overall_score ?? null,
     durationMs: r.duration_ms || 0,
     createdAt: 'Synced',
   })) as TestRun[];

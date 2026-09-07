@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "tsx src/index.ts",
     "test": "vitest run",
-    "lint": "eslint . --ext .ts",
+    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -14,6 +14,8 @@
     "clean": "rimraf node_modules **/node_modules **/.next **/dist",
     "prepare": "husky",
     "analyze": "pnpm --filter sculra-frontend run analyze",
+    "worker": "pnpm --filter @sculra/worker start",
+    "worker:dev": "pnpm --filter @sculra/worker start",
     "maintenance:daily": "tsx scripts/maintenance/daily-maintenance.ts"
   },
   "devDependencies": {
