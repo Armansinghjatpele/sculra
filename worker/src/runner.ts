@@ -18,6 +18,7 @@ import { validateTargetUrl } from './security';
 import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
+import { DeterministicIssueClassifier, BugObservation } from './issues';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -90,6 +91,7 @@ export class BrowserRunner {
     let status: 'passed' | 'failed' | 'cancelled' = 'passed';
     let applicationMap: ApplicationMap | undefined;
     let journeyResults: JourneyResult[] | undefined;
+    let bugObservations: BugObservation[] = [];
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -330,6 +332,41 @@ export class BrowserRunner {
         }
       }
 
+      // 10. Deterministic Issue Classification
+      if (!cancellationToken?.isCancelled) {
+        this.logger.log('invoking_issue_classifier');
+        const classifier = new DeterministicIssueClassifier();
+        bugObservations = classifier.classify({
+          testRunId: this.testRunId,
+          projectId: this.projectId || 'unassigned',
+          targetUrl: safeUrl,
+          journeyResults,
+          consoleErrors,
+          networkErrors,
+          screenshots,
+        });
+
+        this.logger.log('issue_classification_completed', {
+          bugsDetected: bugObservations.length,
+          criticalCount: bugObservations.filter((b) => b.severity === 'critical').length,
+          highCount: bugObservations.filter((b) => b.severity === 'high').length,
+          mediumCount: bugObservations.filter((b) => b.severity === 'medium').length,
+        });
+
+        // Set test run failure if deterministic functional bugs were detected
+        if (
+          !cancellationToken?.isCancelled &&
+          bugObservations.some(
+            (b) => b.severity === 'critical' || b.severity === 'high' || b.severity === 'medium'
+          )
+        ) {
+          status = 'failed';
+          failureReason =
+            failureReason ||
+            `Detected ${bugObservations.length} deterministic functional issue(s).`;
+        }
+      }
+
     } catch (err: any) {
       status = 'failed';
       failureReason = err.message || 'Browser execution failed';
@@ -356,6 +393,7 @@ export class BrowserRunner {
       screenshotsCount: screenshots.length,
       totalPagesDiscovered: applicationMap?.totalPages || 0,
       journeysExecuted: journeyResults?.length || 0,
+      bugsDetected: bugObservations.length,
     });
 
     return {
@@ -369,6 +407,7 @@ export class BrowserRunner {
       screenshots,
       applicationMap,
       journeyResults,
+      bugObservations,
       failureReason,
     };
   }

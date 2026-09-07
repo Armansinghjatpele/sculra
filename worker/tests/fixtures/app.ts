@@ -42,6 +42,8 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             <a href="/form" data-testid="nav-form">Registration Form</a>
             <a href="/error" data-testid="nav-error">Error Page</a>
             <a href="/responsive" data-testid="nav-responsive">Responsive Layout</a>
+            <a href="/broken-link" data-testid="nav-broken">Broken Link (404)</a>
+            <a href="https://external-example.com/docs" data-testid="nav-external" target="_blank">External Docs</a>
           </nav>
 
           <header>
@@ -53,6 +55,7 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             <section>
               <h2>Explore Platform Features</h2>
               <button id="explore-btn" data-testid="explore-btn" aria-label="Explore System">Explore Features</button>
+              <button id="cta-broken-btn" class="btn-primary" data-testid="cta-broken-btn">Get Started Now</button>
             </section>
 
             <section style="margin-top: 2rem;">
@@ -83,6 +86,7 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             .tab-content { display: none; padding: 1rem; background: #1e293b; border-radius: 6px; margin-top: 0.5rem; }
             .tab-content.active { display: block; }
             .broken-btn { background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+            .delete-btn { background: #991b1b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
           </style>
         </head>
         <body>
@@ -116,6 +120,12 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             <h2>Deterministic Broken Control</h2>
             <p>This button is clickable but intentionally triggers zero state change:</p>
             <button id="broken-btn" data-testid="broken-btn" class="broken-btn">Broken No-Op Action</button>
+          </div>
+
+          <!-- Dangerous / Destructive Button (Must be skipped by safety policy) -->
+          <div style="margin-top: 2rem;">
+            <h2>Destructive Account Management</h2>
+            <button id="delete-account-btn" data-testid="delete-btn" class="delete-btn">Delete Account</button>
           </div>
         </body>
         </html>
@@ -155,7 +165,7 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             form { background: #1e293b; padding: 2rem; border-radius: 8px; max-width: 480px; }
             .group { margin-bottom: 1rem; }
             label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; }
-            input[type="text"], input[type="email"], select { width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: white; }
+            input[type="text"], input[type="email"], input[type="password"], select { width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: white; }
             button { background: #3b82f6; color: white; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; }
             #submit-result { display: none; margin-top: 1rem; padding: 1rem; background: #065f46; border-radius: 6px; }
           </style>
@@ -174,6 +184,11 @@ export async function createFixtureServer(): Promise<FixtureServer> {
             <div class="group">
               <label for="email">Email Address</label>
               <input type="email" id="email" name="email" placeholder="jane@example.com" required />
+            </div>
+
+            <div class="group">
+              <label for="password">Account Password</label>
+              <input type="password" id="password" name="password" placeholder="Enter password (sensitive)" />
             </div>
 
             <div class="group">
@@ -219,6 +234,7 @@ export async function createFixtureServer(): Promise<FixtureServer> {
           <script>
             console.error("Sculra Intentional Runtime Error in Fixture");
             fetch('/api/failing-endpoint').catch(function() {});
+            fetch('/analytics/collect').catch(function() {});
           </script>
         </body>
         </html>
@@ -261,6 +277,9 @@ export async function createFixtureServer(): Promise<FixtureServer> {
     } else if (pathname === '/api/failing-endpoint') {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Intentional Internal Server Error 500' }));
+    } else if (pathname === '/analytics/collect') {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Analytics not found' }));
     } else if (pathname === '/server-error') {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Fatal 500 Internal Server Error');

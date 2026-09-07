@@ -148,7 +148,7 @@ describe('BrowserRunner Deterministic Execution', () => {
     });
     const result = await runner.run('https://sculra.com');
 
-    expect(result.status).toBe('passed');
+    expect(result.status).toBe('failed'); // Uncaught TypeError triggers failed status
     expect(result.consoleErrors.length).toBe(1);
     expect(result.consoleErrors[0].message).toContain('Uncaught TypeError');
     expect(result.networkErrors.length).toBe(2);

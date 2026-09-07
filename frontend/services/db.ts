@@ -282,7 +282,7 @@ export async function getTestRuns(clerkToken: string, clerkOrgId?: string | null
 
 export async function getIssues(clerkToken: string, clerkOrgId?: string | null) {
   const supabase = getSupabaseUserClient(clerkToken);
-  let query = supabase.from('issues').select('*');
+  let query = supabase.from('issues').select('*, projects(name)').order('last_seen_at', { ascending: false });
 
   if (clerkOrgId) {
     const { data: orgData } = await supabase
@@ -308,11 +308,48 @@ export async function getIssues(clerkToken: string, clerkOrgId?: string | null) 
   return (data || []).map((i: any) => ({
     id: i.id,
     projectId: i.project_id,
-    projectName: 'Synced Project',
-    severity: i.severity,
+    projectName: i.projects?.name || 'Sculra Project',
+    severity: i.severity || 'medium',
     title: i.title,
-    detectedAt: 'Synced',
-    status: i.status,
+    description: i.description,
+    detectedAt: i.last_seen_at ? new Date(i.last_seen_at).toLocaleDateString() : 'Recent',
+    status: i.status || 'open',
+    fingerprint: i.fingerprint,
+    occurrenceCount: i.occurrence_count || 1,
+    firstSeenAt: i.first_seen_at,
+    lastSeenAt: i.last_seen_at,
+    reproductionSteps: i.metadata?.reproductionSteps,
+    metadata: i.metadata,
+  })) as Issue[];
+}
+
+export async function getTestRunIssues(clerkToken: string, testRunId: string): Promise<Issue[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('issues')
+    .select('*, projects(name)')
+    .eq('test_run_id', testRunId)
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error)) {
+    return [];
+  }
+
+  return (data || []).map((i: any) => ({
+    id: i.id,
+    projectId: i.project_id,
+    projectName: i.projects?.name || 'Sculra Project',
+    severity: i.severity || 'medium',
+    title: i.title,
+    description: i.description,
+    detectedAt: i.last_seen_at ? new Date(i.last_seen_at).toLocaleTimeString() : 'Recent',
+    status: i.status || 'open',
+    fingerprint: i.fingerprint,
+    occurrenceCount: i.occurrence_count || 1,
+    firstSeenAt: i.first_seen_at,
+    lastSeenAt: i.last_seen_at,
+    reproductionSteps: i.metadata?.reproductionSteps,
+    metadata: i.metadata,
   })) as Issue[];
 }
 

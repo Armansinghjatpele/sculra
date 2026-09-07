@@ -9,6 +9,7 @@ import { BrowserRunner } from './runner';
 import { SupabaseEvidenceStorage, IEvidenceStorage, LocalEvidenceStorage } from './storage';
 import { WorkerLogger } from './logger';
 import { CancellationToken } from './types';
+import { IssueManager } from './issues';
 
 export interface ExecutorConfig {
   supabaseUrl?: string;
@@ -35,6 +36,10 @@ export class JobExecutor {
       this.supabase = createClient(url, key, {
         auth: { persistSession: false },
       });
+    }
+
+    if (isProduction && !this.supabase) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for production worker');
     }
 
     if (config.storage) {
@@ -223,6 +228,18 @@ export class JobExecutor {
             },
           });
         }
+      }
+
+      // 5g. Persist Deterministic Bug Observations & Issues
+      if (result.bugObservations && result.bugObservations.length > 0) {
+        const issueManager = new IssueManager(logger);
+        await issueManager.persistBugs(
+          this.supabase,
+          result.bugObservations,
+          testRunId,
+          project.id,
+          project.organization_id
+        );
       }
 
     } catch (evidenceErr: any) {

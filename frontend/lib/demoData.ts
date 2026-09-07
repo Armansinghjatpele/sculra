@@ -58,14 +58,31 @@ export interface TestEvidence {
   createdAt: string;
 }
 
+export interface StructuredReproductionStep {
+  stepNumber: number;
+  action: string;
+  target: string;
+  url: string;
+  expectedBehavior: string;
+  observedBehavior: string;
+  selector?: string;
+}
+
 export interface Issue {
   id: string;
   projectId: string;
   projectName: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
   title: string;
+  description?: string;
   detectedAt: string;
   status: 'open' | 'resolved' | 'ignored';
+  fingerprint?: string;
+  occurrenceCount?: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+  reproductionSteps?: StructuredReproductionStep[];
+  metadata?: Record<string, any>;
 }
 
 export interface AIInsight {

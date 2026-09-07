@@ -44,6 +44,10 @@ export class WorkerDaemon {
       });
     }
 
+    if (isProduction && !this.supabase) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for production worker');
+    }
+
     this.executor = config.executor || new JobExecutor({ supabaseClient: this.supabase || undefined });
     this.pollIntervalMs =
       config.pollIntervalMs ||

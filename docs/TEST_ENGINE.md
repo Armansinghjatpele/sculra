@@ -149,3 +149,63 @@ flowchart TD
 3. **Form Usability & Validation**: Evaluates form client constraints (`VALIDATE_FORM`), fills safe inputs, and records validation states.
 4. **Responsive Viewport**: Executes workflows on mobile viewport (`390x844`) to observe usability on small screens.
 
+---
+
+## 9. Deterministic Functional Bug Detection & Issue Intelligence
+
+> **Important Architecture Principle**: *This is deterministic bug detection, not AI reasoning.* All bug classifications, severity evaluations, and deduplication fingerprints are produced deterministically through rigorous rule sets without stochastic or non-deterministic LLM calls.
+
+```mermaid
+flowchart TD
+    Traces[Journey Traces, Steps & Observations] --> Classifier[Deterministic Issue Classifier]
+    NetErrors[Network Telemetry] --> NetFilter[Network Error Classifier]
+    ConsoleErrors[Console Logs] --> ConsoleFilter[Console Signature Normalizer]
+    
+    NetFilter -->|Ignore Non-Critical Analytics / Fonts| Classifier
+    ConsoleFilter -->|Normalize Exception Signatures| Classifier
+    
+    Classifier -->|Rule Engine & Severity Heuristics| Bugs[Deterministic Bug Observations]
+    Bugs --> Fingerprint[Stable SHA256 Fingerprint Generator]
+    Fingerprint --> Manager[Issue Manager]
+    
+    Manager -->|Upsert public.issues| IssuesTable[(public.issues)]
+    Manager -->|Insert public.issue_occurrences| OccurrencesTable[(public.issue_occurrences)]
+    Manager -->|Attach max 3 screenshots| Storage[(Evidence Storage)]
+```
+
+### Deterministic Bug Classification Categories
+The issue classifier (`worker/src/issues/classifier.ts`) evaluates journey telemetry and categorizes findings into standardized bug types:
+1. **`CRITICAL_API_FAILURE`**: Critical first-party backend HTTP 5xx errors and failed network operations directly triggered by user actions.
+2. **`BROKEN_CONTROL`**: Interactive UI elements that produce no DOM changes, state mutations, or network effects (`CLICK_NO_OP`), or fail to respond to user gestures.
+3. **`NAVIGATION_FAILURE`**: Broken internal links, 404/500 routing failures, navigation timeouts, or unexpected route redirects.
+4. **`UNHANDLED_EXCEPTION`**: Uncaught JavaScript runtime errors or React framework crash boundary triggers during user workflows.
+5. **`LAYOUT_DEFECT`**: Viewport clipping or severe element visual anomalies detected during responsive traversal.
+6. **`FORM_VALIDATION_ERROR`**: Client-side constraint violations recorded for usability observations (distinguished as non-bug validation feedback vs submission failures).
+
+### Severity Heuristics & Primary CTA Elevation
+Severity is calculated deterministically based on error impact and element prominence:
+- **`critical`**: Complete workflow blockers (runtime crashes, unhandled exceptions, internal server errors on primary navigation).
+- **`high`**: Failures on primary calls-to-action (e.g. "Get Started Now", "Submit", "Sign Up", "Save") and critical API failures.
+- **`medium`**: Broken secondary controls, non-critical navigation dead-ends, and 4xx client errors.
+- **`low`**: Minor non-blocking UI anomalies and warnings.
+- **`info`**: Expected form constraint validations and usability observations (does not count as a failing bug).
+
+### Stable SHA256 Deduplication & Fingerprinting
+To prevent issue duplication across multiple test runs or viewport sizes, issues are fingerprinted deterministically using:
+```typescript
+SHA256(`${projectId}:${normalizedUrl}:${bugType}:${action}:${normalizedSelector}:${normalizedErrorSignature}`)
+```
+- Query parameters are sanitized and volatile tokens (timestamps, random session IDs) are stripped.
+- Selectors and error signatures are canonicalized.
+- An issue recurrence increments `occurrence_count`, updates `last_seen_at`, and records a new entry in `public.issue_occurrences`.
+
+### Issue Lifecycle & Status Preservation
+- Existing `resolved` or `ignored` issues are **never** automatically reopened upon recurrence without explicit user configuration.
+- The test run marks `status = 'failed'` if and only if one or more actionable functional bugs (`CRITICAL_API_FAILURE`, `BROKEN_CONTROL`, `NAVIGATION_FAILURE`, `UNHANDLED_EXCEPTION`) are detected.
+- Each issue occurrence stores up to 3 bounded screenshot evidence references.
+
+### Network and Console Telemetry Intelligence
+- **Third-Party Noise Elimination**: Network errors from analytics providers (Google Analytics, PostHog, Segment, Sentry, Telemetry), missing favicons, and non-blocking font downloads are ignored by default.
+- **Sensitive Data Redaction**: Query strings containing tokens, keys, passwords, or credentials are systematically redacted (`[REDACTED]`) before fingerprinting or persistence.
+
+

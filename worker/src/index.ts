@@ -17,6 +17,7 @@ export * from './daemon';
 export * from './discovery';
 export * from './discoveryUtils';
 export * from './journeys';
+export * from './issues';
 export * from './security';
 export * from './logger';
 export * from './storage';

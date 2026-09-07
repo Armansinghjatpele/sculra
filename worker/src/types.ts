@@ -155,6 +155,7 @@ export interface TestExecutionResult {
   screenshots: CapturedScreenshot[];
   applicationMap?: ApplicationMap;
   journeyResults?: any[];
+  bugObservations?: any[];
   failureReason?: string;
 }
 

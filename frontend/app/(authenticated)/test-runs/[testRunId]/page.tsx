@@ -10,7 +10,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs';
-import { TestRun, TestEvidence } from '@/lib/demoData';
+import { TestRun, TestEvidence, Issue } from '@/lib/demoData';
+import { IssueList } from '@/components/IssueList';
 
 interface TestRunDetailPageProps {
   params: Promise<{ testRunId: string }>;
@@ -23,6 +24,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
 
   const [testRun, setTestRun] = React.useState<TestRun | null>(null);
   const [evidence, setEvidence] = React.useState<TestEvidence[]>([]);
+  const [issues, setIssues] = React.useState<Issue[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -38,6 +40,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
         if (data.testRun) {
           setTestRun(data.testRun);
           setEvidence(data.evidence || []);
+          setIssues(data.issues || []);
         }
       }
     } catch (e) {
@@ -312,6 +315,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview & Navigation</TabsTrigger>
+          <TabsTrigger value="issues">
+            Issues Detected {issues.length > 0 && `(${issues.length})`}
+          </TabsTrigger>
           <TabsTrigger value="journeys">
             User Journeys {journeyResults.length > 0 && `(${journeyResults.length})`}
           </TabsTrigger>
@@ -370,7 +376,48 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </div>
         </TabsContent>
 
-        {/* Tab 2: User Journeys (Prompt 14 Addition) */}
+        {/* Tab 2: Issues Detected */}
+        <TabsContent value="issues">
+          <div className="mt-4 space-y-6">
+            {/* Issues Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+              <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Deterministic Bugs</span>
+                <span className={`text-lg font-bold ${issues.length > 0 ? 'text-amber-400' : 'text-foreground'}`}>
+                  {issues.length}
+                </span>
+              </div>
+              <div className="bg-zinc-900/40 border border-danger/20 rounded-xl p-4 text-center">
+                <span className="text-3xs uppercase tracking-wider text-danger block">Critical / High</span>
+                <span className="text-lg font-bold text-danger">
+                  {issues.filter((i) => i.severity === 'critical' || i.severity === 'high').length}
+                </span>
+              </div>
+              <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4 text-center">
+                <span className="text-3xs uppercase tracking-wider text-muted-foreground block">Skipped Protected</span>
+                <span className="text-lg font-bold text-foreground">{totalActionsSkipped}</span>
+              </div>
+              <div className="bg-zinc-900/40 border border-cyan-500/20 rounded-xl p-4 text-center">
+                <span className="text-3xs uppercase tracking-wider text-cyan-400 block">Total Observations</span>
+                <span className="text-lg font-bold text-cyan-400">{totalObservationsCount}</span>
+              </div>
+            </div>
+
+            {/* Issue List */}
+            {issues.length === 0 ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center space-y-3 font-mono">
+                <div className="text-xs font-bold text-emerald-400">✓ No Deterministic Functional Bugs Detected</div>
+                <p className="text-3xs text-muted-foreground">
+                  All executed journey steps and interactive controls operated within safe parameters without uncaught exceptions or broken states.
+                </p>
+              </div>
+            ) : (
+              <IssueList issues={issues} />
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: User Journeys */}
         <TabsContent value="journeys">
           <div className="mt-4 space-y-6">
             {journeyResults.length === 0 ? (

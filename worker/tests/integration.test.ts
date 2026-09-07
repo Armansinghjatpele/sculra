@@ -66,7 +66,7 @@ describe('Playwright Real Browser Execution Integration Test', () => {
     const result = await runner.run(serverUrl);
 
     // 1. Assert status and page metadata
-    expect(result.status).toBe('passed');
+    expect(result.status).toBe('failed'); // Flagged failed because intentional runtime error and 404 API endpoint were caught
     expect(result.pageTitle).toBe('Sculra Local Test Target');
     expect(result.finalUrl).toBe(`${serverUrl}/`);
     expect(result.statusCode).toBe(200);
