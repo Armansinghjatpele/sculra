@@ -7,6 +7,7 @@ import { PerformanceBaselineManager } from '../src/performance/baseline';
 import { PerformanceFindingAnalyzer } from '../src/performance/analyzer';
 import { DEFAULT_PERFORMANCE_POLICY } from '../src/performance/policy';
 import { NavigationPerformance } from '../src/performance/types';
+import { DeterministicReleaseScorer } from '../src/release/scorer';
 
 describe('PerformanceBaselineManager', () => {
   it('generates deterministic composite target keys', () => {
@@ -108,5 +109,46 @@ describe('PerformanceFindingAnalyzer', () => {
 
     const clsFinding = analysis.findings.find((f) => f.type === 'PERFORMANCE_CLS_HIGH');
     expect(clsFinding).toBeDefined();
+  });
+
+  it('leaves performanceScore undefined when no measurements or findings were evaluated (never fabricates 100)', () => {
+    const assessment = DeterministicReleaseScorer.calculateAssessment({
+      testRunId: 'perf-empty-run',
+      projectId: 'proj-1',
+      targetUrl: 'http://localhost/test',
+      performanceResult: {
+        testRunId: 'perf-empty-run',
+        projectId: 'proj-1',
+        targetUrl: 'http://localhost/test',
+        coverage: {
+          targetsDiscovered: 0,
+          targetsTested: 0,
+          pagesMeasured: 0,
+          apisMeasured: 0,
+          actionsMeasured: 0,
+          totalMeasurements: 0,
+          findingsCount: 0,
+          criticalFindings: 0,
+          highFindings: 0,
+          mediumFindings: 0,
+          lowFindings: 0,
+          regressionsCount: 0,
+          performanceScore: undefined,
+          durationMs: 0,
+        },
+        navigations: [],
+        webVitals: [],
+        resources: [],
+        network: [],
+        actions: [],
+        reliability: [],
+        findings: [],
+        bugObservations: [],
+        baselines: [],
+      },
+    });
+
+    expect(assessment.scores.performance).toBeUndefined();
+    expect(assessment.breakdown.performance).toBeUndefined();
   });
 });

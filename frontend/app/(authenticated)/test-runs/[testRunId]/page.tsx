@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs';
 import { TestRun, TestEvidence, Issue } from '@/lib/demoData';
 import { IssueList } from '@/components/IssueList';
+import { formatPerformanceScore, formatPerformanceMetric, formatTargetsEvaluated } from '@/lib/performanceUtils';
 
 interface TestRunDetailPageProps {
   params: Promise<{ testRunId: string }>;
@@ -1249,79 +1250,92 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
             ) : (
               <div className="space-y-6">
                 {/* 1. Performance QA Metric Cards */}
-                <Grid cols={1} colsSm={2} colsLg={6} gap={12}>
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Performance Score
-                    </span>
-                    <span
-                      className={`text-xl font-bold font-mono ${
-                        (performanceCoverage?.performanceScore ?? 100) >= 85
-                          ? 'text-success'
-                          : (performanceCoverage?.performanceScore ?? 100) >= 70
-                          ? 'text-amber-400'
-                          : 'text-danger'
-                      }`}
-                    >
-                      {performanceCoverage?.performanceScore ?? 100}/100
-                    </span>
-                  </div>
+                {(() => {
+                  const perfScore = formatPerformanceScore(performanceCoverage?.performanceScore);
+                  return (
+                    <Grid cols={1} colsSm={2} colsLg={6} gap={12}>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Performance Score
+                        </span>
+                        <span className={`text-xl font-bold font-mono ${perfScore.colorClass}`}>
+                          {perfScore.text}
+                        </span>
+                      </div>
 
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Targets Evaluated
-                    </span>
-                    <span className="text-xl font-bold text-foreground font-mono">
-                      {performanceCoverage?.targetsTested ?? 0}/{performanceCoverage?.targetsDiscovered ?? 0}
-                    </span>
-                  </div>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Targets Evaluated
+                        </span>
+                        <span className="text-xl font-bold text-foreground font-mono">
+                          {formatTargetsEvaluated(performanceCoverage?.targetsTested, performanceCoverage?.targetsDiscovered)}
+                        </span>
+                      </div>
 
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Total Measurements
-                    </span>
-                    <span className="text-xl font-bold text-accent font-mono">
-                      {performanceCoverage?.totalMeasurements ?? 0}
-                    </span>
-                  </div>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Total Measurements
+                        </span>
+                        <span className="text-xl font-bold text-accent font-mono">
+                          {formatPerformanceMetric(performanceCoverage?.totalMeasurements)}
+                        </span>
+                      </div>
 
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Regressions
-                    </span>
-                    <span
-                      className={`text-xl font-bold font-mono ${
-                        perfRegressions.length > 0 ? 'text-rose-500' : 'text-success'
-                      }`}
-                    >
-                      {perfRegressions.length}
-                    </span>
-                  </div>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Regressions
+                        </span>
+                        <span
+                          className={`text-xl font-bold font-mono ${
+                            perfRegressions.length > 0
+                              ? 'text-rose-500'
+                              : typeof performanceCoverage?.regressionsCount === 'number'
+                              ? 'text-success'
+                              : performanceFindings.length > 0
+                              ? 'text-success'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {perfRegressions.length > 0
+                            ? perfRegressions.length
+                            : typeof performanceCoverage?.regressionsCount === 'number'
+                            ? performanceCoverage.regressionsCount
+                            : performanceFindings.length > 0
+                            ? 0
+                            : '--'}
+                        </span>
+                      </div>
 
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Critical / High Issues
-                    </span>
-                    <span
-                      className={`text-xl font-bold font-mono ${
-                        criticalPerfFindings.length + highPerfFindings.length > 0
-                          ? 'text-rose-500'
-                          : 'text-success'
-                      }`}
-                    >
-                      {criticalPerfFindings.length + highPerfFindings.length}
-                    </span>
-                  </div>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Critical / High Issues
+                        </span>
+                        <span
+                          className={`text-xl font-bold font-mono ${
+                            criticalPerfFindings.length + highPerfFindings.length > 0
+                              ? 'text-rose-500'
+                              : performanceCoverage || performanceFindings.length > 0
+                              ? 'text-success'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {performanceCoverage || performanceFindings.length > 0
+                            ? criticalPerfFindings.length + highPerfFindings.length
+                            : '--'}
+                        </span>
+                      </div>
 
-                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
-                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
-                      Audit Duration
-                    </span>
-                    <span className="text-xl font-bold text-foreground font-mono">
-                      {performanceCoverage?.durationMs ? `${(performanceCoverage.durationMs / 1000).toFixed(1)}s` : '--'}
-                    </span>
-                  </div>
-                </Grid>
+                      <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                        <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                          Audit Duration
+                        </span>
+                        <span className="text-xl font-bold text-foreground font-mono">
+                          {typeof performanceCoverage?.durationMs === 'number' ? `${(performanceCoverage.durationMs / 1000).toFixed(1)}s` : '--'}
+                        </span>
+                      </div>
+                    </Grid>
+                  );
+                })()}
 
                 {/* 2. Critical Performance Alert Banner */}
                 {(criticalPerfFindings.length > 0 || highPerfFindings.length > 0) && (

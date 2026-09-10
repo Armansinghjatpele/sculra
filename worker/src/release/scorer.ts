@@ -745,7 +745,12 @@ export class DeterministicReleaseScorer {
       reliability: finalReliabilityScore,
       coverage: finalCoverageScore,
       security: options.securityResult ? finalSecurityScore : undefined,
-      performance: options.performanceResult ? finalPerformanceScore : undefined,
+      performance:
+        options.performanceResult &&
+        (options.performanceResult.coverage.totalMeasurements > 0 ||
+          options.performanceResult.findings.length > 0)
+          ? finalPerformanceScore
+          : undefined,
     };
 
     const breakdown: ScoreBreakdown = {
@@ -756,7 +761,12 @@ export class DeterministicReleaseScorer {
         reliability: 0.10,
         coverage: 0.15,
         security: options.securityResult ? 0.20 : undefined,
-        performance: options.performanceResult ? 0.15 : undefined,
+        performance:
+          options.performanceResult &&
+          (options.performanceResult.coverage.totalMeasurements > 0 ||
+            options.performanceResult.findings.length > 0)
+            ? 0.15
+            : undefined,
       },
       functional: {
         base: 100,
@@ -830,17 +840,20 @@ export class DeterministicReleaseScorer {
             secretExposuresCount: secSecretExposuresCount,
           }
         : undefined,
-      performance: options.performanceResult
-        ? {
-            base: 100,
-            final: finalPerformanceScore,
-            deductions: performanceDeductions,
-            slowPagesCount: perfSlowPagesCount,
-            slowApisCount: perfSlowApisCount,
-            regressionsCount: perfRegressionsCount,
-            reliabilityFailuresCount: perfReliabilityFailuresCount,
-          }
-        : undefined,
+      performance:
+        options.performanceResult &&
+        (options.performanceResult.coverage.totalMeasurements > 0 ||
+          options.performanceResult.findings.length > 0)
+          ? {
+              base: 100,
+              final: finalPerformanceScore,
+              deductions: performanceDeductions,
+              slowPagesCount: perfSlowPagesCount,
+              slowApisCount: perfSlowApisCount,
+              regressionsCount: perfRegressionsCount,
+              reliabilityFailuresCount: perfReliabilityFailuresCount,
+            }
+          : undefined,
       historicalComparison,
     };
 

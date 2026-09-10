@@ -355,17 +355,21 @@ export class PerformanceScanner {
     const lowFindings = findings.filter((f) => f.severity === 'low').length;
     const regressionsCount = findings.filter((f) => f.type === 'PERFORMANCE_REGRESSION').length;
 
-    // Mathematical Performance Score Calculation (0-100)
-    let rawScore = 100;
-    rawScore -= criticalFindings * 35;
-    rawScore -= highFindings * 15;
-    rawScore -= mediumFindings * 6;
-    rawScore -= lowFindings * 2;
-    rawScore -= regressionsCount * 10;
-    const performanceScore = Math.max(0, Math.min(100, rawScore));
-
     const totalMeasurements =
       navigations.length + webVitals.length + resources.length + network.length + actions.length + reliability.length + apisMeasuredCount;
+
+    // Mathematical Performance Score Calculation (0-100)
+    // Only compute a score if measurements or findings were actually evaluated; otherwise undefined
+    let performanceScore: number | undefined;
+    if (totalMeasurements > 0 || findings.length > 0) {
+      let rawScore = 100;
+      rawScore -= criticalFindings * 35;
+      rawScore -= highFindings * 15;
+      rawScore -= mediumFindings * 6;
+      rawScore -= lowFindings * 2;
+      rawScore -= regressionsCount * 10;
+      performanceScore = Math.max(0, Math.min(100, rawScore));
+    }
 
     const coverage: PerformanceCoverageSummary = {
       targetsDiscovered: targets.length,

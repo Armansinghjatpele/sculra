@@ -262,7 +262,7 @@ export interface PerformanceCoverageSummary {
   mediumFindings: number;
   lowFindings: number;
   regressionsCount: number;
-  performanceScore: number; // 0 - 100
+  performanceScore?: number; // 0 - 100, undefined if unmeasured
   durationMs: number;
 }
 

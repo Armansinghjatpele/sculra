@@ -143,4 +143,35 @@ describe('WebVitalsEvaluator', () => {
     expect(vitals.fcp.availability).toBe('measured');
     expect(vitals.fcp.value).toBe(1200);
   });
+
+  it('preserves genuine metric value of 0 without coercing to unavailable or null', async () => {
+    const mockPage: any = {
+      evaluate: async () => ({
+        lcp: 1200,
+        cls: 0, // Perfect zero CLS shift
+        inp: 0,
+        fcp: 900,
+        ttfb: 150,
+        domContentLoaded: 400,
+        loadDuration: 800,
+        lcpAvailable: true,
+        clsAvailable: true,
+        inpAvailable: true,
+      }),
+    };
+
+    const vitals = await WebVitalsEvaluator.evaluateWebVitals(
+      mockPage,
+      'http://localhost/test',
+      {
+        viewport: 'desktop',
+        policy: DEFAULT_PERFORMANCE_POLICY,
+      }
+    );
+
+    expect(vitals.cls.availability).toBe('measured');
+    expect(vitals.cls.value).toBe(0);
+    expect(vitals.inp.availability).toBe('measured');
+    expect(vitals.inp.value).toBe(0);
+  });
 });
