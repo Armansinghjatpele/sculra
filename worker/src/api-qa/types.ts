@@ -89,6 +89,8 @@ export interface ApiResponseObservation {
   requiredFieldsPresent?: boolean;
   safeHeaders: Record<string, string>; // Strictly devoid of cookies/authorization
   bodyExcerpt?: string; // Bounded, sanitized excerpt
+  rawBody?: string; // In-memory for security scanning only
+  rawSetCookies?: string[]; // In-memory for security cookie scanning only
   errorClassification?: string;
   role?: string;
   authenticated?: boolean;

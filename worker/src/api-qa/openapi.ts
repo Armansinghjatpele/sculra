@@ -14,7 +14,7 @@ import {
   DEFAULT_API_EXECUTION_LIMITS,
   SAFE_AUTO_EXECUTE_METHODS,
 } from './types';
-import { validateTargetUrl } from '../security';
+import { validateTargetUrl } from '../security/ssrf';
 import { normalizeHttpMethod, normalizeEndpointPath, generateEndpointId } from './normalizer';
 import { CancellationToken } from '../types';
 

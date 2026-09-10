@@ -13,7 +13,7 @@ import {
 } from './types';
 import { JourneyActionType } from '../journeys/types';
 import { isDangerousAction, isSensitiveField } from '../journeys/safety';
-import { validateTargetUrl } from '../security';
+import { validateTargetUrl } from '../security/ssrf';
 
 const ALLOWED_ACTION_TYPES: JourneyActionType[] = [
   'NAVIGATE',

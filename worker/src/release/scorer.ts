@@ -40,6 +40,9 @@ export interface CalculateAssessmentOptions {
   authorizationResults?: import('../auth/types').AuthorizationCheckResult[];
   apiTestResults?: import('../api-qa/types').ApiTestResult[];
   apiCoverage?: import('../api-qa/types').ApiCoverageSummary;
+  securityResult?: import('../security/types').SecurityScanResult;
+  securityFindings?: import('../security/types').SecurityFinding[];
+  securityCoverage?: import('../security/types').SecurityCoverageSummary;
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -390,12 +393,13 @@ export class DeterministicReleaseScorer {
 
     // 7. Determine Evidence Confidence Level
     const hasApiEvidence = (options.apiTestResults && options.apiTestResults.length > 0) || (options.apiCoverage && options.apiCoverage.endpointsTested > 0);
+    const hasSecurityEvidence = (options.securityResult && (options.securityResult.coverage?.checksExecuted || 0) > 0) || ((options.securityFindings?.length || 0) > 0);
     let confidenceLevel: EvidenceConfidence = 'HIGH';
     if (testRunStatus === 'cancelled') {
       confidenceLevel = 'INSUFFICIENT';
-    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence) {
+    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence && !hasSecurityEvidence) {
       confidenceLevel = 'INSUFFICIENT';
-    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence) || (journeyResults.length <= 0 && !hasApiEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
+    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence && !hasSecurityEvidence) || (journeyResults.length <= 0 && !hasApiEvidence && !hasSecurityEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
       confidenceLevel = 'LOW';
     } else if (discoveredPagesCount < 3 || viewportsTestedSet.size < 3 || journeyResults.length < 2 || finalCoverageScore < 70) {
       confidenceLevel = 'MEDIUM';
@@ -519,6 +523,82 @@ export class DeterministicReleaseScorer {
       }
     }
 
+    // Security Deductions (Deterministic Security QA)
+    const securityDeductions: ScoreDeduction[] = [];
+    let secCritCount = 0;
+    let secHighCount = 0;
+    let secMedCount = 0;
+    let secAuthViolationsCount = 0;
+    let secSecretExposuresCount = 0;
+
+    if (options.securityResult) {
+      for (const finding of options.securityResult.findings) {
+        if (finding.severity === 'critical') {
+          secCritCount++;
+          if (finding.type === 'SECRET_EXPOSURE' || finding.type === 'TOKEN_EXPOSURE') secSecretExposuresCount++;
+          if (finding.type === 'AUTHENTICATION_BYPASS' || finding.type === 'PRIVILEGE_ESCALATION') secAuthViolationsCount++;
+          securityDeductions.push({
+            category: 'security',
+            points: 35,
+            reason: `Critical security defect: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'high') {
+          secHighCount++;
+          if (finding.type === 'SENSITIVE_DATA_EXPOSURE') secSecretExposuresCount++;
+          if (
+            finding.type === 'PUBLICLY_ACCESSIBLE_PROTECTED_ROUTE' ||
+            finding.type === 'PUBLICLY_ACCESSIBLE_PROTECTED_API' ||
+            finding.type === 'VERTICAL_ACCESS_VIOLATION' ||
+            finding.type === 'HORIZONTAL_ACCESS_VIOLATION' ||
+            finding.type === 'AUTHORIZATION_UNEXPECTED_ACCESS'
+          ) {
+            secAuthViolationsCount++;
+          }
+          securityDeductions.push({
+            category: 'security',
+            points: 15,
+            reason: `High severity security finding: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'medium') {
+          secMedCount++;
+          securityDeductions.push({
+            category: 'security',
+            points: 6,
+            reason: `Medium security finding: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'low') {
+          securityDeductions.push({
+            category: 'security',
+            points: 2,
+            reason: `Low security finding: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        }
+      }
+    }
+
+    const totalSecurityDeduction = securityDeductions.reduce((sum, d) => sum + d.points, 0);
+    const finalSecurityScore = Math.max(0, Math.min(100, 100 - totalSecurityDeduction));
+
+    // Blocker 8: Security & Authorization Failures
+    if (options.securityResult) {
+      const critFindings = options.securityResult.findings.filter((f) => f.severity === 'critical');
+      for (const finding of critFindings) {
+        blockers.push({
+          id: `blocker-sec-${finding.id}`,
+          title: `Security Blocker: ${finding.title}`,
+          reason: `Critical security boundary failure: ${finding.description}`,
+          category: 'security',
+          severity: 'critical',
+          evidenceSummary: finding.remediation || finding.description,
+          relatedIssueFingerprints: [finding.id],
+        });
+      }
+    }
+
     // 9. Calculate Overall Composite Score & Apply Blocker Bounds
     const rawOverallScore =
       0.35 * finalFunctionalScore +
@@ -590,6 +670,7 @@ export class DeterministicReleaseScorer {
       responsive: finalResponsiveScore,
       reliability: finalReliabilityScore,
       coverage: finalCoverageScore,
+      security: options.securityResult ? finalSecurityScore : undefined,
     };
 
     const breakdown: ScoreBreakdown = {
@@ -599,6 +680,7 @@ export class DeterministicReleaseScorer {
         responsive: 0.20,
         reliability: 0.10,
         coverage: 0.15,
+        security: options.securityResult ? 0.20 : undefined,
       },
       functional: {
         base: 100,
@@ -660,6 +742,18 @@ export class DeterministicReleaseScorer {
           ratio: viewportRatio,
         },
       },
+      security: options.securityResult
+        ? {
+            base: 100,
+            final: finalSecurityScore,
+            deductions: securityDeductions,
+            criticalFindingsCount: secCritCount,
+            highFindingsCount: secHighCount,
+            mediumFindingsCount: secMedCount,
+            authViolationsCount: secAuthViolationsCount,
+            secretExposuresCount: secSecretExposuresCount,
+          }
+        : undefined,
       historicalComparison,
     };
 

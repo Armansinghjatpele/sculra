@@ -85,6 +85,30 @@ export class DeterministicPrioritizer {
           baseScore = 70;
           reasons.push('API regression verification target');
           break;
+        case 'AUTHORIZATION_BOUNDARY':
+        case 'SECURITY_ROUTE':
+        case 'SECURITY_API':
+          baseScore = 85;
+          reasons.push('High intrinsic priority: Security authorization boundary verification');
+          break;
+        case 'SENSITIVE_DATA_TARGET':
+          baseScore = 80;
+          reasons.push('High intrinsic priority: Sensitive data and secret exposure verification');
+          break;
+        case 'CORS_TARGET':
+        case 'REDIRECT_TARGET':
+          baseScore = 75;
+          reasons.push('Security misconfiguration check: CORS / Open Redirect target');
+          break;
+        case 'SECURITY_HEADER':
+        case 'SECURITY_COOKIE':
+          baseScore = 70;
+          reasons.push('Security baseline check: Missing security headers or insecure cookie attributes');
+          break;
+        case 'SECURITY_REGRESSION':
+          baseScore = 80;
+          reasons.push('High intrinsic priority: Security regression re-verification');
+          break;
         default:
           baseScore = 45;
           break;

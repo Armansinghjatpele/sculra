@@ -37,6 +37,8 @@ export interface RunnerOptions {
   enableApiQa?: boolean;
   apiConfig?: import('./api-qa/types').ApiProjectConfig;
   apiLimits?: Partial<import('./api-qa/types').ApiExecutionLimits>;
+  enableSecurityQa?: boolean;
+  securityPolicy?: Partial<import('./security/types').SecurityPolicyConfig>;
   viewport?: {
     width: number;
     height: number;
@@ -194,6 +196,9 @@ export interface TestExecutionResult {
   apiTestResults?: import('./api-qa/types').ApiTestResult[];
   apiObservations?: import('./api-qa/types').ApiResponseObservation[];
   apiCoverage?: import('./api-qa/types').ApiCoverageSummary;
+  securityResult?: import('./security/types').SecurityScanResult;
+  securityFindings?: import('./security/types').SecurityFinding[];
+  securityCoverage?: import('./security/types').SecurityCoverageSummary;
   failureReason?: string;
 }
 

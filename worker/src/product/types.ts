@@ -186,9 +186,9 @@ export type ProductRelationshipType =
 export interface ProductRelationship {
   id: string;
   fromId: string;
-  fromType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT';
+  fromType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT' | 'SECURITY_FINDING' | 'SECURITY_TARGET';
   toId: string;
-  toType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT';
+  toType: 'ROLE' | 'WORKFLOW' | 'FEATURE' | 'PAGE' | 'CONTROL' | 'API_ENDPOINT' | 'SECURITY_FINDING' | 'SECURITY_TARGET';
   relationshipType: ProductRelationshipType;
   confidence: number; // 0.0 - 1.0
   evidence: string[];
@@ -207,7 +207,11 @@ export type ProductEvidenceSourceType =
   | 'METADATA'
   | 'API'
   | 'API_ENDPOINT'
-  | 'API_CONTRACT';
+  | 'API_CONTRACT'
+  | 'SECURITY_CHECK'
+  | 'SECURITY_FINDING'
+  | 'SECURITY_HEADER'
+  | 'SECURITY_COOKIE';
 
 export interface ProductEvidence {
   id: string;

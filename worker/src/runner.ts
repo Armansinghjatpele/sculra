@@ -14,7 +14,13 @@ import {
   CancellationToken,
   ApplicationMap,
 } from './types';
-import { validateTargetUrl } from './security';
+import {
+  validateTargetUrl,
+  SecurityScanner,
+  SecurityScanResult,
+  SecurityFinding,
+  SecurityCoverageSummary,
+} from './security/index';
 import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
@@ -76,6 +82,8 @@ export class BrowserRunner {
       enableApiQa: options.enableApiQa ?? true,
       apiConfig: options.apiConfig,
       apiLimits: options.apiLimits,
+      enableSecurityQa: options.enableSecurityQa ?? true,
+      securityPolicy: options.securityPolicy,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -138,6 +146,9 @@ export class BrowserRunner {
     let apiTestResults: ApiTestResult[] = [];
     let apiObservations: ApiResponseObservation[] = [];
     let apiCoverage: ApiCoverageSummary | undefined;
+    let securityResult: SecurityScanResult | undefined;
+    let securityFindings: SecurityFinding[] | undefined;
+    let securityCoverage: SecurityCoverageSummary | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -723,6 +734,47 @@ export class BrowserRunner {
           }
         }
 
+        // 12.7 Deterministic Security & Authorization QA Scanner
+        if (this.options.enableSecurityQa !== false && !cancellationToken?.isCancelled) {
+          this.logger.log('security_qa_execution_initiated');
+          try {
+            const secScanner = new SecurityScanner(this.options.securityPolicy, this.logger);
+            const secOutput = await secScanner.scan({
+              testRunId: this.testRunId,
+              projectId: this.projectId || 'unassigned',
+              targetUrl: safeUrl,
+              applicationMap,
+              apiEndpoints,
+              roleContexts,
+              authenticatedSessions,
+              allowLocalhost: this.options.allowLocalhost,
+              logger: this.logger,
+              cancellationToken,
+            });
+
+            securityResult = secOutput;
+            securityFindings = secOutput.findings;
+            securityCoverage = secOutput.coverage;
+
+            // Merge security bug observations (deduplicating by fingerprint)
+            for (const secBug of secOutput.bugObservations) {
+              if (!bugObservations.some((b) => b.fingerprint === secBug.fingerprint)) {
+                bugObservations.push(secBug);
+              }
+            }
+
+            this.logger.log('security_qa_execution_completed', {
+              findingsCount: secOutput.findings.length,
+              criticalCount: secOutput.coverage.criticalFindings,
+              highCount: secOutput.coverage.highFindings,
+              mediumCount: secOutput.coverage.mediumFindings,
+              checksExecuted: secOutput.coverage.checksExecuted,
+            });
+          } catch (secErr: any) {
+            this.logger.warn('security_qa_scanner_warning', { message: secErr.message });
+          }
+        }
+
         // Set test run failure if deterministic functional, visual, or security bugs were detected
         if (
           !cancellationToken?.isCancelled &&
@@ -817,6 +869,9 @@ export class BrowserRunner {
       apiTestResults,
       apiObservations,
       apiCoverage,
+      securityResult,
+      securityFindings,
+      securityCoverage,
       failureReason,
     };
   }

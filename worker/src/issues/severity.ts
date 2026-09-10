@@ -82,7 +82,13 @@ export function calculateBugSeverity(params: {
   const { bugType, statusCode, isInitialPage, targetDescription, selector, isCriticalResource } = params;
 
   // 1. Catastrophic / Entry Point / Security Failures -> CRITICAL
-  if (bugType === 'API_UNEXPECTED_AUTHORIZED_ACCESS') {
+  if (
+    bugType === 'API_UNEXPECTED_AUTHORIZED_ACCESS' ||
+    bugType === 'AUTHENTICATION_BYPASS' ||
+    bugType === 'PRIVILEGE_ESCALATION' ||
+    bugType === 'SECRET_EXPOSURE' ||
+    bugType === 'TOKEN_EXPOSURE'
+  ) {
     return 'critical';
   }
   if (isInitialPage && (statusCode && statusCode >= 500)) {
@@ -92,13 +98,21 @@ export function calculateBugSeverity(params: {
     return 'critical';
   }
 
-  // 2. Primary Navigation / Critical API / Primary CTA -> HIGH
+  // 2. Primary Navigation / Critical API / Primary CTA / High Security -> HIGH
   if (
     bugType === 'API_HTTP_5XX' ||
     bugType === 'API_TIMEOUT' ||
     bugType === 'API_NETWORK_FAILURE' ||
     bugType === 'API_AUTHORIZATION_FAILURE' ||
-    bugType === 'API_AUTHENTICATION_FAILURE'
+    bugType === 'API_AUTHENTICATION_FAILURE' ||
+    bugType === 'PUBLICLY_ACCESSIBLE_PROTECTED_ROUTE' ||
+    bugType === 'PUBLICLY_ACCESSIBLE_PROTECTED_API' ||
+    bugType === 'VERTICAL_ACCESS_VIOLATION' ||
+    bugType === 'HORIZONTAL_ACCESS_VIOLATION' ||
+    bugType === 'AUTHORIZATION_UNEXPECTED_ACCESS' ||
+    bugType === 'AUTHENTICATION_MISSING' ||
+    bugType === 'AUTHORIZATION_DENIED' ||
+    bugType === 'SENSITIVE_DATA_EXPOSURE'
   ) {
     return 'high';
   }
@@ -120,7 +134,7 @@ export function calculateBugSeverity(params: {
     return 'high';
   }
 
-  // 3. Secondary Controls / Forms / API Content / Schema -> MEDIUM
+  // 3. Secondary Controls / Forms / API Content / Schema / Medium Security -> MEDIUM
   if (
     bugType === 'API_INVALID_JSON' ||
     bugType === 'API_SCHEMA_VIOLATION' ||
@@ -129,7 +143,14 @@ export function calculateBugSeverity(params: {
     bugType === 'API_HTTP_4XX' ||
     bugType === 'API_UNEXPECTED_STATUS' ||
     bugType === 'API_UNEXPECTED_REDIRECT' ||
-    bugType === 'API_CONTENT_TYPE_MISMATCH'
+    bugType === 'API_CONTENT_TYPE_MISMATCH' ||
+    bugType === 'SECURITY_HEADER_MISSING' ||
+    bugType === 'SECURITY_HEADER_WEAK' ||
+    bugType === 'INSECURE_COOKIE' ||
+    bugType === 'COOKIE_MISSING_SECURITY_ATTRIBUTE' ||
+    bugType === 'CORS_MISCONFIGURATION' ||
+    bugType === 'OPEN_REDIRECT' ||
+    bugType === 'INSECURE_HTTP_CONFIGURATION'
   ) {
     return 'medium';
   }
@@ -146,10 +167,17 @@ export function calculateBugSeverity(params: {
     return 'medium';
   }
 
-  if (bugType === 'API_CONFIGURATION_ERROR') {
+  // 4. Low Impact / Recoverable / Low Security -> LOW
+  if (
+    bugType === 'MIXED_CONTENT' ||
+    bugType === 'SECURITY_CONFIGURATION_ERROR'
+  ) {
+    return 'low';
+  }
+
+  if (bugType === 'API_CONFIGURATION_ERROR' || bugType === 'SECURITY_CHECK_INCONCLUSIVE') {
     return 'info';
   }
 
-  // 4. Low Impact / Recoverable -> LOW
   return 'low';
 }

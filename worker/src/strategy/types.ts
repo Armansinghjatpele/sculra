@@ -27,7 +27,17 @@ export type TestTargetType =
   | 'API_AUTHORIZATION'
   | 'API_CONTRACT'
   | 'API_FAILURE'
-  | 'API_REGRESSION';
+  | 'API_REGRESSION'
+  // Prompt 25: Security Target Types
+  | 'SECURITY_ROUTE'
+  | 'SECURITY_API'
+  | 'AUTHORIZATION_BOUNDARY'
+  | 'SECURITY_HEADER'
+  | 'SECURITY_COOKIE'
+  | 'CORS_TARGET'
+  | 'REDIRECT_TARGET'
+  | 'SENSITIVE_DATA_TARGET'
+  | 'SECURITY_REGRESSION';
 
 export type TestTargetStatus =
   | 'PENDING'
@@ -52,7 +62,9 @@ export type TargetSource =
   | 'REGRESSION'
   | 'RESPONSIVE'
   | 'API_DISCOVERY'
-  | 'API_CONTRACT';
+  | 'API_CONTRACT'
+  | 'SECURITY_DISCOVERY'
+  | 'SECURITY_REGRESSION';
 
 export interface TestTarget {
   id: string;

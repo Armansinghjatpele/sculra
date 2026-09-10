@@ -21,7 +21,7 @@ import {
   CancellationToken,
 } from './types';
 import { normalizeUrl, isSameOrigin } from './discoveryUtils';
-import { validateTargetUrl } from './security';
+import { validateTargetUrl } from './security/ssrf';
 import { WorkerLogger } from './logger';
 
 export interface DiscoveryOptions {

@@ -533,6 +533,43 @@ export class JobExecutor {
         }
       }
 
+      // 5r. Persist Security QA Evidence (Findings & Summary)
+      if (result.securityResult) {
+        const sec = result.securityResult;
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'security_summary',
+          title: `Security QA Summary: ${sec.findings.length} finding(s) [${sec.coverage.criticalFindings} critical, ${sec.coverage.highFindings} high]`,
+          url: targetUrl,
+          message: `Executed ${sec.coverage.checksExecuted} deterministic security checks across ${sec.coverage.targetsDiscovered} targets. Found ${sec.coverage.criticalFindings} critical, ${sec.coverage.highFindings} high, ${sec.coverage.mediumFindings} medium security weaknesses.`,
+          metadata: {
+            coverage: sec.coverage,
+            findingsCount: sec.findings.length,
+          },
+        });
+
+        // Persist individual security findings
+        for (const finding of sec.findings) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'security_finding',
+            title: `[${finding.severity.toUpperCase()}] Security Finding: ${finding.title}`,
+            url: finding.targetUrl || targetUrl,
+            message: `${finding.description} Remediation: ${finding.remediation || 'N/A'}`,
+            metadata: {
+              finding,
+              type: finding.type,
+              severity: finding.severity,
+              confidence: finding.confidence,
+              remediation: finding.remediation,
+              evidence: finding.evidence,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
@@ -580,6 +617,7 @@ export class JobExecutor {
         authorizationResults: result.authorizationResults,
         apiTestResults: result.apiTestResults,
         apiCoverage: result.apiCoverage,
+        securityResult: result.securityResult,
         previousAssessment,
       });
 
@@ -606,7 +644,7 @@ export class JobExecutor {
         responsive_score: assessment.scores.responsive,
         performance_score: assessment.scores.reliability,
         accessibility_score: assessment.scores.coverage,
-        security_score: 100,
+        security_score: assessment.scores.security !== undefined ? assessment.scores.security : 100,
         recommendation: assessment.recommendation,
         risk_level: assessment.riskLevel,
         confidence_level: assessment.confidenceLevel,

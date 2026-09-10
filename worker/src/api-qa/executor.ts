@@ -12,7 +12,7 @@ import {
   SAFE_AUTO_EXECUTE_METHODS,
   ApiHttpMethod,
 } from './types';
-import { validateTargetUrl } from '../security';
+import { validateTargetUrl } from '../security/ssrf';
 import { AuthRedaction } from '../auth/redaction';
 import { CancellationToken } from '../types';
 import { WorkerLogger } from '../logger';
@@ -44,6 +44,7 @@ export interface ApiExecutionOptions {
   logger?: WorkerLogger;
   cancellationToken?: CancellationToken;
   explicitlySafe?: boolean;
+  followRedirects?: boolean;
 }
 
 export class ApiExecutor {
@@ -183,6 +184,45 @@ export class ApiExecutor {
 
         // Handle Redirects
         if (fetchResponse.status >= 300 && fetchResponse.status < 400) {
+          if (options.followRedirects === false) {
+            const durationMs = Date.now() - startTime;
+            const status = fetchResponse.status;
+            const statusText = fetchResponse.statusText;
+            const contentType = fetchResponse.headers.get('content-type') || undefined;
+            const safeHeaders: Record<string, string> = {};
+            const rawSetCookies: string[] = [];
+
+            fetchResponse.headers.forEach((val, key) => {
+              const lower = key.toLowerCase();
+              if (lower === 'set-cookie') {
+                rawSetCookies.push(val);
+                safeHeaders[key] = AuthRedaction.redactHeader(key, val);
+              } else if (lower === 'authorization' || lower === 'cookie') {
+                safeHeaders[key] = AuthRedaction.redactHeader(key, val);
+              } else {
+                safeHeaders[key] = val;
+              }
+            });
+
+            return {
+              id: `obs_${request.endpointId}_${Date.now()}`,
+              endpointId: request.endpointId,
+              method: request.method,
+              url: currentUrl,
+              status,
+              statusText,
+              durationMs,
+              contentType,
+              responseSize: 0,
+              redirectCount,
+              safeHeaders,
+              rawSetCookies,
+              role: request.role,
+              authenticated: !!request.headers?.['Cookie'] || !!request.headers?.['Authorization'] || !!request.role,
+              timestamp: new Date().toISOString(),
+            };
+          }
+
           redirectCount++;
           if (redirectCount > this.limits.maxRedirects) {
             return this.createErrorObservation(
@@ -232,8 +272,12 @@ export class ApiExecutor {
 
         // Extract safe headers (strictly scrubbing Authorization, Cookie, Set-Cookie, etc.)
         const safeHeaders: Record<string, string> = {};
+        const rawSetCookies: string[] = [];
         fetchResponse.headers.forEach((val, key) => {
           const lower = key.toLowerCase();
+          if (lower === 'set-cookie') {
+            rawSetCookies.push(val);
+          }
           if (
             lower !== 'set-cookie' &&
             lower !== 'authorization' &&
@@ -287,6 +331,8 @@ export class ApiExecutor {
           jsonParsed: (contentType?.includes('application/json') || rawBody.startsWith('{') || rawBody.startsWith('[')) ? jsonParsed : undefined,
           safeHeaders,
           bodyExcerpt: sanitizedExcerpt || undefined,
+          rawBody: rawBody || undefined,
+          rawSetCookies: rawSetCookies.length > 0 ? rawSetCookies : undefined,
           role: request.role,
           authenticated: !!request.headers?.['Cookie'] || !!request.headers?.['Authorization'] || !!request.role,
           timestamp: new Date().toISOString(),

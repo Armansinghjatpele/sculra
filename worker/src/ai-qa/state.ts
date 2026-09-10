@@ -73,6 +73,16 @@ export interface CoverageSummary {
   links: { discovered: number; exercised: number };
   navigationPaths: { discovered: number; exercised: number };
   apis?: { discovered: number; tested: number; failed: number; coverageRatio: number };
+  security?: {
+    targetsDiscovered: number;
+    checksExecuted: number;
+    findingsCount: number;
+    criticalFindings: number;
+    highFindings: number;
+    mediumFindings: number;
+    lowFindings: number;
+    coverageRatio: number;
+  };
   hypotheses: {
     formulated: number;
     tested: number;

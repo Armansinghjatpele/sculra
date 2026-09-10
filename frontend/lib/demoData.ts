@@ -79,6 +79,14 @@ export interface TestEvidence {
     | 'api_authorization_check'
     | 'api_failure'
     | 'api_contract'
+    | 'security_summary'
+    | 'security_finding'
+    | 'security_header_check'
+    | 'security_cookie_check'
+    | 'security_cors_check'
+    | 'security_redirect_check'
+    | 'security_exposure_check'
+    | 'security_auth_check'
     | 'release_report';
   title: string;
   url?: string;
@@ -92,7 +100,7 @@ export interface ReleaseBlocker {
   id: string;
   title: string;
   reason: string;
-  category: 'functional' | 'visual' | 'responsive' | 'reliability';
+  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api';
   severity: 'critical' | 'high';
   evidenceSummary: string;
   relatedIssueFingerprints?: string[];

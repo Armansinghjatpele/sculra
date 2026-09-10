@@ -15,7 +15,7 @@ import {
 } from './types';
 import { resolveResilientLocator } from './selectors';
 import { isDangerousAction, isSensitiveField } from './safety';
-import { validateTargetUrl } from '../security';
+import { validateTargetUrl } from '../security/ssrf';
 import { isSameOrigin } from '../discoveryUtils';
 import { WorkerLogger } from '../logger';
 import {

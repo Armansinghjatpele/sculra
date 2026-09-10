@@ -106,6 +106,17 @@ export class AuthRedaction {
   }
 
   /**
+   * Redacts a single header value if the header name is sensitive.
+   */
+  public static redactHeader(key: string, value: string): string {
+    const lowerKey = key.toLowerCase();
+    if (this.isSensitiveKey(key) || this.isSensitiveKey(lowerKey)) {
+      return '[REDACTED]';
+    }
+    return this.redactString(value);
+  }
+
+  /**
    * Sanitizes HTTP headers, stripping Cookie, Authorization, and custom session tokens.
    */
   public static sanitizeHeaders(headers: Record<string, string>): Record<string, string> {

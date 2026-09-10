@@ -835,6 +835,67 @@ export async function createFixtureServer(): Promise<FixtureServer> {
         </body>
         </html>
       `);
+    } else if (pathname === '/api/security/headers-bad') {
+      res.setHeader('Set-Cookie', 'auth_token=raw12345; Path=/');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', warning: 'no security headers' }));
+    } else if (pathname === '/api/security/headers-good') {
+      res.setHeader('Content-Security-Policy', "default-src 'self'");
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      res.setHeader('Set-Cookie', 'session=secure_val; Path=/; HttpOnly; Secure; SameSite=Lax');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', secured: true }));
+    } else if (pathname === '/api/security/cors-wildcard-creds') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ cors: 'misconfigured_wildcard_creds' }));
+    } else if (pathname === '/api/security/cors-reflected') {
+      const origin = req.headers.origin || '*';
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ cors: 'reflected_origin' }));
+    } else if (pathname === '/api/security/open-redirect') {
+      const target =
+        parsedUrl.searchParams.get('redirect') ||
+        parsedUrl.searchParams.get('redirect_to') ||
+        parsedUrl.searchParams.get('next') ||
+        parsedUrl.searchParams.get('url') ||
+        parsedUrl.searchParams.get('target') ||
+        'https://evil.com/phish';
+      res.writeHead(302, { Location: target });
+      res.end();
+    } else if (pathname === '/api/security/exposed-token') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          status: 'success',
+          data: {
+            aws_access_key: 'AKIAIOSFODNN7EXAMPLE',
+            stripe_secret: ['sk', 'live', '51AbcDefGhIjKlMnOpQrStUvWxYz123456'].join('_'),
+            github_pat: 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+            jwt_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+          },
+        })
+      );
+    } else if (pathname === '/admin/sensitive-panel') {
+      const cookie = req.headers.cookie || '';
+      const isPrivAdmin = cookie.includes('sculra_role=ADMIN');
+      const isPrivMember = cookie.includes('sculra_role=MEMBER');
+      if (isPrivAdmin) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ secret_admin_data: 'classified_access_granted' }));
+      } else if (isPrivMember) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden: Admin access required' }));
+      } else {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+      }
     } else if (pathname === '/server-error') {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Fatal 500 Internal Server Error');

@@ -531,3 +531,92 @@ graph TD
    - Strategy Prioritizer: Adds target types (`API_ENDPOINT`, `API_AUTHORIZATION`, `API_CONTRACT`, `API_FAILURE`, `API_REGRESSION`) with priority bonuses.
    - Release Readiness: Adds Blocker 7 (`Critical API 5xx Server Error` and `API_UNEXPECTED_AUTHORIZED_ACCESS`).
    - Product Model: Links API endpoints to features and workflow dependencies as `OBSERVED` or `HYPOTHESIZED`.
+
+## 15. Security & Authorization Autonomous QA Architecture (Prompt 25)
+
+Sculra provides a deterministic, bounded Security and Authorization QA foundation designed to safely identify common application security weaknesses, missing defensive controls, insecure transport policies, secret exposures, and authorization boundary failures across web applications and backend APIs.
+
+> [!CAUTION]
+> **Strict Non-Penetration Testing Scope Boundary**:
+> Sculra is a defensive QA and release readiness platform, **NOT** an unrestricted penetration testing tool, exploit framework, or offensive vulnerability scanner.
+>
+> **What Sculra DOES:**
+> - Evaluates defensive security headers (`CSP`, `X-Content-Type-Options`, `HSTS`, `X-Frame-Options`, `Referrer-Policy`).
+> - Checks cookie security flags (`HttpOnly`, `Secure`, `SameSite`) with zero value leakage.
+> - Evaluates CORS policies for wildcard credentials and reflected origins.
+> - Tests for open redirect weaknesses using safe, bounded sentinel parameters.
+> - Scans response bodies for exposed secrets, API keys, and private tokens with automatic in-place redaction.
+> - Tests authorization boundaries and role separation deterministically (`ANONYMOUS`, `MEMBER`, `ADMIN`).
+> - Produces reproducible, evidence-backed security findings and feeds release blockers into Release Readiness.
+>
+> **What Sculra DOES NOT DO:**
+> - Does NOT exploit real systems, bypass authentication through exploitation, or attempt credential stuffing.
+> - Does NOT execute brute-force attacks or dictionary attacks against login forms.
+> - Does NOT run arbitrary malicious JavaScript payloads (e.g. offensive XSS payloads) against live applications.
+> - Does NOT fuzz random internet endpoints or attack out-of-scope external domains.
+> - Does NOT attempt Denial of Service (DoS), resource exhaustion, or distributed attacks.
+> - Does NOT mutate production database records without explicit user confirmation.
+
+### Zero Credential Exposure Principle
+
+Passwords, tokens, API keys, session cookies, and authorization headers exist strictly in memory during execution.
+- All response headers (`Set-Cookie`, `Authorization`, `x-api-key`) are scrubbed before storage.
+- All response body tokens matching secret patterns are masked in-place (`AKIA[MASKED]`, `sk_live_[MASKED]`, `eyJ[MASKED]`).
+- Telemetry, logs, database evidence rows (`public.test_evidence`), AI context prompts, and frontend UI components receive only masked, safe diagnostic excerpts.
+
+### Architecture & Security Workflow
+
+```mermaid
+graph TD
+    AppDiscovery[App Discovery, Network Traces, API Endpoints, Role Sessions] --> TargetDiscovery[SecurityTargetDiscovery: Routes, APIs, Roles, Boundaries]
+    TargetDiscovery --> SecurityScanner[SecurityScanner: Master Orchestrator]
+    
+    SecurityScanner --> HeadersCheck[SecurityHeaderEvaluator: CSP, X-Frame, HSTS, Sniff, Referrer]
+    SecurityScanner --> CookieCheck[CookieSecurityEvaluator: HttpOnly, Secure, SameSite, Auth Zero-Leak]
+    SecurityScanner --> CorsCheck[CorsSecurityEvaluator: Wildcard + Credentials, Reflected Origin]
+    SecurityScanner --> RedirectCheck[RedirectSecurityEvaluator: Safe Sentinels + SSRF Validation]
+    SecurityScanner --> ExposureCheck[SensitiveDataExposureEvaluator: Regex Secret Scanning + Auto-Masking]
+    SecurityScanner --> AuthCheck[SecurityAuthorizationChecker: Anonymous Access, Vertical Privilege Escalation]
+    
+    HeadersCheck & CookieCheck & CorsCheck & RedirectCheck & ExposureCheck & AuthCheck --> SecurityFindings[Deterministic Security Findings & Bug Observations]
+    
+    SecurityFindings --> IssueClassifier[Issue Intelligence: 24 Security Bug Types & Severities]
+    SecurityFindings --> EvidencePersistence[(public.test_evidence & release_scores)]
+    SecurityFindings --> StrategyPrioritizer[Test Strategy Engine: Security Targets + Bonuses]
+    SecurityFindings --> ReleaseScorer[Release Readiness: Blocker 8 for Critical Security Defects]
+    SecurityFindings --> FrontendUI[Frontend Test-Run UI: Security QA Tab]
+```
+
+### Core Security Components (`worker/src/security/`)
+
+1. **Deterministic Security Target Discovery (`discovery.ts`)**:
+   - Extracts security targets (`PAGE`, `API`, `AUTH_ROUTE`, `HEADER_TARGET`, `COOKIE_TARGET`, `CORS_TARGET`, `REDIRECT_TARGET`, `SENSITIVE_DATA_TARGET`) from `ApplicationMap`, `ApiEndpoint[]`, `RoleContext[]`, and `AuthenticatedSession[]`.
+2. **Security Header Evaluator (`headers.ts`)**:
+   - Assesses response headers against standard defensive requirements (`Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `X-Frame-Options`, `Referrer-Policy`).
+   - Flags missing or insecure header policies (`SECURITY_HEADER_MISSING`, `SECURITY_HEADER_WEAK`).
+3. **Cookie Security Evaluator (`cookies.ts`)**:
+   - Inspects `Set-Cookie` directives from HTTP responses.
+   - Asserts `HttpOnly` on authentication and session cookies, `Secure` on HTTPS connections, and `SameSite` flags.
+   - Zero-leak guarantee: Cookie values are never logged or stored.
+4. **CORS Misconfiguration Evaluator (`cors.ts`)**:
+   - Evaluates cross-origin resource sharing policies.
+   - Flags `Access-Control-Allow-Origin: *` combined with `Access-Control-Allow-Credentials: true`.
+   - Flags reflection of untrusted request `Origin` headers into `Access-Control-Allow-Origin`.
+5. **Open Redirect Evaluator (`redirects.ts`)**:
+   - Evaluates redirect parameters (`redirect_to`, `next`, `url`, `return_to`, `target`) using safe internal and external test sentinels.
+   - Validates that redirect locations do not navigate to untrusted domains without validation.
+6. **Sensitive Data & Secret Exposure Evaluator (`exposure.ts`)**:
+   - Deterministically scans HTTP response bodies for exposed credentials (AWS access keys, Stripe secret keys, GitHub PATs, JWT tokens, RSA/EC private keys, database connection strings, plain-text passwords).
+   - Enforces aggressive in-place masking before any evidence or finding is produced.
+7. **Security Authorization & Privilege Escalation Checker (`authorization.ts`)**:
+   - Tests unauthenticated access to protected administrative and member routes.
+   - Evaluates vertical privilege escalation (MEMBER role accessing ADMIN endpoints).
+   - Asserts that authorized roles retain legitimate access.
+8. **Master Security Scanner (`scanner.ts`)**:
+   - Orchestrates bounded execution across all security targets.
+   - Computes deterministic `SecurityCoverageSummary` and produces standardized `SecurityFinding[]` and `BugObservation[]`.
+9. **Strategy, Release Readiness, and Evidence Integrations**:
+   - Strategy Prioritizer: Adds security target types with deterministic priority rankings.
+   - Release Readiness: Adds Blocker 8 for critical security defects (`AUTHENTICATION_BYPASS`, `PRIVILEGE_ESCALATION`, `SECRET_EXPOSURE`, `TOKEN_EXPOSURE`, `PUBLICLY_ACCESSIBLE_PROTECTED_API`, `PUBLICLY_ACCESSIBLE_PROTECTED_ROUTE`).
+   - Test Evidence: Persists `security_summary` and `security_finding` rows.
+   - UI: Renders a dedicated **Security QA** dashboard tab with metric cards, findings breakdown, and defensive remediation guidance.
