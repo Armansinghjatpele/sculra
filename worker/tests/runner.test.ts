@@ -148,6 +148,7 @@ describe('BrowserRunner Deterministic Execution', () => {
       enableApiQa: false,
       enableSecurityQa: false,
       enablePerformanceQa: false,
+      enableAccessibilityQa: false,
     });
     const result = await runner.run('https://sculra.com');
 

@@ -27,6 +27,12 @@ import {
   PerformanceFinding,
   PerformanceCoverageSummary,
 } from './performance';
+import {
+  AccessibilityScanner,
+  AccessibilityScanResult,
+  AccessibilityFinding,
+  AccessibilityCoverageSummary,
+} from './accessibility';
 import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
@@ -92,6 +98,8 @@ export class BrowserRunner {
       securityPolicy: options.securityPolicy,
       enablePerformanceQa: options.enablePerformanceQa ?? true,
       performancePolicy: options.performancePolicy,
+      enableAccessibilityQa: options.enableAccessibilityQa ?? true,
+      accessibilityPolicy: options.accessibilityPolicy,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -160,6 +168,9 @@ export class BrowserRunner {
     let performanceResult: PerformanceScanResult | undefined;
     let performanceFindings: PerformanceFinding[] | undefined;
     let performanceCoverage: PerformanceCoverageSummary | undefined;
+    let accessibilityResult: AccessibilityScanResult | undefined;
+    let accessibilityFindings: AccessibilityFinding[] | undefined;
+    let accessibilityCoverage: AccessibilityCoverageSummary | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -841,6 +852,48 @@ export class BrowserRunner {
           }
         }
 
+        // 12.9 Deterministic Accessibility & Inclusive UX QA Scanner
+        if (this.options.enableAccessibilityQa !== false && status !== 'failed' && !cancellationToken?.isCancelled && browser) {
+          this.logger.log('accessibility_qa_execution_initiated');
+          try {
+            const a11yScanner = new AccessibilityScanner(this.options.accessibilityPolicy, this.logger);
+            const a11yOutput = await a11yScanner.scan({
+              testRunId: this.testRunId,
+              projectId: this.projectId || 'unassigned',
+              targetUrl: safeUrl,
+              browser,
+              applicationMap,
+              journeyResults,
+              productModel,
+              roleContexts,
+              allowLocalhost: this.options.allowLocalhost,
+              logger: this.logger,
+              cancellationToken,
+            });
+
+            accessibilityResult = a11yOutput;
+            accessibilityFindings = a11yOutput.findings;
+            accessibilityCoverage = a11yOutput.coverage;
+
+            // Merge accessibility bug observations (deduplicating by fingerprint)
+            for (const a11yBug of a11yOutput.bugObservations) {
+              if (!bugObservations.some((b) => b.fingerprint === a11yBug.fingerprint)) {
+                bugObservations.push(a11yBug);
+              }
+            }
+
+            this.logger.log('accessibility_qa_execution_completed', {
+              findingsCount: a11yOutput.findings.length,
+              criticalCount: a11yOutput.coverage.criticalFindings,
+              highCount: a11yOutput.coverage.highFindings,
+              mediumCount: a11yOutput.coverage.mediumFindings,
+              checksExecuted: a11yOutput.coverage.totalChecks,
+            });
+          } catch (a11yErr: any) {
+            this.logger.warn('accessibility_qa_scanner_warning', { message: a11yErr.message });
+          }
+        }
+
         // Set test run failure if deterministic functional, visual, or security bugs were detected
         if (
           !cancellationToken?.isCancelled &&
@@ -941,6 +994,9 @@ export class BrowserRunner {
       performanceResult,
       performanceFindings,
       performanceCoverage,
+      accessibilityResult,
+      accessibilityFindings,
+      accessibilityCoverage,
       failureReason,
     };
   }

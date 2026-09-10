@@ -18,7 +18,7 @@ export interface ReleaseBlocker {
   id: string;
   title: string;
   reason: string;
-  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api' | 'performance';
+  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api' | 'performance' | 'accessibility';
   severity: 'critical' | 'high';
   evidenceSummary: string;
   relatedIssueFingerprints?: string[];
@@ -34,10 +34,11 @@ export interface CategoryScores {
   security?: number;
   api?: number;
   performance?: number;
+  accessibility?: number;
 }
 
 export interface ScoreDeduction {
-  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'coverage' | 'security' | 'api' | 'performance';
+  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'coverage' | 'security' | 'api' | 'performance' | 'accessibility';
   points: number;
   reason: string;
   evidenceRef?: string;
@@ -61,6 +62,7 @@ export interface ScoreBreakdown {
     security?: number;
     api?: number;
     performance?: number;
+    accessibility?: number;
   };
   functional: {
     base: number;
@@ -120,6 +122,16 @@ export interface ScoreBreakdown {
     slowApisCount: number;
     regressionsCount: number;
     reliabilityFailuresCount: number;
+  };
+  accessibility?: {
+    base: number;
+    final: number;
+    deductions: ScoreDeduction[];
+    criticalFindingsCount: number;
+    highFindingsCount: number;
+    mediumFindingsCount: number;
+    keyboardTrapsCount: number;
+    contrastFailuresCount: number;
   };
   historicalComparison?: HistoricalScoreComparison;
 }

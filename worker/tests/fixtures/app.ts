@@ -950,6 +950,142 @@ export async function createFixtureServer(): Promise<FixtureServer> {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok' }));
       }
+    } else if (pathname === '/a11y/accessible') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Accessible Demo Page</title>
+          <style>
+            *, *::before, *::after { box-sizing: border-box; }
+            body { font-family: sans-serif; background: #ffffff; color: #111827; margin: 0; padding: 1rem; }
+            header { background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
+            nav { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; }
+            nav a { color: #1d4ed8; text-decoration: underline; font-weight: bold; min-height: 44px; display: inline-flex; align-items: center; }
+            button { background: #1d4ed8; color: #ffffff; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; min-width: 48px; min-height: 48px; font-size: 1rem; }
+            button:focus-visible, input:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+            .form-group { margin-bottom: 1.25rem; }
+            label { display: block; font-weight: bold; margin-bottom: 0.25rem; color: #111827; }
+            input[type="text"] { width: 100%; max-width: 100%; padding: 0.5rem; border: 1px solid #374151; border-radius: 4px; font-size: 1rem; color: #111827; background: #ffffff; }
+            .error-message { color: #b91c1c; font-size: 0.875rem; margin-top: 0.25rem; }
+            footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; color: #374151; }
+          </style>
+        </head>
+        <body>
+          <header role="banner">
+            <h1>Sculra Accessible Application</h1>
+            <nav aria-label="Main Navigation">
+              <a href="/" data-testid="nav-home">Home</a>
+              <a href="/a11y/accessible" data-testid="nav-a11y" aria-current="page">Accessibility Demo</a>
+            </nav>
+          </header>
+
+          <main id="main-content">
+            <section aria-labelledby="form-section-title">
+              <h2 id="form-section-title">User Feedback</h2>
+              <form id="accessible-form" novalidate>
+                <div class="form-group">
+                  <label for="user-name">Full Name <span aria-hidden="true">*</span></label>
+                  <input type="text" id="user-name" name="name" required aria-required="true" aria-describedby="name-desc" />
+                  <div id="name-desc" style="font-size: 0.8rem; color: #4b5563;">Enter your full legal name</div>
+                </div>
+
+                <div class="form-group">
+                  <label for="user-email">Email Address</label>
+                  <input type="text" id="user-email" name="email" aria-invalid="true" aria-errormessage="email-error" />
+                  <div id="email-error" class="error-message" role="alert">Please enter a valid email address.</div>
+                </div>
+
+                <button type="submit" id="submit-btn" aria-label="Submit Feedback Form">Submit</button>
+              </form>
+            </section>
+
+            <section aria-labelledby="images-section-title" style="margin-top: 2rem;">
+              <h2 id="images-section-title">Accessible Images</h2>
+              <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect fill='%231d4ed8' width='100' height='100'/></svg>" alt="Sculra Corporate Logo" width="100" height="100" />
+            </section>
+
+            <section aria-labelledby="dialog-section-title" style="margin-top: 2rem;">
+              <h2 id="dialog-section-title">Accessible Modal Dialog</h2>
+              <button id="open-modal-btn" aria-haspopup="dialog" onclick="document.getElementById('demo-dialog').style.display='block'">Open Confirmation Dialog</button>
+              
+              <div id="demo-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-heading" style="display: none; background: #ffffff; border: 2px solid #111827; padding: 2rem; position: fixed; top: 20%; left: 30%; z-index: 1000;">
+                <h3 id="dialog-heading">Confirm Account Upgrade</h3>
+                <p>Are you sure you want to upgrade your subscription?</p>
+                <button id="confirm-btn" aria-label="Confirm Subscription Upgrade">Confirm</button>
+                <button id="close-dialog-btn" aria-label="Close Dialog" onclick="document.getElementById('demo-dialog').style.display='none'">Close</button>
+              </div>
+            </section>
+          </main>
+
+          <footer role="contentinfo">
+            <p>&copy; 2026 Sculra Autonomous QA. All rights reserved.</p>
+          </footer>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/a11y/defects') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Accessibility Defects Page</title>
+          <style>
+            body { font-family: sans-serif; background: #ffffff; color: #111827; margin: 0; padding: 2rem; }
+            .low-contrast-text { color: #bbbbbb; background: #ffffff; font-size: 14px; }
+            .no-focus-outline:focus { outline: none !important; box-shadow: none !important; border-color: transparent !important; }
+            .tiny-target { width: 14px; height: 14px; padding: 0; border: none; background: #ef4444; }
+          </style>
+        </head>
+        <body>
+          <!-- Intentionally missing <main> and <header> landmarks -->
+          <div>
+            <h1>Inaccessible Test Target</h1>
+            
+            <!-- Skipped Heading Level (H1 -> H4) -->
+            <h4>Skipped Level Heading (H4 directly under H1)</h4>
+            
+            <!-- Low Contrast Element -->
+            <p id="low-contrast-para" class="low-contrast-text">This text has insufficient contrast against the background.</p>
+
+            <!-- Nameless button with no text or aria-label -->
+            <button id="nameless-icon-btn" class="no-focus-outline">
+              <svg width="16" height="16"><circle cx="8" cy="8" r="8" fill="blue"/></svg>
+            </button>
+
+            <!-- Form input without associated label -->
+            <div style="margin-top: 1rem;">
+              <input type="text" id="unlabeled-input" name="unlabeled" placeholder="No label here" />
+            </div>
+
+            <!-- Image missing alt attribute -->
+            <div style="margin-top: 1rem;">
+              <img id="missing-alt-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><rect fill='%23ef4444' width='50' height='50'/></svg>" />
+              <img id="placeholder-alt-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><rect fill='%2310b981' width='50' height='50'/></svg>" alt="image.png" />
+            </div>
+
+            <!-- Broken ARIA: invalid role, broken aria-labelledby, aria-hidden on focusable -->
+            <div role="fake-widget-role" id="invalid-role-element">Invalid role container</div>
+            <button id="broken-labelled-btn" aria-labelledby="non-existent-label-id">Button with broken label reference</button>
+            <button id="hidden-focusable-btn" aria-hidden="true">Hidden but focusable button</button>
+
+            <!-- Tiny touch target for mobile (< 24px) -->
+            <div style="margin-top: 1rem;">
+              <button id="tiny-mobile-btn" class="tiny-target"></button>
+            </div>
+
+            <!-- Dialog missing accessible name -->
+            <div id="unnamed-dialog" role="dialog" aria-modal="true" style="display: block; margin-top: 1rem; border: 1px solid black; padding: 1rem;">
+              <p>Dialog with no title/aria-label</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
     } else if (pathname === '/server-error') {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Fatal 500 Internal Server Error');

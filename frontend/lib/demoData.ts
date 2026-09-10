@@ -96,6 +96,16 @@ export interface TestEvidence {
     | 'performance_action'
     | 'performance_reliability'
     | 'performance_regression'
+    | 'accessibility_summary'
+    | 'accessibility_finding'
+    | 'accessibility_check'
+    | 'accessibility_keyboard'
+    | 'accessibility_contrast'
+    | 'accessibility_touch_target'
+    | 'accessibility_form'
+    | 'accessibility_heading'
+    | 'accessibility_landmark'
+    | 'accessibility_dialog'
     | 'release_report';
   title: string;
   url?: string;
@@ -109,7 +119,7 @@ export interface ReleaseBlocker {
   id: string;
   title: string;
   reason: string;
-  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api' | 'performance';
+  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api' | 'performance' | 'accessibility';
   severity: 'critical' | 'high';
   evidenceSummary: string;
   relatedIssueFingerprints?: string[];
@@ -135,6 +145,7 @@ export interface ReleaseScore {
   coverageScore: number;
   securityScore?: number;
   performanceScore?: number;
+  accessibilityScore?: number;
   recommendation: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
   riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
   confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT';

@@ -283,7 +283,7 @@ export default function ReleaseReadinessPage() {
                   </div>
 
                   {/* Quick Stat Pill Row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className={`grid grid-cols-2 ${typeof releaseScore.accessibilityScore === 'number' ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3`}>
                     <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/5">
                       <span className="text-4xs uppercase tracking-wider text-muted-foreground font-semibold">Blockers</span>
                       <p className={`text-base font-bold mt-0.5 ${releaseScore.blockersCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -311,6 +311,15 @@ export default function ReleaseReadinessPage() {
                         {releaseScore.responsiveScore} <span className="text-4xs text-muted-foreground font-normal">/100</span>
                       </p>
                     </div>
+
+                    {typeof releaseScore.accessibilityScore === 'number' && (
+                      <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/5">
+                        <span className="text-4xs uppercase tracking-wider text-muted-foreground font-semibold">Accessibility</span>
+                        <p className="text-base font-bold text-sky-400 mt-0.5">
+                          {releaseScore.accessibilityScore} <span className="text-4xs text-muted-foreground font-normal">/100</span>
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -430,6 +439,27 @@ export default function ReleaseReadinessPage() {
                       {bd?.coverage?.pages?.visited || 0}/{bd?.coverage?.pages?.discovered || 0} pages visited
                     </p>
                   </Card>
+
+                  {/* Accessibility */}
+                  {typeof releaseScore.accessibilityScore === 'number' && (
+                    <Card className="glass-panel p-4 cursor-pointer hover:border-white/20 transition-all" onClick={() => setExpandedCategory('accessibility')}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-4xs font-bold uppercase tracking-widest text-muted-foreground">Accessibility (10%)</span>
+                        <span className="text-xs font-bold text-foreground">{releaseScore.accessibilityScore}/100</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            releaseScore.accessibilityScore >= 85 ? 'bg-emerald-500' : releaseScore.accessibilityScore >= 70 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${releaseScore.accessibilityScore}%` }}
+                        />
+                      </div>
+                      <p className="text-4xs text-muted-foreground mt-2">
+                        {bd?.accessibility?.deductions?.length || 0} deduction(s) applied
+                      </p>
+                    </Card>
+                  )}
                 </div>
 
                 {/* Category Detail Breakdown Card */}
@@ -555,6 +585,25 @@ export default function ReleaseReadinessPage() {
                           <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-900 border border-white/10 text-xs font-bold">
                             <span className="text-foreground">Final Coverage Score</span>
                             <span className="font-mono text-amber-400">{bd.coverage.final} / 100</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {expandedCategory === 'accessibility' && bd.accessibility && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5 text-xs">
+                            <span className="font-semibold text-foreground">Base Score</span>
+                            <span className="font-mono text-emerald-400 font-bold">100 pts</span>
+                          </div>
+                          {bd.accessibility.deductions.map((d: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-rose-500/[0.03] border border-rose-500/10 text-xs">
+                              <span className="text-muted-foreground">{d.reason}</span>
+                              <span className="font-mono text-rose-400 font-bold">-{d.points} pts</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-900 border border-white/10 text-xs font-bold">
+                            <span className="text-foreground">Final Accessibility Score</span>
+                            <span className="font-mono text-sky-400">{bd.accessibility.final} / 100</span>
                           </div>
                         </div>
                       )}

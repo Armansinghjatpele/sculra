@@ -83,6 +83,21 @@ export interface CoverageSummary {
     lowFindings: number;
     coverageRatio: number;
   };
+  accessibility?: {
+    targetsDiscovered: number;
+    targetsTested: number;
+    findingsCount: number;
+    criticalFindings: number;
+    highFindings: number;
+    mediumFindings: number;
+    lowFindings: number;
+    keyboardChecks: number;
+    focusChecks: number;
+    formChecks: number;
+    contrastChecks: number;
+    touchTargetChecks: number;
+    coverageRatio: number;
+  };
   hypotheses: {
     formulated: number;
     tested: number;

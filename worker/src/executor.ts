@@ -614,6 +614,55 @@ export class JobExecutor {
         }
       }
 
+      // 5t. Persist Accessibility & Inclusive UX QA Evidence (Findings & Summary)
+      if (result.accessibilityResult) {
+        const a11y = result.accessibilityResult;
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'accessibility_summary',
+          title: `Accessibility QA Summary: ${a11y.findings.length} finding(s) [${a11y.coverage.criticalFindings} critical, ${a11y.coverage.highFindings} high]`,
+          url: targetUrl,
+          message: `Executed ${a11y.coverage.totalChecks} accessibility audits across ${a11y.coverage.targetsDiscovered} targets. Found ${a11y.coverage.criticalFindings} critical, ${a11y.coverage.highFindings} high, ${a11y.coverage.mediumFindings} medium accessibility defects.`,
+          metadata: {
+            coverage: a11y.coverage,
+            findingsCount: a11y.findings.length,
+            keyboardNavSteps: a11y.coverage.keyboardNavigationSteps,
+            keyboardTrapsCount: a11y.coverage.keyboardTrapsCount,
+            contrastChecksCount: a11y.coverage.contrastChecksCount,
+            touchTargetsChecked: a11y.coverage.touchTargetsChecked,
+            formControlsChecked: a11y.coverage.formControlsChecked,
+            headingsChecked: a11y.coverage.headingsChecked,
+            landmarksChecked: a11y.coverage.landmarksChecked,
+          },
+        });
+
+        // Persist individual accessibility findings
+        for (const finding of a11y.findings) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'accessibility_finding',
+            title: `[${finding.severity.toUpperCase()}] Accessibility: ${finding.title}`,
+            url: finding.targetUrl || targetUrl,
+            message: `${finding.description} Remediation: ${finding.remediationRecommendation || 'N/A'}`,
+            metadata: {
+              finding,
+              type: finding.type,
+              wcagCriterion: finding.wcagCriterion,
+              wcagLevel: finding.wcagLevel,
+              wcagPrinciple: finding.wcagPrinciple,
+              severity: finding.severity,
+              confidence: finding.confidence,
+              selector: finding.selector,
+              viewport: finding.viewport,
+              remediation: finding.remediationRecommendation,
+              evidence: finding.evidence,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
@@ -663,6 +712,9 @@ export class JobExecutor {
         apiCoverage: result.apiCoverage,
         securityResult: result.securityResult,
         performanceResult: result.performanceResult,
+        accessibilityResult: result.accessibilityResult,
+        accessibilityFindings: result.accessibilityFindings,
+        accessibilityCoverage: result.accessibilityCoverage,
         previousAssessment,
       });
 
@@ -687,9 +739,9 @@ export class JobExecutor {
         functionality_score: assessment.scores.functional,
         ui_score: assessment.scores.visual,
         responsive_score: assessment.scores.responsive,
-        performance_score: assessment.scores.performance !== undefined ? assessment.scores.performance : assessment.scores.reliability,
-        accessibility_score: assessment.scores.coverage,
-        security_score: assessment.scores.security !== undefined ? assessment.scores.security : 100,
+        performance_score: assessment.scores.performance !== undefined ? assessment.scores.performance : null,
+        accessibility_score: assessment.scores.accessibility !== undefined ? assessment.scores.accessibility : null,
+        security_score: assessment.scores.security !== undefined ? assessment.scores.security : null,
         recommendation: assessment.recommendation,
         risk_level: assessment.riskLevel,
         confidence_level: assessment.confidenceLevel,

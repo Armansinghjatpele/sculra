@@ -45,6 +45,9 @@ export interface CalculateAssessmentOptions {
   securityCoverage?: import('../security/types').SecurityCoverageSummary;
   performanceResult?: import('../performance/types').PerformanceScanResult;
   performanceFindings?: import('../performance/types').PerformanceFinding[];
+  accessibilityResult?: import('../accessibility/types').AccessibilityScanResult;
+  accessibilityFindings?: import('../accessibility/types').AccessibilityFinding[];
+  accessibilityCoverage?: import('../accessibility/types').AccessibilityCoverageSummary;
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -397,12 +400,13 @@ export class DeterministicReleaseScorer {
     const hasApiEvidence = (options.apiTestResults && options.apiTestResults.length > 0) || (options.apiCoverage && options.apiCoverage.endpointsTested > 0);
     const hasSecurityEvidence = (options.securityResult && (options.securityResult.coverage?.checksExecuted || 0) > 0) || ((options.securityFindings?.length || 0) > 0);
     const hasPerformanceEvidence = (options.performanceResult && (options.performanceResult.coverage?.totalMeasurements || 0) > 0) || ((options.performanceFindings?.length || 0) > 0);
+    const hasAccessibilityEvidence = (options.accessibilityResult && (options.accessibilityResult.coverage?.totalChecks || 0) > 0) || ((options.accessibilityFindings?.length || 0) > 0);
     let confidenceLevel: EvidenceConfidence = 'HIGH';
     if (testRunStatus === 'cancelled') {
       confidenceLevel = 'INSUFFICIENT';
-    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) {
+    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence && !hasAccessibilityEvidence) {
       confidenceLevel = 'INSUFFICIENT';
-    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) || (journeyResults.length <= 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
+    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence && !hasAccessibilityEvidence) || (journeyResults.length <= 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence && !hasAccessibilityEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
       confidenceLevel = 'LOW';
     } else if (discoveredPagesCount < 3 || viewportsTestedSet.size < 3 || journeyResults.length < 2 || finalCoverageScore < 70) {
       confidenceLevel = 'MEDIUM';
@@ -641,6 +645,57 @@ export class DeterministicReleaseScorer {
     const totalPerformanceDeduction = performanceDeductions.reduce((sum, d) => sum + d.points, 0);
     const finalPerformanceScore = Math.max(0, Math.min(100, 100 - totalPerformanceDeduction));
 
+    // Accessibility Deductions (Deterministic Accessibility QA)
+    const accessibilityDeductions: ScoreDeduction[] = [];
+    let a11yCritCount = 0;
+    let a11yHighCount = 0;
+    let a11yMedCount = 0;
+    let a11yKeyboardTrapsCount = 0;
+    let a11yContrastFailuresCount = 0;
+
+    if (options.accessibilityResult) {
+      for (const finding of options.accessibilityResult.findings) {
+        if (finding.type === 'KEYBOARD_TRAP') a11yKeyboardTrapsCount++;
+        if (finding.type === 'CONTRAST_FAILURE') a11yContrastFailuresCount++;
+
+        if (finding.severity === 'critical') {
+          a11yCritCount++;
+          accessibilityDeductions.push({
+            category: 'accessibility',
+            points: 35,
+            reason: `Critical accessibility defect: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'high') {
+          a11yHighCount++;
+          accessibilityDeductions.push({
+            category: 'accessibility',
+            points: 15,
+            reason: `High accessibility issue: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'medium') {
+          a11yMedCount++;
+          accessibilityDeductions.push({
+            category: 'accessibility',
+            points: 6,
+            reason: `Medium accessibility defect: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'low') {
+          accessibilityDeductions.push({
+            category: 'accessibility',
+            points: 2,
+            reason: `Low accessibility anomaly: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        }
+      }
+    }
+
+    const totalAccessibilityDeduction = accessibilityDeductions.reduce((sum, d) => sum + d.points, 0);
+    const finalAccessibilityScore = Math.max(0, Math.min(100, 100 - totalAccessibilityDeduction));
+
     // Blocker 8: Security Defects (Deterministic Security QA)
     if (options.securityResult) {
       const critSecFindings = options.securityResult.findings.filter((f) => f.severity === 'critical');
@@ -666,6 +721,22 @@ export class DeterministicReleaseScorer {
           title: `Performance Blocker: ${finding.title}`,
           reason: `Critical performance failure: ${finding.description}`,
           category: 'performance',
+          severity: 'critical',
+          evidenceSummary: finding.remediationRecommendation || finding.description,
+          relatedIssueFingerprints: [finding.id],
+        });
+      }
+    }
+
+    // Blocker 10: Critical Accessibility Defects (e.g. Keyboard Traps or Inaccessible Critical Flow)
+    if (options.accessibilityResult) {
+      const critA11yFindings = options.accessibilityResult.findings.filter((f) => f.severity === 'critical');
+      for (const finding of critA11yFindings) {
+        blockers.push({
+          id: `blocker-a11y-${finding.id}`,
+          title: `Accessibility Blocker: ${finding.title}`,
+          reason: `Critical accessibility defect: ${finding.description}`,
+          category: 'accessibility',
           severity: 'critical',
           evidenceSummary: finding.remediationRecommendation || finding.description,
           relatedIssueFingerprints: [finding.id],
@@ -751,6 +822,12 @@ export class DeterministicReleaseScorer {
           options.performanceResult.findings.length > 0)
           ? finalPerformanceScore
           : undefined,
+      accessibility:
+        options.accessibilityResult &&
+        (options.accessibilityResult.coverage.totalChecks > 0 ||
+          options.accessibilityResult.findings.length > 0)
+          ? finalAccessibilityScore
+          : undefined,
     };
 
     const breakdown: ScoreBreakdown = {
@@ -765,6 +842,12 @@ export class DeterministicReleaseScorer {
           options.performanceResult &&
           (options.performanceResult.coverage.totalMeasurements > 0 ||
             options.performanceResult.findings.length > 0)
+            ? 0.15
+            : undefined,
+        accessibility:
+          options.accessibilityResult &&
+          (options.accessibilityResult.coverage.totalChecks > 0 ||
+            options.accessibilityResult.findings.length > 0)
             ? 0.15
             : undefined,
       },
@@ -852,6 +935,21 @@ export class DeterministicReleaseScorer {
               slowApisCount: perfSlowApisCount,
               regressionsCount: perfRegressionsCount,
               reliabilityFailuresCount: perfReliabilityFailuresCount,
+            }
+          : undefined,
+      accessibility:
+        options.accessibilityResult &&
+        (options.accessibilityResult.coverage.totalChecks > 0 ||
+          options.accessibilityResult.findings.length > 0)
+          ? {
+              base: 100,
+              final: finalAccessibilityScore,
+              deductions: accessibilityDeductions,
+              criticalFindingsCount: a11yCritCount,
+              highFindingsCount: a11yHighCount,
+              mediumFindingsCount: a11yMedCount,
+              keyboardTrapsCount: a11yKeyboardTrapsCount,
+              contrastFailuresCount: a11yContrastFailuresCount,
             }
           : undefined,
       historicalComparison,

@@ -706,3 +706,103 @@ graph TD
 14. **Evidence Persistence & Frontend UI**:
     - Persists `performance_summary` and `performance_finding` rows to `public.test_evidence`.
     - Renders a dedicated **Performance QA** tab in the test run dashboard displaying scorecards, Core Web Vitals, latency breakdowns, and actionable remediation guidance.
+
+---
+
+## 16. Accessibility & Inclusive UX Autonomous QA Engine
+
+Sculra includes an autonomous Accessibility & Inclusive UX QA engine designed to evaluate web applications for digital accessibility, barrier-free usability, and inclusive design standards. The engine operates on the 4 WCAG Principles (Perceivable, Operable, Understandable, Robust) under deterministic, evidence-grounded rules.
+
+### Core Non-Destructive Principles
+
+> 1. **Deterministic WCAG-Oriented Checks**:
+>    Evaluations inspect real DOM properties, computed styles, ARIA trees, and active keyboard navigation paths rather than statistical guesses.
+> 
+> 2. **Zero Fake Scores**:
+>    Missing or unmeasured accessibility assessments are explicitly represented as `undefined` (rendered as `--`). Genuine score 0 remains 0. Perfect 100/100 scores are never fabricated.
+> 
+> 3. **Grounded Deterministic Findings**:
+>    Every reported issue contains exact DOM selectors, HTML snippets, observed computed properties, expected guidelines, and WCAG success criteria. AI is strictly bounded to summarizing deterministic findings.
+> 
+> 4. **Multi-Viewport Responsive Evaluation**:
+>    Touch target dimensions ($\ge 24\text{px} \times 24\text{px}$ standard, $\ge 44\text{px} \times 44\text{px}$ enhanced) and 200% text reflow clipping are validated across Desktop (`1280x720`), Tablet (`768x1024`), and Mobile (`390x844`) viewports.
+> 
+> 5. **Standard WCAG Terminology**:
+>    Findings reference specific WCAG 2.1/2.2 Success Criteria without asserting unverified legal compliance guarantees.
+> 
+> 6. **Release Blocker 10**:
+>    Critical accessibility defects (unrecoverable keyboard traps, missing form control labels on business-critical workflows, broken modal focus traps, severe contrast failures) trigger **Release Blocker 10**, capping the overall release readiness score at $\le 59$ and issuing `DO_NOT_RELEASE`.
+
+### Architecture & Evaluation Pipeline
+
+```mermaid
+graph TD
+    AppMap[Application Map & Pages] --> A11yTargetDiscovery[AccessibilityTargetDiscovery]
+    ProductModel[ProductModel Workflows] --> A11yTargetDiscovery
+    RoleContext[Role Contexts & Authenticated Surfaces] --> A11yTargetDiscovery
+    
+    A11yTargetDiscovery --> A11yScanner[AccessibilityScanner: Master Orchestrator]
+    
+    A11yScanner --> KeyboardEval[Keyboard & Focus Evaluator: Tab Traversal & Trap Detection]
+    A11yScanner --> ContrastEval[Contrast & Visual Evaluator: WCAG 4.5:1 / 3:1 Color Ratios]
+    A11yScanner --> AriaEval[ARIA & Semantics Evaluator: Valid Roles, States & Properties]
+    A11yScanner --> FormEval[Form & Error Evaluator: Labels, Descriptions & Validation]
+    A11yScanner --> DialogEval[Dialog & Modal Evaluator: Focus Trapping & Esc Key]
+    A11yScanner --> TouchEval[Touch Target Evaluator: 24px/44px Multi-Viewport]
+    A11yScanner --> ReflowEval[Text Scaling Evaluator: 200% Reflow & Clipping Audit]
+    A11yScanner --> MotionEval[Motion & Animation Safety: prefers-reduced-motion]
+    
+    KeyboardEval & ContrastEval & AriaEval & FormEval & DialogEval & TouchEval & ReflowEval & MotionEval --> A11yAnalyzer[AccessibilityFindingAnalyzer]
+    
+    A11yAnalyzer --> A11yFindings[Deterministic A11y Findings & Bug Observations]
+    
+    A11yFindings --> IssueIntel[Issue Intelligence: 20 A11y Bug Types & Severities]
+    A11yFindings --> StrategyEngine[Test Strategy Engine: 7 A11y Target Types]
+    A11yFindings --> ReleaseReadiness[Release Readiness: Blocker 10 + Category Deductions]
+    A11yFindings --> EvidenceDB[(public.test_evidence & release_scores)]
+    A11yFindings --> UI[Frontend Test-Run UI: Accessibility QA Tab]
+```
+
+### Core Components (`worker/src/accessibility/`)
+
+1. **Types & Policy (`types.ts`, `policy.ts`)**:
+   - TypeScript definitions for `AccessibilityTarget`, `AccessibilityFinding`, `AccessibilityScanResult`, `AccessibilityCoverageSummary`, and `AccessibilityPolicy`.
+   - Default policy enforces WCAG 2.1 AA thresholds (contrast 4.5:1 normal text, 3:1 large text, 24px minimum touch target, 200% text reflow zoom).
+2. **Deterministic Target Discovery (`discovery.ts`)**:
+   - Collects interactive pages, modals, forms, and business-critical workflows for accessibility evaluation.
+3. **Keyboard Navigation & Trap Evaluator (`keyboard.ts`, `focus.ts`)**:
+   - Dispatches Tab/Shift+Tab navigation in real Chromium pages, detects circular keyboard traps (`2.1.2`), verifies tab order logical flow (`2.4.3`), and checks visible focus outlines (`2.4.7`).
+4. **Semantics, Headings & Landmarks (`semantics.ts`, `headings.ts`, `landmarks.ts`)**:
+   - Audits HTML heading hierarchies (no skipped levels, unique `<h1>`), landmark regions (`<main>`, `<nav>`, `<header>`, `<footer>`), and valid semantic tags.
+5. **Form Usability & Error Announcements (`forms.ts`, `errors.ts`)**:
+   - Checks `<input>`, `<select>`, `<textarea>` for associated `<label>` or `aria-label`/`aria-labelledby` (`1.3.1`, `3.3.2`) and verifies error message associations (`aria-describedby`, `aria-errormessage`).
+6. **ARIA Roles & States (`aria.ts`)**:
+   - Validates ARIA role definitions against W3C standards, ensuring required attributes and child/parent role relationships are satisfied (`4.1.2`).
+7. **Dialog & Modal Focus Containment (`dialogs.ts`)**:
+   - Verifies modal dialogs trap focus while open, restore focus on close, and dismiss cleanly upon `Escape` keypress.
+8. **Contrast & Image Alt Text (`contrast.ts`, `images.ts`)**:
+   - Calculates relative luminance contrast ratios between foreground text and computed background colors (`1.4.3`).
+   - Audits `<img>` and SVGs for meaningful `alt` text or `role="presentation"` (`1.1.1`).
+9. **Text Scaling & 200% Reflow (`text-scaling.ts`)**:
+   - Simulates 200% font zoom and 320px responsive viewport to verify content reflows without truncation, horizontal scrolling, or overlapping text (`1.4.4`, `1.4.10`).
+10. **Motion & Reduced Animation (`motion.ts`)**:
+    - Evaluates CSS transitions and auto-playing animations under `prefers-reduced-motion: reduce` (`2.3.3`).
+11. **Touch Targets Across Viewports (`touch-targets.ts`, `responsive.ts`)**:
+    - Measures interactive element bounding boxes across Desktop, Tablet, and Mobile viewports to enforce $\ge 24\text{px}$ minimum and $\ge 44\text{px}$ recommended dimensions (`2.5.5`, `2.5.8`).
+12. **Severity & Blocker Assessment (`severity.ts`)**:
+    - Classifies findings into `critical`, `high`, `medium`, and `low` severities, identifying blocker criteria for the Release Scorer.
+13. **Evidence Persistence (`evidence.ts`)**:
+    - Formats summary and finding artifacts into `accessibility_summary` and `accessibility_finding` rows for `public.test_evidence`.
+14. **Finding & Issue Analyzer (`analyzer.ts`)**:
+    - Translates findings into `BugObservation` records with deterministic SHA-256 fingerprints for Issue Intelligence deduplication.
+15. **Master Accessibility Scanner (`scanner.ts`)**:
+    - Orchestrates multi-target scans, aggregates metrics into `AccessibilityCoverageSummary`, and computes deterministic scores.
+16. **Issue Intelligence & Strategy Integrations**:
+    - 20 accessibility bug types mapped in `BugType` with deterministic severities.
+    - 7 accessibility target types mapped in `TestTargetType` with adaptive prioritization.
+17. **Release Readiness & Blocker 10 (`release/scorer.ts`)**:
+    - Calculates dedicated `scores.accessibility` (weighted 10% in overall release score when active).
+    - Enforces **Blocker 10** for critical accessibility defects on business-critical workflows, capping overall score at $\le 59$ with `DO_NOT_RELEASE`.
+18. **Frontend Test-Run UI**:
+    - Dedicated **Accessibility QA** tab rendering metric cards, WCAG principle breakdowns (Perceivable, Operable, Understandable, Robust), detailed findings table, and inclusive UX guarantees.
+

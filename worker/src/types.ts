@@ -41,6 +41,8 @@ export interface RunnerOptions {
   securityPolicy?: Partial<import('./security/types').SecurityPolicyConfig>;
   enablePerformanceQa?: boolean;
   performancePolicy?: Partial<import('./performance/types').PerformancePolicyConfig>;
+  enableAccessibilityQa?: boolean;
+  accessibilityPolicy?: Partial<import('./accessibility/types').AccessibilityPolicyConfig>;
   viewport?: {
     width: number;
     height: number;
@@ -204,6 +206,9 @@ export interface TestExecutionResult {
   performanceResult?: import('./performance/types').PerformanceScanResult;
   performanceFindings?: import('./performance/types').PerformanceFinding[];
   performanceCoverage?: import('./performance/types').PerformanceCoverageSummary;
+  accessibilityResult?: import('./accessibility/types').AccessibilityScanResult;
+  accessibilityFindings?: import('./accessibility/types').AccessibilityFinding[];
+  accessibilityCoverage?: import('./accessibility/types').AccessibilityCoverageSummary;
   failureReason?: string;
 }
 
