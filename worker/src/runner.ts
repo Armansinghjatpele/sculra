@@ -21,6 +21,12 @@ import {
   SecurityFinding,
   SecurityCoverageSummary,
 } from './security/index';
+import {
+  PerformanceScanner,
+  PerformanceScanResult,
+  PerformanceFinding,
+  PerformanceCoverageSummary,
+} from './performance';
 import { WorkerLogger } from './logger';
 import { ApplicationDiscovery } from './discovery';
 import { DeterministicJourneyPlanner, JourneyExecutor, JourneyResult } from './journeys';
@@ -84,6 +90,8 @@ export class BrowserRunner {
       apiLimits: options.apiLimits,
       enableSecurityQa: options.enableSecurityQa ?? true,
       securityPolicy: options.securityPolicy,
+      enablePerformanceQa: options.enablePerformanceQa ?? true,
+      performancePolicy: options.performancePolicy,
       viewport: options.viewport ?? { width: 1280, height: 720 },
       discoveryLimits: options.discoveryLimits,
     };
@@ -149,6 +157,9 @@ export class BrowserRunner {
     let securityResult: SecurityScanResult | undefined;
     let securityFindings: SecurityFinding[] | undefined;
     let securityCoverage: SecurityCoverageSummary | undefined;
+    let performanceResult: PerformanceScanResult | undefined;
+    let performanceFindings: PerformanceFinding[] | undefined;
+    let performanceCoverage: PerformanceCoverageSummary | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -775,6 +786,61 @@ export class BrowserRunner {
           }
         }
 
+        // 12.8 Deterministic Performance & Reliability QA Scanner
+        if (this.options.enablePerformanceQa !== false && status !== 'failed' && !cancellationToken?.isCancelled && browser) {
+          this.logger.log('performance_qa_execution_initiated');
+          let perfContext: BrowserContext | null = null;
+          let perfPage: Page | null = null;
+          try {
+            perfContext = await browser.newContext({
+              viewport: this.options.viewport,
+              userAgent: 'Sculra-Autonomous-QA-Engine/1.0',
+            });
+            perfPage = await perfContext.newPage();
+            perfPage.setDefaultNavigationTimeout(this.options.navigationTimeoutMs || 15000);
+
+            const perfScanner = new PerformanceScanner(this.options.performancePolicy, this.logger);
+            const perfOutput = await perfScanner.scan({
+              testRunId: this.testRunId,
+              projectId: this.projectId || 'unassigned',
+              targetUrl: safeUrl,
+              page: perfPage,
+              browserContext: perfContext,
+              applicationMap,
+              apiEndpoints,
+              journeyResults,
+              roleContexts,
+              allowLocalhost: this.options.allowLocalhost,
+              logger: this.logger,
+              cancellationToken,
+            });
+
+            performanceResult = perfOutput;
+            performanceFindings = perfOutput.findings;
+            performanceCoverage = perfOutput.coverage;
+
+            // Merge performance bug observations (deduplicating by fingerprint)
+            for (const perfBug of perfOutput.bugObservations) {
+              if (!bugObservations.some((b) => b.fingerprint === perfBug.fingerprint)) {
+                bugObservations.push(perfBug);
+              }
+            }
+
+            this.logger.log('performance_qa_execution_completed', {
+              findingsCount: perfOutput.findings.length,
+              criticalCount: perfOutput.coverage.criticalFindings,
+              highCount: perfOutput.coverage.highFindings,
+              mediumCount: perfOutput.coverage.mediumFindings,
+              checksExecuted: perfOutput.coverage.targetsTested,
+            });
+          } catch (perfErr: any) {
+            this.logger.warn('performance_qa_scanner_warning', { message: perfErr.message });
+          } finally {
+            if (perfPage) await perfPage.close().catch(() => {});
+            if (perfContext) await perfContext.close().catch(() => {});
+          }
+        }
+
         // Set test run failure if deterministic functional, visual, or security bugs were detected
         if (
           !cancellationToken?.isCancelled &&
@@ -872,6 +938,9 @@ export class BrowserRunner {
       securityResult,
       securityFindings,
       securityCoverage,
+      performanceResult,
+      performanceFindings,
+      performanceCoverage,
       failureReason,
     };
   }

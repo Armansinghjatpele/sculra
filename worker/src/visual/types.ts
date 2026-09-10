@@ -4,8 +4,10 @@
 
 import { CapturedScreenshot } from '../types';
 
+export type ViewportName = 'desktop' | 'tablet' | 'mobile' | string;
+
 export interface ViewportProfile {
-  name: 'desktop' | 'tablet' | 'mobile' | string;
+  name: ViewportName;
   width: number;
   height: number;
   deviceScaleFactor?: number;

@@ -109,6 +109,22 @@ export class DeterministicPrioritizer {
           baseScore = 80;
           reasons.push('High intrinsic priority: Security regression re-verification');
           break;
+        case 'PERFORMANCE_WORKFLOW':
+        case 'PERFORMANCE_REGRESSION':
+          baseScore = 85;
+          reasons.push('High intrinsic priority: Critical workflow latency & performance regression verification');
+          break;
+        case 'PERFORMANCE_PAGE':
+        case 'PERFORMANCE_API':
+        case 'PERFORMANCE_RELIABILITY':
+          baseScore = 75;
+          reasons.push('Performance baseline check: Page navigation, API latency, and multi-attempt reliability');
+          break;
+        case 'PERFORMANCE_ACTION':
+        case 'PERFORMANCE_RESOURCE':
+          baseScore = 65;
+          reasons.push('Performance asset check: Safe action latency and bundle resource weight');
+          break;
         default:
           baseScore = 45;
           break;

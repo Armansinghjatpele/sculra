@@ -43,6 +43,8 @@ export interface CalculateAssessmentOptions {
   securityResult?: import('../security/types').SecurityScanResult;
   securityFindings?: import('../security/types').SecurityFinding[];
   securityCoverage?: import('../security/types').SecurityCoverageSummary;
+  performanceResult?: import('../performance/types').PerformanceScanResult;
+  performanceFindings?: import('../performance/types').PerformanceFinding[];
   previousAssessment?: {
     overallScore: number;
     testRunId?: string;
@@ -394,12 +396,13 @@ export class DeterministicReleaseScorer {
     // 7. Determine Evidence Confidence Level
     const hasApiEvidence = (options.apiTestResults && options.apiTestResults.length > 0) || (options.apiCoverage && options.apiCoverage.endpointsTested > 0);
     const hasSecurityEvidence = (options.securityResult && (options.securityResult.coverage?.checksExecuted || 0) > 0) || ((options.securityFindings?.length || 0) > 0);
+    const hasPerformanceEvidence = (options.performanceResult && (options.performanceResult.coverage?.totalMeasurements || 0) > 0) || ((options.performanceFindings?.length || 0) > 0);
     let confidenceLevel: EvidenceConfidence = 'HIGH';
     if (testRunStatus === 'cancelled') {
       confidenceLevel = 'INSUFFICIENT';
-    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence && !hasSecurityEvidence) {
+    } else if (discoveredPagesCount <= 1 && journeyResults.length === 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) {
       confidenceLevel = 'INSUFFICIENT';
-    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence && !hasSecurityEvidence) || (journeyResults.length <= 0 && !hasApiEvidence && !hasSecurityEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
+    } else if ((discoveredPagesCount <= 1 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) || (journeyResults.length <= 0 && !hasApiEvidence && !hasSecurityEvidence && !hasPerformanceEvidence) || viewportsTestedSet.size < 2 || finalCoverageScore < 30) {
       confidenceLevel = 'LOW';
     } else if (discoveredPagesCount < 3 || viewportsTestedSet.size < 3 || journeyResults.length < 2 || finalCoverageScore < 70) {
       confidenceLevel = 'MEDIUM';
@@ -583,17 +586,88 @@ export class DeterministicReleaseScorer {
     const totalSecurityDeduction = securityDeductions.reduce((sum, d) => sum + d.points, 0);
     const finalSecurityScore = Math.max(0, Math.min(100, 100 - totalSecurityDeduction));
 
-    // Blocker 8: Security & Authorization Failures
+    // Performance Deductions (Deterministic Performance QA)
+    const performanceDeductions: ScoreDeduction[] = [];
+    let perfCritCount = 0;
+    let perfHighCount = 0;
+    let perfMedCount = 0;
+    let perfSlowPagesCount = 0;
+    let perfSlowApisCount = 0;
+    let perfRegressionsCount = 0;
+    let perfReliabilityFailuresCount = 0;
+
+    if (options.performanceResult) {
+      for (const finding of options.performanceResult.findings) {
+        if (finding.type === 'PERFORMANCE_NAVIGATION_SLOW') perfSlowPagesCount++;
+        if (finding.type === 'PERFORMANCE_API_SLOW' || finding.type === 'PERFORMANCE_API_TIMEOUT') perfSlowApisCount++;
+        if (finding.type === 'PERFORMANCE_REGRESSION') perfRegressionsCount++;
+        if (finding.type === 'PERFORMANCE_PAGE_UNRELIABLE' || finding.type === 'PERFORMANCE_RUNTIME_UNSTABLE') perfReliabilityFailuresCount++;
+
+        if (finding.severity === 'critical') {
+          perfCritCount++;
+          performanceDeductions.push({
+            category: 'performance',
+            points: 35,
+            reason: `Critical performance failure: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'high') {
+          perfHighCount++;
+          performanceDeductions.push({
+            category: 'performance',
+            points: 15,
+            reason: `High performance issue: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'medium') {
+          perfMedCount++;
+          performanceDeductions.push({
+            category: 'performance',
+            points: 6,
+            reason: `Medium performance issue: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        } else if (finding.severity === 'low') {
+          performanceDeductions.push({
+            category: 'performance',
+            points: 2,
+            reason: `Low performance anomaly: [${finding.type}] ${finding.title}`,
+            evidenceRef: finding.id,
+          });
+        }
+      }
+    }
+
+    const totalPerformanceDeduction = performanceDeductions.reduce((sum, d) => sum + d.points, 0);
+    const finalPerformanceScore = Math.max(0, Math.min(100, 100 - totalPerformanceDeduction));
+
+    // Blocker 8: Security Defects (Deterministic Security QA)
     if (options.securityResult) {
-      const critFindings = options.securityResult.findings.filter((f) => f.severity === 'critical');
-      for (const finding of critFindings) {
+      const critSecFindings = options.securityResult.findings.filter((f) => f.severity === 'critical');
+      for (const finding of critSecFindings) {
         blockers.push({
           id: `blocker-sec-${finding.id}`,
           title: `Security Blocker: ${finding.title}`,
-          reason: `Critical security boundary failure: ${finding.description}`,
+          reason: `Critical security defect: ${finding.description}`,
           category: 'security',
           severity: 'critical',
-          evidenceSummary: finding.remediation || finding.description,
+          evidenceSummary: finding.remediationRecommendation || finding.description,
+          relatedIssueFingerprints: [finding.id],
+        });
+      }
+    }
+
+    // Blocker 9: Performance & Reliability Failures
+    if (options.performanceResult) {
+      const critPerfFindings = options.performanceResult.findings.filter((f) => f.severity === 'critical');
+      for (const finding of critPerfFindings) {
+        blockers.push({
+          id: `blocker-perf-${finding.id}`,
+          title: `Performance Blocker: ${finding.title}`,
+          reason: `Critical performance failure: ${finding.description}`,
+          category: 'performance',
+          severity: 'critical',
+          evidenceSummary: finding.remediationRecommendation || finding.description,
           relatedIssueFingerprints: [finding.id],
         });
       }
@@ -671,6 +745,7 @@ export class DeterministicReleaseScorer {
       reliability: finalReliabilityScore,
       coverage: finalCoverageScore,
       security: options.securityResult ? finalSecurityScore : undefined,
+      performance: options.performanceResult ? finalPerformanceScore : undefined,
     };
 
     const breakdown: ScoreBreakdown = {
@@ -681,6 +756,7 @@ export class DeterministicReleaseScorer {
         reliability: 0.10,
         coverage: 0.15,
         security: options.securityResult ? 0.20 : undefined,
+        performance: options.performanceResult ? 0.15 : undefined,
       },
       functional: {
         base: 100,
@@ -752,6 +828,17 @@ export class DeterministicReleaseScorer {
             mediumFindingsCount: secMedCount,
             authViolationsCount: secAuthViolationsCount,
             secretExposuresCount: secSecretExposuresCount,
+          }
+        : undefined,
+      performance: options.performanceResult
+        ? {
+            base: 100,
+            final: finalPerformanceScore,
+            deductions: performanceDeductions,
+            slowPagesCount: perfSlowPagesCount,
+            slowApisCount: perfSlowApisCount,
+            regressionsCount: perfRegressionsCount,
+            reliabilityFailuresCount: perfReliabilityFailuresCount,
           }
         : undefined,
       historicalComparison,

@@ -136,7 +136,7 @@ describe('BrowserRunner Deterministic Execution', () => {
           url: () => 'https://sculra.com/api/auth',
           status: () => 401,
           statusText: () => 'Unauthorized',
-          request: () => ({ method: () => 'POST', resourceType: () => 'xhr' }),
+          request: () => ({ url: () => 'https://sculra.com/api/auth', method: () => 'POST', resourceType: () => 'xhr' }),
         });
       }
 
@@ -145,6 +145,9 @@ describe('BrowserRunner Deterministic Execution', () => {
 
     const runner = new BrowserRunner('test-run-5', 'proj-1', {
       enableDiscovery: false,
+      enableApiQa: false,
+      enableSecurityQa: false,
+      enablePerformanceQa: false,
     });
     const result = await runner.run('https://sculra.com');
 

@@ -26,6 +26,7 @@ export * from './auth';
 export * from './api-qa';
 export * from './release';
 export * from './security';
+export * from './performance';
 export * from './logger';
 export * from './storage';
 

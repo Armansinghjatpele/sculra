@@ -570,6 +570,50 @@ export class JobExecutor {
         }
       }
 
+      // 5s. Persist Performance & Reliability QA Evidence (Findings & Summary)
+      if (result.performanceResult) {
+        const perf = result.performanceResult;
+        await this.supabase.from('test_evidence').insert({
+          test_run_id: testRunId,
+          project_id: project.id,
+          type: 'performance_summary',
+          title: `Performance QA Summary: ${perf.findings.length} finding(s) [${perf.coverage.criticalFindings} critical, ${perf.coverage.highFindings} high]`,
+          url: targetUrl,
+          message: `Executed ${perf.coverage.totalMeasurements} performance audits across ${perf.coverage.targetsDiscovered} targets. Found ${perf.coverage.criticalFindings} critical, ${perf.coverage.highFindings} high, ${perf.coverage.mediumFindings} medium performance/reliability issues.`,
+          metadata: {
+            coverage: perf.coverage,
+            findingsCount: perf.findings.length,
+            regressionsCount: perf.coverage.regressionsCount,
+            navigationsCount: perf.navigations.length,
+            webVitalsCount: perf.webVitals.length,
+            resourcesCount: perf.resources.length,
+            actionsCount: perf.actions.length,
+            reliabilityCount: perf.reliability.length,
+          },
+        });
+
+        // Persist individual performance findings
+        for (const finding of perf.findings) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: 'performance_finding',
+            title: `[${finding.severity.toUpperCase()}] Performance: ${finding.title}`,
+            url: finding.targetUrl || targetUrl,
+            message: `${finding.description} Remediation: ${finding.remediationRecommendation || 'N/A'}`,
+            metadata: {
+              finding,
+              type: finding.type,
+              severity: finding.severity,
+              confidence: finding.confidence,
+              remediation: finding.remediationRecommendation,
+              baselineComparison: finding.baselineComparison,
+              evidence: finding.evidence,
+            },
+          });
+        }
+      }
+
     } catch (evidenceErr: any) {
       logger.warn('evidence_persistence_warning', { message: evidenceErr.message });
     }
@@ -618,6 +662,7 @@ export class JobExecutor {
         apiTestResults: result.apiTestResults,
         apiCoverage: result.apiCoverage,
         securityResult: result.securityResult,
+        performanceResult: result.performanceResult,
         previousAssessment,
       });
 
@@ -642,7 +687,7 @@ export class JobExecutor {
         functionality_score: assessment.scores.functional,
         ui_score: assessment.scores.visual,
         responsive_score: assessment.scores.responsive,
-        performance_score: assessment.scores.reliability,
+        performance_score: assessment.scores.performance !== undefined ? assessment.scores.performance : assessment.scores.reliability,
         accessibility_score: assessment.scores.coverage,
         security_score: assessment.scores.security !== undefined ? assessment.scores.security : 100,
         recommendation: assessment.recommendation,

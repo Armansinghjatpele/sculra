@@ -169,6 +169,18 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const criticalSecurityFindings = securityFindings.filter((f) => f.severity === 'critical');
   const highSecurityFindings = securityFindings.filter((f) => f.severity === 'high');
   const mediumSecurityFindings = securityFindings.filter((f) => f.severity === 'medium');
+
+  const performanceSummaryEvidence = evidence.find((e) => e.type === 'performance_summary');
+  const performanceCoverage = performanceSummaryEvidence?.metadata?.coverage;
+  const performanceFindings: any[] = evidence
+    .filter((e) => e.type === 'performance_finding')
+    .map((e) => e.metadata?.finding || e.metadata)
+    .filter(Boolean);
+  const criticalPerfFindings = performanceFindings.filter((f) => f.severity === 'critical');
+  const highPerfFindings = performanceFindings.filter((f) => f.severity === 'high');
+  const mediumPerfFindings = performanceFindings.filter((f) => f.severity === 'medium');
+  const perfRegressions = performanceFindings.filter((f) => f.type === 'PERFORMANCE_REGRESSION' || f.category === 'REGRESSION');
+
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
@@ -385,6 +397,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           </TabsTrigger>
           <TabsTrigger value="security">
             Security QA {securityFindings.length > 0 && `(${securityFindings.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="performance">
+            Performance QA {performanceFindings.length > 0 && `(${performanceFindings.length})`}
           </TabsTrigger>
           <TabsTrigger value="responsive">
             Responsive QA {responsiveObservations.length > 0 && `(${responsiveObservations.length})`}
@@ -1215,6 +1230,206 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                   </div>
                   <p>
                     Sculra operates strictly as a defensive QA platform with bounded, non-destructive security assertions. All tests enforce strict zero-credential exposure, automated token and secret masking, and SSRF prevention guards across all targets.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Performance & Reliability QA */}
+        <TabsContent value="performance">
+          <div className="mt-4 space-y-6">
+            {performanceFindings.length === 0 && !performanceCoverage ? (
+              <div className="border border-white/5 bg-zinc-950/20 rounded-xl p-12 text-center text-xs text-muted-foreground font-mono">
+                {testRun.status === 'queued' || testRun.status === 'running'
+                  ? 'Measuring browser navigation timing, Core Web Vitals, API latencies, and multi-run reliability...'
+                  : 'No performance regressions or threshold violations detected for this test run.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 1. Performance QA Metric Cards */}
+                <Grid cols={1} colsSm={2} colsLg={6} gap={12}>
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Performance Score
+                    </span>
+                    <span
+                      className={`text-xl font-bold font-mono ${
+                        (performanceCoverage?.performanceScore ?? 100) >= 85
+                          ? 'text-success'
+                          : (performanceCoverage?.performanceScore ?? 100) >= 70
+                          ? 'text-amber-400'
+                          : 'text-danger'
+                      }`}
+                    >
+                      {performanceCoverage?.performanceScore ?? 100}/100
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Targets Evaluated
+                    </span>
+                    <span className="text-xl font-bold text-foreground font-mono">
+                      {performanceCoverage?.targetsTested ?? 0}/{performanceCoverage?.targetsDiscovered ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Total Measurements
+                    </span>
+                    <span className="text-xl font-bold text-accent font-mono">
+                      {performanceCoverage?.totalMeasurements ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Regressions
+                    </span>
+                    <span
+                      className={`text-xl font-bold font-mono ${
+                        perfRegressions.length > 0 ? 'text-rose-500' : 'text-success'
+                      }`}
+                    >
+                      {perfRegressions.length}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Critical / High Issues
+                    </span>
+                    <span
+                      className={`text-xl font-bold font-mono ${
+                        criticalPerfFindings.length + highPerfFindings.length > 0
+                          ? 'text-rose-500'
+                          : 'text-success'
+                      }`}
+                    >
+                      {criticalPerfFindings.length + highPerfFindings.length}
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/30 border border-white/5 p-4 rounded-xl">
+                    <span className="text-3xs uppercase tracking-widest text-muted-foreground block mb-1 font-mono">
+                      Audit Duration
+                    </span>
+                    <span className="text-xl font-bold text-foreground font-mono">
+                      {performanceCoverage?.durationMs ? `${(performanceCoverage.durationMs / 1000).toFixed(1)}s` : '--'}
+                    </span>
+                  </div>
+                </Grid>
+
+                {/* 2. Critical Performance Alert Banner */}
+                {(criticalPerfFindings.length > 0 || highPerfFindings.length > 0) && (
+                  <div className="border border-danger/40 bg-danger/10 rounded-2xl p-6 font-mono text-xs shadow-glass space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-7 w-7 rounded-full bg-danger/20 border border-danger/30 flex items-center justify-center text-danger font-bold text-sm animate-pulse">
+                        ⚡
+                      </div>
+                      <div>
+                        <span className="font-bold text-danger text-sm block">
+                          Performance & Reliability Defects Detected ({criticalPerfFindings.length + highPerfFindings.length})
+                        </span>
+                        <p className="text-muted-foreground text-3xs mt-0.5">
+                          Measured browser navigation timing, Core Web Vitals, API response latency, or multi-run reliability exceeded acceptable thresholds.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-danger/20">
+                      {[...criticalPerfFindings, ...highPerfFindings].map((f: any, fIdx: number) => (
+                        <div
+                          key={fIdx}
+                          className="px-2.5 py-1 rounded bg-danger/20 border border-danger/30 text-danger text-3xs flex items-center gap-2"
+                        >
+                          <span className="font-bold">[{f.severity?.toUpperCase() || 'HIGH'}]</span>
+                          <span className="text-foreground/80 font-mono">{f.title || f.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Performance Findings Table */}
+                {performanceFindings.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                      Performance Findings & Latency Anomalies ({performanceFindings.length})
+                    </h3>
+                    <div className="border border-white/10 rounded-xl overflow-hidden">
+                      <table className="w-full text-left text-3xs font-mono">
+                        <thead className="bg-white/5 text-muted-foreground border-b border-white/10">
+                          <tr>
+                            <th className="p-3 font-semibold">Severity</th>
+                            <th className="p-3 font-semibold">Finding Type</th>
+                            <th className="p-3 font-semibold">Target Route / URL</th>
+                            <th className="p-3 font-semibold">Observed Value</th>
+                            <th className="p-3 font-semibold">Policy Threshold</th>
+                            <th className="p-3 font-semibold">Description</th>
+                            <th className="p-3 font-semibold">Remediation Guidance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 bg-zinc-950/40">
+                          {performanceFindings.map((finding: any, pIdx: number) => {
+                            const sev = (finding.severity || 'medium').toLowerCase();
+                            const isCrit = sev === 'critical';
+                            const isHigh = sev === 'high';
+                            const isMed = sev === 'medium';
+
+                            return (
+                              <tr key={pIdx} className="hover:bg-white/5">
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-4xs font-bold uppercase ${
+                                      isCrit
+                                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                        : isHigh
+                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                        : isMed
+                                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                                        : 'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
+                                    }`}
+                                  >
+                                    {sev}
+                                  </span>
+                                </td>
+                                <td className="p-3 font-semibold text-foreground">
+                                  {finding.type}
+                                </td>
+                                <td className="p-3 text-muted-foreground max-w-xs truncate">
+                                  {finding.targetUrl || testRun.url || 'N/A'}
+                                </td>
+                                <td className="p-3 font-bold text-amber-400 font-mono">
+                                  {finding.observedValue || 'N/A'}
+                                </td>
+                                <td className="p-3 text-muted-foreground font-mono">
+                                  {finding.thresholdValue || 'N/A'}
+                                </td>
+                                <td className="p-3 text-foreground/80 max-w-sm">
+                                  {finding.summary || finding.description}
+                                </td>
+                                <td className="p-3 text-sky-400 max-w-xs">
+                                  {finding.remediationRecommendation || finding.remediation || 'Optimize resource bundles and backend latency.'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Performance QA Scope & Safe Non-Destructive Boundaries */}
+                <div className="p-4 rounded-xl bg-zinc-900/40 border border-white/5 font-mono text-3xs text-muted-foreground space-y-2">
+                  <div className="flex items-center gap-2 text-foreground font-bold uppercase tracking-wider">
+                    <span>⚡ Deterministic Performance QA Guarantees</span>
+                  </div>
+                  <p>
+                    Sculra measures real browser navigation timings, Core Web Vitals (LCP, CLS, INP, FCP), asset weight, single-session safe action latencies, and API responsiveness under authentic QA conditions. All measurements prohibit synthetic load generation, flood testing, and metric fabrication, ensuring zero credential leakage across telemetry.
                   </p>
                 </div>
               </div>

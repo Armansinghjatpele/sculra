@@ -37,7 +37,15 @@ export type TestTargetType =
   | 'CORS_TARGET'
   | 'REDIRECT_TARGET'
   | 'SENSITIVE_DATA_TARGET'
-  | 'SECURITY_REGRESSION';
+  | 'SECURITY_REGRESSION'
+  // Prompt 26: Performance & Reliability Target Types
+  | 'PERFORMANCE_PAGE'
+  | 'PERFORMANCE_API'
+  | 'PERFORMANCE_WORKFLOW'
+  | 'PERFORMANCE_ACTION'
+  | 'PERFORMANCE_RESOURCE'
+  | 'PERFORMANCE_REGRESSION'
+  | 'PERFORMANCE_RELIABILITY';
 
 export type TestTargetStatus =
   | 'PENDING'

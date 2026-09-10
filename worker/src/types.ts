@@ -39,6 +39,8 @@ export interface RunnerOptions {
   apiLimits?: Partial<import('./api-qa/types').ApiExecutionLimits>;
   enableSecurityQa?: boolean;
   securityPolicy?: Partial<import('./security/types').SecurityPolicyConfig>;
+  enablePerformanceQa?: boolean;
+  performancePolicy?: Partial<import('./performance/types').PerformancePolicyConfig>;
   viewport?: {
     width: number;
     height: number;
@@ -199,6 +201,9 @@ export interface TestExecutionResult {
   securityResult?: import('./security/types').SecurityScanResult;
   securityFindings?: import('./security/types').SecurityFinding[];
   securityCoverage?: import('./security/types').SecurityCoverageSummary;
+  performanceResult?: import('./performance/types').PerformanceScanResult;
+  performanceFindings?: import('./performance/types').PerformanceFinding[];
+  performanceCoverage?: import('./performance/types').PerformanceCoverageSummary;
   failureReason?: string;
 }
 

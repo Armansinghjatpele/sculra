@@ -87,6 +87,15 @@ export interface TestEvidence {
     | 'security_redirect_check'
     | 'security_exposure_check'
     | 'security_auth_check'
+    | 'performance_summary'
+    | 'performance_finding'
+    | 'performance_navigation'
+    | 'performance_web_vitals'
+    | 'performance_network'
+    | 'performance_resource'
+    | 'performance_action'
+    | 'performance_reliability'
+    | 'performance_regression'
     | 'release_report';
   title: string;
   url?: string;
@@ -100,7 +109,7 @@ export interface ReleaseBlocker {
   id: string;
   title: string;
   reason: string;
-  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api';
+  category: 'functional' | 'visual' | 'responsive' | 'reliability' | 'security' | 'api' | 'performance';
   severity: 'critical' | 'high';
   evidenceSummary: string;
   relatedIssueFingerprints?: string[];
@@ -124,6 +133,8 @@ export interface ReleaseScore {
   responsiveScore: number;
   reliabilityScore: number;
   coverageScore: number;
+  securityScore?: number;
+  performanceScore?: number;
   recommendation: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
   riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
   confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT';

@@ -896,6 +896,60 @@ export async function createFixtureServer(): Promise<FixtureServer> {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized' }));
       }
+    } else if (pathname === '/perf/slow-page') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Slow Performance Test Page</title></head>
+          <body>
+            <h1>Slow Page</h1>
+            <p>Simulating delayed TTFB / Navigation timing.</p>
+          </body>
+          </html>
+        `);
+      }, 150);
+    } else if (pathname === '/perf/page-with-resources') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Page with Resources</title>
+          <style>body { font-family: sans-serif; }</style>
+        </head>
+        <body>
+          <h1>Page with Resources</h1>
+          <button id="perf-action-btn" onclick="fetch('/api/perf/slow-endpoint').then(r=>r.json())">Click for API</button>
+          <script src="/api/perf/large-resource"></script>
+          <script>
+            window.__perfTestReady = true;
+          </script>
+        </body>
+        </html>
+      `);
+    } else if (pathname === '/api/perf/slow-endpoint') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', delayed: true }));
+      }, 200);
+    } else if (pathname === '/api/perf/large-resource') {
+      const buffer = Buffer.from('/* Large JS */\nvar dummy = "' + 'a'.repeat(600 * 1024) + '";\n');
+      res.writeHead(200, {
+        'Content-Type': 'application/javascript',
+        'Content-Length': buffer.length.toString(),
+      });
+      res.end(buffer);
+    } else if (pathname === '/api/perf/unreliable-endpoint') {
+      const isFail = Math.random() > 0.5;
+      if (isFail) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Service Temporarily Unavailable' }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+      }
     } else if (pathname === '/server-error') {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Fatal 500 Internal Server Error');

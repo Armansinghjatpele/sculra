@@ -98,7 +98,7 @@ export function calculateBugSeverity(params: {
     return 'critical';
   }
 
-  // 2. Primary Navigation / Critical API / Primary CTA / High Security -> HIGH
+  // 2. Primary Navigation / Critical API / Primary CTA / High Security / High Performance -> HIGH
   if (
     bugType === 'API_HTTP_5XX' ||
     bugType === 'API_TIMEOUT' ||
@@ -112,7 +112,12 @@ export function calculateBugSeverity(params: {
     bugType === 'AUTHORIZATION_UNEXPECTED_ACCESS' ||
     bugType === 'AUTHENTICATION_MISSING' ||
     bugType === 'AUTHORIZATION_DENIED' ||
-    bugType === 'SENSITIVE_DATA_EXPOSURE'
+    bugType === 'SENSITIVE_DATA_EXPOSURE' ||
+    bugType === 'PERFORMANCE_TIMEOUT' ||
+    bugType === 'PERFORMANCE_API_TIMEOUT' ||
+    bugType === 'PERFORMANCE_PAGE_UNRELIABLE' ||
+    bugType === 'PERFORMANCE_JOURNEY_UNRELIABLE' ||
+    bugType === 'PERFORMANCE_RUNTIME_UNSTABLE'
   ) {
     return 'high';
   }
@@ -134,7 +139,7 @@ export function calculateBugSeverity(params: {
     return 'high';
   }
 
-  // 3. Secondary Controls / Forms / API Content / Schema / Medium Security -> MEDIUM
+  // 3. Secondary Controls / Forms / API Content / Schema / Medium Security / Medium Performance -> MEDIUM
   if (
     bugType === 'API_INVALID_JSON' ||
     bugType === 'API_SCHEMA_VIOLATION' ||
@@ -150,7 +155,15 @@ export function calculateBugSeverity(params: {
     bugType === 'COOKIE_MISSING_SECURITY_ATTRIBUTE' ||
     bugType === 'CORS_MISCONFIGURATION' ||
     bugType === 'OPEN_REDIRECT' ||
-    bugType === 'INSECURE_HTTP_CONFIGURATION'
+    bugType === 'INSECURE_HTTP_CONFIGURATION' ||
+    bugType === 'PERFORMANCE_NAVIGATION_SLOW' ||
+    bugType === 'PERFORMANCE_TTFB_SLOW' ||
+    bugType === 'PERFORMANCE_LCP_SLOW' ||
+    bugType === 'PERFORMANCE_API_SLOW' ||
+    bugType === 'PERFORMANCE_TOO_MANY_REQUESTS' ||
+    bugType === 'PERFORMANCE_NETWORK_FAILURE' ||
+    bugType === 'PERFORMANCE_RESOURCE_LARGE' ||
+    bugType === 'PERFORMANCE_REGRESSION'
   ) {
     return 'medium';
   }
@@ -167,15 +180,25 @@ export function calculateBugSeverity(params: {
     return 'medium';
   }
 
-  // 4. Low Impact / Recoverable / Low Security -> LOW
+  // 4. Low Impact / Recoverable / Low Security / Low Performance -> LOW
   if (
     bugType === 'MIXED_CONTENT' ||
-    bugType === 'SECURITY_CONFIGURATION_ERROR'
+    bugType === 'SECURITY_CONFIGURATION_ERROR' ||
+    bugType === 'PERFORMANCE_FCP_SLOW' ||
+    bugType === 'PERFORMANCE_INP_SLOW' ||
+    bugType === 'PERFORMANCE_CLS_HIGH' ||
+    bugType === 'PERFORMANCE_RESOURCE_SLOW' ||
+    bugType === 'PERFORMANCE_BASELINE_MISSING' ||
+    bugType === 'PERFORMANCE_CONFIGURATION_ERROR'
   ) {
     return 'low';
   }
 
-  if (bugType === 'API_CONFIGURATION_ERROR' || bugType === 'SECURITY_CHECK_INCONCLUSIVE') {
+  if (
+    bugType === 'API_CONFIGURATION_ERROR' ||
+    bugType === 'SECURITY_CHECK_INCONCLUSIVE' ||
+    bugType === 'PERFORMANCE_INCONCLUSIVE'
+  ) {
     return 'info';
   }
 

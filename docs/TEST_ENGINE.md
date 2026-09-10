@@ -611,7 +611,6 @@ graph TD
 7. **Security Authorization & Privilege Escalation Checker (`authorization.ts`)**:
    - Tests unauthenticated access to protected administrative and member routes.
    - Evaluates vertical privilege escalation (MEMBER role accessing ADMIN endpoints).
-   - Asserts that authorized roles retain legitimate access.
 8. **Master Security Scanner (`scanner.ts`)**:
    - Orchestrates bounded execution across all security targets.
    - Computes deterministic `SecurityCoverageSummary` and produces standardized `SecurityFinding[]` and `BugObservation[]`.
@@ -620,3 +619,90 @@ graph TD
    - Release Readiness: Adds Blocker 8 for critical security defects (`AUTHENTICATION_BYPASS`, `PRIVILEGE_ESCALATION`, `SECRET_EXPOSURE`, `TOKEN_EXPOSURE`, `PUBLICLY_ACCESSIBLE_PROTECTED_API`, `PUBLICLY_ACCESSIBLE_PROTECTED_ROUTE`).
    - Test Evidence: Persists `security_summary` and `security_finding` rows.
    - UI: Renders a dedicated **Security QA** dashboard tab with metric cards, findings breakdown, and defensive remediation guidance.
+
+## 16. Performance & Reliability Autonomous QA Engine (Prompt 26)
+
+Sculra incorporates a production-oriented, deterministic Performance & Reliability Autonomous QA Engine. It measures real browser navigation timings, Core Web Vitals, asset payload weights, single-session safe action latencies, API response responsiveness, and multi-run page load reliability under authentic QA conditions.
+
+> [!IMPORTANT]
+> **Strict Non-Destructive QA Scope Boundaries**:
+> 
+> 1. **Zero Synthetic Load**:
+>    Sculra is **NOT** a stress testing, load generation, or DoS tool. It measures realistic single-session user interactions, sequential navigation, and single-flight API requests without flooding target servers.
+> 
+> 2. **Zero Metric Fabrication**:
+>    Missing, unsupported, or unobserved metrics are explicitly recorded with statuses (`measured`, `unavailable`, `unsupported`, `invalid`). Missing metrics are NEVER coerced to zero, guessed, or hallucinated by AI.
+> 
+> 3. **Zero Credential Exposure**:
+>    All cookies, tokens, `Authorization` headers, and sensitive query parameters (`token`, `secret`, `key`, `password`, `jwt`) are redacted in-place before storage or telemetry capture.
+> 
+> 4. **Explicit Baselines**:
+>    Metrics are compared only against compatible dimensions (same project, target path, HTTP method, viewport, and authenticated role). If no historical baseline exists, Sculra reports `BASELINE_MISSING` and establishes a baseline rather than generating false regressions.
+> 
+> 5. **Release Blocker 9**:
+>    Severe performance regressions ($\ge 15\%$ on business-critical workflows or $\ge 25\%$ overall) or repeated unrecoverable timeouts trigger **Release Blocker 9**, capping release readiness at $\le 59$ and issuing `DO_NOT_RELEASE`.
+
+### Architecture & Telemetry Pipeline
+
+```mermaid
+graph TD
+    ProductModel[ProductModel & Business-Critical Workflows] --> TargetDiscovery[PerformanceTargetDiscovery: Pages, APIs, Workflows, Actions]
+    AppMap[Application Map & API Endpoints] --> TargetDiscovery
+    AuthContext[Role Contexts & Authenticated Surfaces] --> TargetDiscovery
+    
+    TargetDiscovery --> PerfScanner[PerformanceScanner: Master Orchestrator]
+    
+    PerfScanner --> NavEval[NavigationPerformanceEvaluator: DNS, TCP, TLS, TTFB, DOMContentLoaded, Load]
+    PerfScanner --> VitalsEval[WebVitalsEvaluator: Real LCP, CLS, INP, FCP via PerformanceObservers]
+    PerfScanner --> NetTracker[NetworkPerformanceTracker: Request Counts, Transfer Sizes, Third-Party Overhead]
+    PerfScanner --> ResEval[ResourcePerformanceEvaluator: Oversized Bundles, Duplicate Assets, Slow Images]
+    PerfScanner --> ActionTracker[ActionPerformanceTracker: Safe Journey Action Latencies]
+    PerfScanner --> RelEval[PageReliabilityEvaluator: Bounded Multi-Run Repetitions & Success Rates]
+    PerfScanner --> BaselineMgr[PerformanceBaselineManager: Dimension-Safe Regression Analysis]
+    
+    NavEval & VitalsEval & NetTracker & ResEval & ActionTracker & RelEval & BaselineMgr --> FindingAnalyzer[PerformanceFindingAnalyzer: Threshold & Regression Assessment]
+    
+    FindingAnalyzer --> PerfFindings[Deterministic Performance Findings & Bug Observations]
+    
+    PerfFindings --> IssueIntel[Issue Intelligence: 20 Performance Bug Types & Deterministic Severities]
+    PerfFindings --> StrategyEngine[Test Strategy Engine: 7 Performance Target Types + Prioritization]
+    PerfFindings --> ReleaseReadiness[Release Readiness: Blocker 9 + Performance Category Deductions]
+    PerfFindings --> EvidenceDB[(public.test_evidence & release_scores)]
+    PerfFindings --> UI[Frontend Test-Run UI: Performance QA Tab]
+```
+
+### Core Components (`worker/src/performance/`)
+
+1. **Types & Policy (`types.ts`, `policy.ts`)**:
+   - Comprehensive TypeScript models (`PerformanceTarget`, `PerformanceMetricValue`, `NavigationPerformance`, `WebVitalMeasurement`, `ResourceMeasurement`, `NetworkMeasurement`, `ActionPerformance`, `ReliabilityMeasurement`, `PerformanceBaseline`, `PerformanceRegression`, `PerformanceFinding`, `PerformanceCoverageSummary`, `PerformanceScanResult`).
+   - Configurable `DEFAULT_PERFORMANCE_POLICY` defining thresholds for TTFB (800ms / 1800ms), FCP (1800ms / 3000ms), LCP (2500ms / 4000ms), CLS (0.1 / 0.25), INP (200ms / 500ms), PageLoad (3000ms / 6000ms), API duration (500ms / 2000ms), max resource sizes (JS 400KB, CSS 150KB, Image 800KB), and regression percentages (25% standard, 15% critical workflow).
+2. **Deterministic Performance Target Discovery (`discovery.ts`)**:
+   - Collects performance targets from `ProductModel` business-critical workflows, `RoleContext` authenticated surfaces, `ApplicationMap` pages, and `ApiEndpoint` models.
+3. **Navigation Performance Evaluator (`navigation.ts`)**:
+   - Reads real browser Navigation Timing API entries (`window.performance.getEntriesByType('navigation')`).
+   - Calculates DNS duration, connect duration, TTFB, download duration, DOMContentLoaded, loadEvent, first paint, and transferred bytes.
+4. **Core Web Vitals Evaluator (`web-vitals.ts`)**:
+   - Measures real browser Core Web Vitals (LCP, CLS, INP) and supporting metrics (FCP, TTFB) via in-browser `PerformanceObserver`s with explicit rating badges.
+5. **Network Performance Tracker (`network.ts`)**:
+   - Instruments Playwright network events to track request counts, failed requests, slow requests, and payload transfers with zero-leak sensitive query and header redactions.
+6. **Resource Performance Evaluator (`resources.ts`)**:
+   - Audits loaded assets (scripts, stylesheets, images, fonts) to identify oversized bundles, slow downloads, duplicate asset requests, and broken resources.
+7. **Action Performance Tracker (`actions.ts`)**:
+   - Measures execution durations and triggered network activity for safe user journey interactions without recording sensitive form input values.
+8. **Page Reliability Evaluator (`reliability.ts`)**:
+   - Evaluates multi-run page consistency across bounded repetitions (max 3) to detect intermittent failures, unhandled runtime exceptions, and flake rates.
+9. **Performance Baseline Manager (`baseline.ts`)**:
+   - Constructs composite dimensional target keys (`type:method:path:viewport:role`) and compares current telemetry against historical baselines.
+10. **Performance Finding & Issue Analyzer (`analyzer.ts`)**:
+    - Translates raw metric measurements, threshold violations, and regressions into deterministic `PerformanceFinding`s and `BugObservation`s with unique SHA-256 fingerprints.
+11. **Master Performance Scanner (`scanner.ts`)**:
+    - Orchestrates target discovery, browser probes, API latency evaluations, reliability checks, and coverage summaries.
+12. **Issue Intelligence & Strategy Integrations**:
+    - Added 20 performance bug types to `BugType` and mapped to deterministic severities.
+    - Added 7 performance target types to `TestTargetType` with prioritization bonuses.
+13. **Release Readiness & Blocker 9 (`release/scorer.ts`)**:
+    - Computes dedicated `scores.performance` and `breakdown.performance`.
+    - Enforces **Blocker 9** for critical regressions ($\ge 15\%$) or unrecoverable latency failures on business-critical flows, capping overall release score at $\le 59$ with `DO_NOT_RELEASE`.
+14. **Evidence Persistence & Frontend UI**:
+    - Persists `performance_summary` and `performance_finding` rows to `public.test_evidence`.
+    - Renders a dedicated **Performance QA** tab in the test run dashboard displaying scorecards, Core Web Vitals, latency breakdowns, and actionable remediation guidance.
