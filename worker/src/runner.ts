@@ -58,6 +58,12 @@ import {
   ApiResponseObservation,
   ApiCoverageSummary,
 } from './api-qa';
+import {
+  HistoricalAnalyzer,
+  RunNormalizer,
+  RunComparison,
+  QASignalRecord,
+} from './history';
 
 export class BrowserRunner {
   private testRunId: string;
@@ -171,6 +177,8 @@ export class BrowserRunner {
     let accessibilityResult: AccessibilityScanResult | undefined;
     let accessibilityFindings: AccessibilityFinding[] | undefined;
     let accessibilityCoverage: AccessibilityCoverageSummary | undefined;
+    let historicalComparison: RunComparison | undefined;
+    let historicalSignals: QASignalRecord[] | undefined;
 
     try {
       if (cancellationToken?.isCancelled) {
@@ -927,6 +935,46 @@ export class BrowserRunner {
             });
           }
         }
+
+        // 14. Historical QA Memory & Regression Analysis
+        if (this.options.enableHistoricalAnalysis !== false && this.options.historicalRuns && !cancellationToken?.isCancelled) {
+          this.logger.log('invoking_historical_analyzer');
+          try {
+            const currentRun = RunNormalizer.fromExecutionResult({
+              testRunId: this.testRunId,
+              projectId: this.projectId || '',
+              targetUrl: safeUrl,
+              result: {
+                status,
+                durationMs: Date.now() - startTime,
+                bugObservations,
+                securityFindings,
+                securityResult,
+                performanceFindings,
+                performanceResult,
+                accessibilityFindings,
+                accessibilityResult,
+                applicationMap,
+                apiCoverage,
+                securityCoverage,
+                performanceCoverage,
+                accessibilityCoverage,
+              },
+            });
+            historicalComparison = await HistoricalAnalyzer.analyze({
+              currentRun,
+              historicalRuns: this.options.historicalRuns,
+              policyConfig: this.options.historicalPolicy,
+              productModel,
+              enableAI: this.options.enableAiQa,
+            });
+            historicalSignals = historicalComparison.generatedSignals;
+          } catch (histErr: any) {
+            this.logger.warn('historical_analyzer_warning', {
+              message: histErr.message,
+            });
+          }
+        }
       }
 
     } catch (err: any) {
@@ -997,6 +1045,8 @@ export class BrowserRunner {
       accessibilityResult,
       accessibilityFindings,
       accessibilityCoverage,
+      historicalComparison,
+      historicalSignals,
       failureReason,
     };
   }

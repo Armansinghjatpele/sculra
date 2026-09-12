@@ -17,6 +17,12 @@ import {
   ReleaseAssessment,
 } from './release';
 import { createAIQAProvider } from './ai-qa';
+import {
+  HistoricalAnalyzer,
+  RunNormalizer,
+  HistoricalEvidenceFormatter,
+  HistoricalRun,
+} from './history';
 
 export interface ExecutorConfig {
   supabaseUrl?: string;
@@ -782,6 +788,99 @@ export class JobExecutor {
           confidenceLevel: assessment.confidenceLevel,
         },
       });
+
+      // 6f. Compute & Persist Historical QA Memory & Cross-Run Intelligence
+      try {
+        const { data: pastRuns } = await this.supabase
+          .from('test_runs')
+          .select('id, project_id, organization_id, status, created_at, completed_at, duration_ms, overall_score, metadata')
+          .eq('project_id', project.id)
+          .neq('id', testRunId)
+          .order('created_at', { ascending: false })
+          .limit(30);
+
+        const { data: pastIssues } = await this.supabase
+          .from('issues')
+          .select('*')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const historicalRuns: HistoricalRun[] = [];
+        if (pastRuns && pastRuns.length > 0) {
+          for (const pr of pastRuns) {
+            const runIssues = (pastIssues || []).filter(
+              (iss: any) => iss.test_run_id === pr.id || iss.metadata?.firstSeenRunId === pr.id
+            );
+            const normFindings = runIssues.map((iss: any) => RunNormalizer.normalizeDbIssue(iss, pr.id));
+            historicalRuns.push(
+              RunNormalizer.normalizeRun({
+                ...pr,
+                findings: normFindings,
+              })
+            );
+          }
+        }
+
+        const currentRun = RunNormalizer.fromExecutionResult({
+          testRunId,
+          projectId: project.id,
+          organizationId: project.organization_id,
+          targetUrl,
+          result,
+          assessment,
+          environment: project.environment || 'staging',
+        });
+
+        const historicalComparison = await HistoricalAnalyzer.analyze({
+          currentRun,
+          historicalRuns,
+          productModel: result.productModel,
+          enableAI: true,
+        });
+
+        if (historicalComparison.generatedSignals.length > 0) {
+          const signalRows = historicalComparison.generatedSignals.map((sig) => ({
+            project_id: sig.projectId,
+            organization_id: sig.organizationId || null,
+            test_run_id: sig.testRunId,
+            signal_type: sig.signalType,
+            target_type: sig.targetType,
+            target_identifier: sig.targetIdentifier,
+            fingerprint: sig.fingerprint || null,
+            severity: sig.severity,
+            confidence: sig.confidence,
+            occurrence_count: sig.occurrenceCount,
+            consecutive_count: sig.consecutiveCount,
+            environment: sig.environment,
+            viewport: sig.viewport || null,
+            role: sig.role || null,
+            metadata: sig.metadata || {},
+            first_seen_at: sig.firstSeenAt,
+            last_seen_at: sig.lastSeenAt,
+          }));
+
+          const { error: sigErr } = await this.supabase.from('qa_history_signals').insert(signalRows);
+          if (sigErr) {
+            logger.warn('qa_history_signals_insert_warning', { message: sigErr.message });
+          }
+        }
+
+        const histEvidences = HistoricalEvidenceFormatter.formatHistoricalEvidence(historicalComparison, targetUrl);
+        for (const ev of histEvidences) {
+          await this.supabase.from('test_evidence').insert({
+            test_run_id: testRunId,
+            project_id: project.id,
+            type: ev.type,
+            title: ev.title,
+            url: targetUrl,
+            message: ev.message,
+            metadata: ev.metadata,
+          });
+        }
+      } catch (histErr: any) {
+        logger.warn('historical_memory_execution_warning', { message: histErr.message });
+      }
 
     } catch (scoringErr: any) {
       logger.error('release_scoring_error', { message: scoringErr.message });

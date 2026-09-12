@@ -43,6 +43,9 @@ export interface RunnerOptions {
   performancePolicy?: Partial<import('./performance/types').PerformancePolicyConfig>;
   enableAccessibilityQa?: boolean;
   accessibilityPolicy?: Partial<import('./accessibility/types').AccessibilityPolicyConfig>;
+  enableHistoricalAnalysis?: boolean;
+  historicalPolicy?: Partial<import('./history/types').HistoricalPolicyConfig>;
+  historicalRuns?: import('./history/types').HistoricalRun[];
   viewport?: {
     width: number;
     height: number;
@@ -209,6 +212,8 @@ export interface TestExecutionResult {
   accessibilityResult?: import('./accessibility/types').AccessibilityScanResult;
   accessibilityFindings?: import('./accessibility/types').AccessibilityFinding[];
   accessibilityCoverage?: import('./accessibility/types').AccessibilityCoverageSummary;
+  historicalComparison?: import('./history/types').RunComparison;
+  historicalSignals?: import('./history/types').QASignalRecord[];
   failureReason?: string;
 }
 

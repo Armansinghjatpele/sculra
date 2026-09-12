@@ -18,6 +18,7 @@ vi.mock('@/services/db', () => ({
   getTestRun: vi.fn(),
   getTestEvidence: vi.fn(),
   getTestRunIssues: vi.fn(),
+  getTestRunHistorySignals: vi.fn(),
   cancelTestRun: vi.fn(),
 }));
 

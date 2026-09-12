@@ -10,10 +10,17 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs';
-import { TestRun, TestEvidence, Issue } from '@/lib/demoData';
+import { TestRun, TestEvidence, Issue, QASignalRecord } from '@/lib/demoData';
 import { IssueList } from '@/components/IssueList';
 import { formatPerformanceScore, formatPerformanceMetric, formatTargetsEvaluated } from '@/lib/performanceUtils';
 import { formatAccessibilityScore, getAccessibilityScoreColor, getAccessibilitySeverityBadge } from '@/lib/accessibilityUtils';
+import {
+  formatScoreDelta,
+  getScoreDeltaColor,
+  getTrendBadge,
+  getFindingHistoricalBadge,
+  getStabilityBadge,
+} from '@/lib/historyUtils';
 
 interface TestRunDetailPageProps {
   params: Promise<{ testRunId: string }>;
@@ -27,6 +34,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const [testRun, setTestRun] = React.useState<TestRun | null>(null);
   const [evidence, setEvidence] = React.useState<TestEvidence[]>([]);
   const [issues, setIssues] = React.useState<Issue[]>([]);
+  const [signals, setSignals] = React.useState<QASignalRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [cancelling, setCancelling] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -43,6 +51,7 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           setTestRun(data.testRun);
           setEvidence(data.evidence || []);
           setIssues(data.issues || []);
+          setSignals(data.signals || []);
         }
       }
     } catch (e) {
@@ -197,6 +206,33 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
   const journeyResults: any[] = evidence
     .filter((e) => e.type === 'journey_result')
     .map((e) => e.metadata?.journeyResult)
+    .filter(Boolean);
+
+  const historicalSummaryEvidence = evidence.find((e) => e.type === 'historical_summary');
+  const historicalComparison = historicalSummaryEvidence?.metadata?.historicalComparison;
+  const regressionEvents: any[] = evidence
+    .filter((e) => e.type === 'regression_event')
+    .map((e) => e.metadata?.regression)
+    .filter(Boolean);
+  const recoveryEvents: any[] = evidence
+    .filter((e) => e.type === 'recovery_event')
+    .map((e) => e.metadata?.recovery)
+    .filter(Boolean);
+  const recurrenceEvents: any[] = evidence
+    .filter((e) => e.type === 'recurrence_event')
+    .map((e) => e.metadata?.recurrence)
+    .filter(Boolean);
+  const stabilitySignals: any[] = evidence
+    .filter((e) => e.type === 'stability_signal')
+    .map((e) => e.metadata?.stability)
+    .filter(Boolean);
+  const trendSnapshots: any[] = evidence
+    .filter((e) => e.type === 'trend_snapshot')
+    .map((e) => e.metadata?.trends)
+    .filter(Boolean);
+  const coverageTrends: any[] = evidence
+    .filter((e) => e.type === 'coverage_trend')
+    .map((e) => e.metadata?.coverageTrend)
     .filter(Boolean);
 
   const isTerminal = testRun.status === 'passed' || testRun.status === 'failed' || testRun.status === 'cancelled';
@@ -401,6 +437,9 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
           <TabsTrigger value="overview">Overview & Navigation</TabsTrigger>
           <TabsTrigger value="issues">
             Issues Detected {issues.length > 0 && `(${issues.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            History & Regressions {regressionEvents.length > 0 ? `(${regressionEvents.length} reg)` : (historicalComparison ? '(Analyzed)' : '')}
           </TabsTrigger>
           <TabsTrigger value="auth">
             Auth & Roles {(roleContexts.length > 0 || authChecks.length > 0 || authSessions.length > 0) && `(${roleContexts.length || authChecks.length || authSessions.length})`}
@@ -3045,6 +3084,482 @@ export default function TestRunDetailPage({ params }: TestRunDetailPageProps) {
                   );
                 })}
               </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab: History & Regressions */}
+        <TabsContent value="history">
+          <div className="mt-4 space-y-6">
+            {!historicalComparison && regressionEvents.length === 0 && signals.length === 0 ? (
+              <div className="bg-zinc-900/40 border border-white/10 rounded-2xl p-8 text-center space-y-3 font-mono">
+                <div className="h-10 w-10 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto text-base">
+                  ⚡
+                </div>
+                <h3 className="text-sm font-bold text-foreground">Initial Baseline Run</h3>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  This execution is establishing the initial baseline profile for this branch, environment, and viewport.
+                  Subsequent runs will automatically track score deltas, regressions, recoveries, and target stability against this baseline.
+                </p>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800/60 border border-zinc-700/40 text-3xs text-muted-foreground">
+                  <span>Baseline Key:</span>
+                  <span className="text-foreground font-mono font-bold">
+                    {testRun.projectId || 'project'}:{testRun.environment || 'staging'}:{testRun.branch || 'main'}:1280x800
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Executive Summary Card */}
+                <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-5">
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-widest text-accent">Cross-Run QA Memory</span>
+                        {historicalComparison?.summary && (
+                          <span className={`text-4xs font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            historicalComparison.summary.newRegressionsCount > 0
+                              ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                          }`}>
+                            {historicalComparison.summary.newRegressionsCount > 0 ? `${historicalComparison.summary.newRegressionsCount} New Regressions` : 'Regression-Free'}
+                          </span>
+                        )}
+                        {historicalComparison?.trend && (
+                          <span className={`text-4xs font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${getTrendBadge(historicalComparison.trend).bg} ${getTrendBadge(historicalComparison.trend).border} ${getTrendBadge(historicalComparison.trend).text}`}>
+                            {getTrendBadge(historicalComparison.trend).label}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-base font-bold text-foreground mt-1">
+                        Historical Comparison & Evolution Analysis
+                      </h3>
+                    </div>
+                    {historicalComparison?.baselineRunId && (
+                      <div className="flex items-center gap-2 text-3xs font-mono bg-zinc-950/60 border border-white/5 px-3 py-1.5 rounded-lg">
+                        <span className="text-muted-foreground">Compared to Baseline:</span>
+                        <Link
+                          href={`/test-runs/${historicalComparison.baselineRunId}`}
+                          className="text-accent hover:underline font-bold"
+                        >
+                          {historicalComparison.baselineRunId.slice(0, 8)}...
+                        </Link>
+                        {historicalComparison.baselineCreatedAt && (
+                          <span className="text-muted-foreground">({new Date(historicalComparison.baselineCreatedAt).toLocaleDateString()})</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Grounded AI / Deterministic Executive Narrative */}
+                  {(historicalComparison?.summary?.aiInterpretation || historicalComparison?.summary?.reason) && (
+                    <div className="p-4 rounded-xl bg-zinc-950/40 border border-white/5 space-y-1.5">
+                      <div className="flex items-center gap-2 text-3xs text-muted-foreground font-mono">
+                        <span className="text-accent font-bold">●</span>
+                        <span className="font-semibold uppercase tracking-wider">Executive Intelligence Summary</span>
+                      </div>
+                      <p className="text-xs text-foreground/90 font-mono leading-relaxed">
+                        {historicalComparison?.summary?.aiInterpretation || historicalComparison?.summary?.reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Multi-Domain Metric Delta Scorecards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">Release Readiness</span>
+                      <span className={`text-sm font-bold mt-1 block ${getScoreDeltaColor(historicalComparison?.scoreDeltas?.releaseScoreDelta)}`}>
+                        {formatScoreDelta(historicalComparison?.scoreDeltas?.releaseScoreDelta)}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">vs baseline</span>
+                    </div>
+
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">Accessibility</span>
+                      <span className={`text-sm font-bold mt-1 block ${getScoreDeltaColor(historicalComparison?.scoreDeltas?.accessibilityScoreDelta)}`}>
+                        {formatScoreDelta(historicalComparison?.scoreDeltas?.accessibilityScoreDelta)}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">vs baseline</span>
+                    </div>
+
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">Performance</span>
+                      <span className={`text-sm font-bold mt-1 block ${getScoreDeltaColor(historicalComparison?.scoreDeltas?.performanceScoreDelta)}`}>
+                        {formatScoreDelta(historicalComparison?.scoreDeltas?.performanceScoreDelta)}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">vs baseline</span>
+                    </div>
+
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">Security</span>
+                      <span className={`text-sm font-bold mt-1 block ${getScoreDeltaColor(historicalComparison?.scoreDeltas?.securityScoreDelta)}`}>
+                        {formatScoreDelta(historicalComparison?.scoreDeltas?.securityScoreDelta)}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">vs baseline</span>
+                    </div>
+
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">New Regressions</span>
+                      <span className={`text-sm font-bold mt-1 block ${
+                        (historicalComparison?.summary?.newRegressionsCount || 0) > 0 ? 'text-rose-400' : 'text-emerald-400'
+                      }`}>
+                        {historicalComparison?.summary?.newRegressionsCount ?? regressionEvents.length}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">defects</span>
+                    </div>
+
+                    <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-3 text-center font-mono">
+                      <span className="text-4xs uppercase tracking-widest text-muted-foreground block">Recoveries</span>
+                      <span className="text-sm font-bold mt-1 block text-emerald-400">
+                        {historicalComparison?.summary?.recoveredBugsCount ?? recoveryEvents.length}
+                      </span>
+                      <span className="text-4xs text-muted-foreground">verified fixed</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* New Regressions Card */}
+                <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <span className="text-rose-400">●</span> New Regressions Detected
+                      </h4>
+                      <p className="text-3xs text-muted-foreground font-mono mt-0.5">
+                        Defects present in current execution that were not found in baseline run.
+                      </p>
+                    </div>
+                    <span className={`text-3xs font-bold px-2 py-0.5 rounded font-mono ${
+                      regressionEvents.length > 0 ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-zinc-800 text-muted-foreground'
+                    }`}>
+                      {regressionEvents.length} Regressions
+                    </span>
+                  </div>
+
+                  {regressionEvents.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-zinc-950/30 border border-white/5 text-center text-3xs font-mono text-emerald-400">
+                      ✓ Zero new regressions identified. All evaluated targets matched or exceeded baseline reliability.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {regressionEvents.map((reg: any, rIdx: number) => {
+                        const finding = reg.currentFinding || reg.finding || {};
+                        const badge = getFindingHistoricalBadge('NEW_REGRESSION');
+                        return (
+                          <div
+                            key={reg.id || rIdx}
+                            className="p-4 rounded-xl bg-zinc-950/60 border border-rose-500/20 space-y-2 font-mono text-xs"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-4xs font-bold px-2 py-0.5 rounded border ${badge.bg} ${badge.border} ${badge.text}`}>
+                                  {badge.label}
+                                </span>
+                                <span className="font-bold text-foreground">
+                                  {finding.title || finding.message || reg.targetIdentifier || 'Regression Defect'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {reg.businessCriticality && (
+                                  <span className="text-4xs px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 uppercase font-bold">
+                                    {reg.businessCriticality} Priority
+                                  </span>
+                                )}
+                                <span className="text-4xs px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 uppercase font-bold">
+                                  {finding.severity || reg.severity || 'high'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-3xs text-muted-foreground leading-relaxed">
+                              {reg.reason || reg.rationale || finding.details || finding.message || 'Target was clean in previous run but failed in current execution.'}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-4xs text-muted-foreground pt-1 border-t border-white/5">
+                              {reg.targetIdentifier && (
+                                <span>Target: <span className="text-foreground">{reg.targetIdentifier}</span></span>
+                              )}
+                              {reg.workflowName && (
+                                <span>Workflow: <span className="text-accent">{reg.workflowName}</span></span>
+                              )}
+                              {reg.fingerprint && (
+                                <span className="text-muted-foreground/60">FP: {reg.fingerprint.slice(0, 12)}...</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Verified Recoveries Card */}
+                <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <span className="text-emerald-400">●</span> Verified Defect Recoveries
+                      </h4>
+                      <p className="text-3xs text-muted-foreground font-mono mt-0.5">
+                        Defects present in baseline that were actively retested and verified resolved in this run.
+                      </p>
+                    </div>
+                    <span className="text-3xs font-bold px-2 py-0.5 rounded font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      {recoveryEvents.length} Recovered
+                    </span>
+                  </div>
+
+                  {recoveryEvents.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-zinc-950/30 border border-white/5 text-center text-3xs font-mono text-muted-foreground">
+                      No defect recoveries verified in this test run.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recoveryEvents.map((rec: any, recIdx: number) => {
+                        const badge = getFindingHistoricalBadge('RECOVERED');
+                        return (
+                          <div
+                            key={rec.id || recIdx}
+                            className="p-4 rounded-xl bg-zinc-950/60 border border-emerald-500/20 space-y-2 font-mono text-xs"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-4xs font-bold px-2 py-0.5 rounded border ${badge.bg} ${badge.border} ${badge.text}`}>
+                                  {badge.label}
+                                </span>
+                                <span className="font-bold text-foreground">
+                                  {rec.baselineFinding?.title || rec.targetIdentifier || 'Resolved Finding'}
+                                </span>
+                              </div>
+                              <span className="text-4xs px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
+                                Clean Retest Verified
+                              </span>
+                            </div>
+
+                            <p className="text-3xs text-emerald-400/90 leading-relaxed">
+                              {rec.reason || `Target "${rec.targetIdentifier}" was actively retested in this execution session and passed with zero errors.`}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-4xs text-muted-foreground pt-1 border-t border-white/5">
+                              {rec.targetIdentifier && (
+                                <span>Target: <span className="text-foreground">{rec.targetIdentifier}</span></span>
+                              )}
+                              {rec.baselineRunId && (
+                                <span>Baseline Run: <span className="text-foreground">{rec.baselineRunId.slice(0, 8)}...</span></span>
+                              )}
+                              {rec.recoveryProof && (
+                                <span className="text-teal-400">Proof: Active Journey Verification</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recurring Defects Card */}
+                {recurrenceEvents.length > 0 && (
+                  <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                          <span className="text-amber-400">●</span> Recurring Defects Watchlist
+                        </h4>
+                        <p className="text-3xs text-muted-foreground font-mono mt-0.5">
+                          Defects persistently occurring across multiple test executions.
+                        </p>
+                      </div>
+                      <span className="text-3xs font-bold px-2 py-0.5 rounded font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        {recurrenceEvents.length} Recurring
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {recurrenceEvents.map((recur: any, recIdx: number) => {
+                        const badge = getFindingHistoricalBadge('RECURRING');
+                        return (
+                          <div
+                            key={recur.id || recIdx}
+                            className="p-4 rounded-xl bg-zinc-950/60 border border-amber-500/20 space-y-2 font-mono text-xs"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-4xs font-bold px-2 py-0.5 rounded border ${badge.bg} ${badge.border} ${badge.text}`}>
+                                  {badge.label}
+                                </span>
+                                <span className="font-bold text-foreground">
+                                  {recur.finding?.title || recur.targetIdentifier || 'Persistent Defect'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-4xs px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold">
+                                  {recur.consecutiveCount || recur.consecutiveRuns || 2} Consecutive Runs
+                                </span>
+                                <span className="text-4xs px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold">
+                                  {recur.occurrenceCount || 2}x Total
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-3xs text-muted-foreground leading-relaxed">
+                              {recur.reason || `Defect has been observed in ${recur.consecutiveCount || 2} consecutive runs without resolution.`}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-4xs text-muted-foreground pt-1 border-t border-white/5">
+                              {recur.targetIdentifier && (
+                                <span>Target: <span className="text-foreground">{recur.targetIdentifier}</span></span>
+                              )}
+                              {recur.firstSeenAt && (
+                                <span>First Seen: <span className="text-foreground">{new Date(recur.firstSeenAt).toLocaleDateString()}</span></span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Target Stability & Flakiness Watchlist Table */}
+                {stabilitySignals.length > 0 && (
+                  <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-4 font-mono">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                          <span className="text-purple-400">●</span> Target Stability & Flakiness Index
+                        </h4>
+                        <p className="text-3xs text-muted-foreground mt-0.5">
+                          Cross-run evaluation of target flakiness, consistency, and reliability.
+                        </p>
+                      </div>
+                      <span className="text-3xs text-muted-foreground">
+                        {stabilitySignals.length} targets evaluated
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/5 text-4xs uppercase tracking-wider text-muted-foreground">
+                            <th className="py-2.5 px-3">Target Identifier</th>
+                            <th className="py-2.5 px-3">Type</th>
+                            <th className="py-2.5 px-3">Stability Status</th>
+                            <th className="py-2.5 px-3 text-center">Flake Rate</th>
+                            <th className="py-2.5 px-3 text-center">Pass / Fail</th>
+                            <th className="py-2.5 px-3 text-right">Consecutive</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-3xs">
+                          {stabilitySignals.map((stab: any, sIdx: number) => {
+                            const badge = getStabilityBadge(stab.stabilityState || stab.state);
+                            return (
+                              <tr key={stab.id || sIdx} className="hover:bg-zinc-950/40">
+                                <td className="py-2.5 px-3 font-semibold text-foreground max-w-xs truncate">
+                                  {stab.targetIdentifier || stab.target || '--'}
+                                </td>
+                                <td className="py-2.5 px-3 text-muted-foreground uppercase text-4xs">
+                                  {stab.targetType || 'PAGE'}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`inline-flex text-4xs font-bold px-2 py-0.5 rounded border ${badge.bg} ${badge.border} ${badge.text}`}>
+                                    {badge.label}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className={`font-bold ${
+                                    (stab.flakeRate || 0) > 0.3 ? 'text-amber-400' : 'text-muted-foreground'
+                                  }`}>
+                                    {typeof stab.flakeRate === 'number' ? `${Math.round(stab.flakeRate * 100)}%` : '0%'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center text-muted-foreground">
+                                  <span className="text-emerald-400 font-semibold">{stab.passCount ?? stab.passes ?? 1}P</span> / <span className="text-rose-400 font-semibold">{stab.failCount ?? stab.failures ?? 0}F</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-muted-foreground">
+                                  {stab.consecutivePasses ? (
+                                    <span className="text-emerald-400">+{stab.consecutivePasses} pass</span>
+                                  ) : stab.consecutiveFails ? (
+                                    <span className="text-rose-400">-{stab.consecutiveFails} fail</span>
+                                  ) : (
+                                    '--'
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Structural Coverage Trends */}
+                {coverageTrends.length > 0 && (
+                  <div className="bg-zinc-900/30 border border-white/10 rounded-2xl p-6 space-y-4 font-mono">
+                    <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                      <span className="text-blue-400">●</span> Structural Coverage Delta
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {coverageTrends.map((cov: any, cIdx: number) => (
+                        <div key={cIdx} className="p-3.5 rounded-xl bg-zinc-950/40 border border-white/5 space-y-1">
+                          <span className="text-4xs uppercase tracking-widest text-muted-foreground block">
+                            {cov.dimension || 'Coverage'}
+                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-foreground">
+                              {cov.currentCount ?? '--'}
+                            </span>
+                            {typeof cov.delta === 'number' && (
+                              <span className={`text-xs font-bold ${cov.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {cov.delta > 0 ? `+${cov.delta}` : cov.delta}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-4xs text-muted-foreground block">
+                            Baseline: {cov.baselineCount ?? '--'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Raw Historical QA Memory Signals Audit Drawer */}
+                {signals.length > 0 && (
+                  <div className="bg-zinc-900/20 border border-white/5 rounded-2xl p-6 space-y-3 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-3xs uppercase tracking-widest text-muted-foreground font-bold">
+                        Historical Memory Signals Database Audit ({signals.length})
+                      </span>
+                      <span className="text-4xs text-muted-foreground uppercase">RLS Protected</span>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {signals.map((sig, sIdx) => (
+                        <div
+                          key={sig.id || sIdx}
+                          className="p-2.5 rounded bg-zinc-950/50 border border-white/5 text-3xs flex items-center justify-between gap-3"
+                        >
+                          <div className="truncate">
+                            <span className="font-bold text-accent mr-2">[{sig.signalType}]</span>
+                            <span className="text-foreground">{sig.targetIdentifier}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-4xs px-1.5 py-0.5 rounded bg-zinc-900 text-muted-foreground">
+                              {sig.targetType}
+                            </span>
+                            {sig.severity && (
+                              <span className="text-4xs px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 font-bold uppercase">
+                                {sig.severity}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </TabsContent>

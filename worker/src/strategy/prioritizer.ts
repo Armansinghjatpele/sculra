@@ -13,6 +13,9 @@ export interface PrioritizationContext {
   completedTargetIds?: Set<string>;
   cooldownTargetIds?: Map<string, number>; // targetId -> cooldown until iteration
   currentIteration?: number;
+  historicalSignals?: import('../history/types').QASignalRecord[];
+  stabilitySignals?: import('../history/types').StabilitySignal[];
+  recentRegressions?: import('../history/types').RegressionEvent[];
 }
 
 export class DeterministicPrioritizer {
@@ -236,9 +239,20 @@ export class DeterministicPrioritizer {
           break;
         }
       }
-      if (hasUnmetDependency && candidate.targetType !== 'PAGE') {
-        baseScore -= 15;
-        reasons.push('Dependency notice: Prerequisite route visit required prior to deep action');
+      // 7. Historical QA Memory & Regression Boosts
+      if (context.historicalSignals || context.stabilitySignals || context.recentRegressions) {
+        const { HistoricalStrategyEngine } = require('../history/strategy');
+        const modifiers = HistoricalStrategyEngine.computeHistoricalBoosts(
+          [candidate],
+          context.historicalSignals || [],
+          context.stabilitySignals || [],
+          context.recentRegressions || []
+        );
+        const mod = modifiers.get(candidate.id);
+        if (mod) {
+          baseScore += mod.priorityBonus;
+          reasons.push(...mod.reasons);
+        }
       }
 
       // Bound score cleanly between 0 and 100

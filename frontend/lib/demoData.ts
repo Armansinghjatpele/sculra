@@ -31,6 +31,8 @@ export interface TestRun {
   startedAt?: string;
   completedAt?: string;
   url?: string;
+  environment?: string;
+  branch?: string;
 }
 
 export interface TestEvidence {
@@ -106,12 +108,56 @@ export interface TestEvidence {
     | 'accessibility_heading'
     | 'accessibility_landmark'
     | 'accessibility_dialog'
+    | 'historical_summary'
+    | 'regression_event'
+    | 'recovery_event'
+    | 'recurrence_event'
+    | 'stability_signal'
+    | 'trend_snapshot'
+    | 'coverage_trend'
+    | 'historical_comparison'
     | 'release_report';
   title: string;
   url?: string;
   message?: string;
   metadata?: Record<string, any>;
   storagePath?: string;
+  createdAt: string;
+}
+
+export interface QASignalRecord {
+  id: string;
+  projectId: string;
+  organizationId?: string | null;
+  testRunId: string;
+  signalType:
+    | 'NEW_REGRESSION'
+    | 'RECOVERED_DEFECT'
+    | 'RECURRING_DEFECT'
+    | 'STABLE_PASS'
+    | 'STABLE_FAILURE'
+    | 'INTERMITTENT_TARGET'
+    | 'RELEASE_SCORE_DEGRADED'
+    | 'RELEASE_SCORE_IMPROVED'
+    | 'UNTESTED_CRITICAL_WORKFLOW'
+    | 'PERFORMANCE_REGRESSION'
+    | 'ACCESSIBILITY_REGRESSION'
+    | 'SECURITY_REGRESSION'
+    | 'API_REGRESSION'
+    | 'VISUAL_REGRESSION';
+  targetType: string;
+  targetIdentifier: string;
+  fingerprint?: string | null;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  confidence: 'high' | 'medium' | 'low';
+  occurrenceCount: number;
+  consecutiveCount: number;
+  environment?: string;
+  viewport?: string | null;
+  role?: string | null;
+  metadata?: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
   createdAt: string;
 }
 

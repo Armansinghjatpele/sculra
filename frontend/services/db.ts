@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -641,4 +641,122 @@ export async function getProjectReleaseHistory(clerkToken: string, projectId: st
     createdAt: d.created_at ? new Date(d.created_at).toLocaleString() : '',
   }));
 }
+
+export async function getProjectHistorySignals(
+  clerkToken: string,
+  projectId: string,
+  limit = 50
+): Promise<QASignalRecord[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_history_signals')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('last_seen_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((s: any) => ({
+    id: s.id,
+    projectId: s.project_id,
+    organizationId: s.organization_id,
+    testRunId: s.test_run_id,
+    signalType: s.signal_type,
+    targetType: s.target_type,
+    targetIdentifier: s.target_identifier,
+    fingerprint: s.fingerprint,
+    severity: s.severity,
+    confidence: s.confidence,
+    occurrenceCount: s.occurrence_count || 1,
+    consecutiveCount: s.consecutive_count || 1,
+    environment: s.environment,
+    viewport: s.viewport,
+    role: s.role,
+    metadata: s.metadata || {},
+    firstSeenAt: s.first_seen_at ? new Date(s.first_seen_at).toLocaleString() : '',
+    lastSeenAt: s.last_seen_at ? new Date(s.last_seen_at).toLocaleString() : '',
+    createdAt: s.created_at ? new Date(s.created_at).toLocaleString() : '',
+  }));
+}
+
+export async function getTestRunHistorySignals(
+  clerkToken: string,
+  testRunId: string
+): Promise<QASignalRecord[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_history_signals')
+    .select('*')
+    .eq('test_run_id', testRunId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((s: any) => ({
+    id: s.id,
+    projectId: s.project_id,
+    organizationId: s.organization_id,
+    testRunId: s.test_run_id,
+    signalType: s.signal_type,
+    targetType: s.target_type,
+    targetIdentifier: s.target_identifier,
+    fingerprint: s.fingerprint,
+    severity: s.severity,
+    confidence: s.confidence,
+    occurrenceCount: s.occurrence_count || 1,
+    consecutiveCount: s.consecutive_count || 1,
+    environment: s.environment,
+    viewport: s.viewport,
+    role: s.role,
+    metadata: s.metadata || {},
+    firstSeenAt: s.first_seen_at ? new Date(s.first_seen_at).toLocaleString() : '',
+    lastSeenAt: s.last_seen_at ? new Date(s.last_seen_at).toLocaleString() : '',
+    createdAt: s.created_at ? new Date(s.created_at).toLocaleString() : '',
+  }));
+}
+
+export async function getTestRunHistoricalEvidence(
+  clerkToken: string,
+  testRunId: string
+): Promise<TestEvidence[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('test_evidence')
+    .select('*')
+    .eq('test_run_id', testRunId)
+    .in('type', [
+      'historical_summary',
+      'regression_event',
+      'recovery_event',
+      'recurrence_event',
+      'stability_signal',
+      'trend_snapshot',
+      'coverage_trend',
+      'historical_comparison',
+    ])
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((e: any) => ({
+    id: e.id,
+    testRunId: e.test_run_id,
+    projectId: e.project_id,
+    type: e.type,
+    title: e.title,
+    url: e.url,
+    message: e.message,
+    metadata: e.metadata,
+    storagePath: e.storage_path,
+    createdAt: e.created_at ? new Date(e.created_at).toLocaleString() : '',
+  }));
+}
+
 

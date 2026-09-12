@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getTestRun, getTestEvidence, getTestRunIssues } from '@/services/db';
+import { getTestRun, getTestEvidence, getTestRunIssues, getTestRunHistorySignals } from '@/services/db';
 
 export async function GET(
   req: NextRequest,
@@ -33,10 +33,11 @@ export async function GET(
       );
     }
 
-    const [testRun, evidence, issues] = await Promise.all([
+    const [testRun, evidence, issues, signals] = await Promise.all([
       getTestRun(token, testRunId),
       getTestEvidence(token, testRunId),
       getTestRunIssues(token, testRunId),
+      getTestRunHistorySignals(token, testRunId),
     ]);
 
     if (!testRun) {
@@ -51,6 +52,7 @@ export async function GET(
       testRun,
       evidence,
       issues,
+      signals: signals || [],
     });
 
   } catch (err: any) {

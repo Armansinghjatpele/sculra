@@ -806,3 +806,144 @@ graph TD
 18. **Frontend Test-Run UI**:
     - Dedicated **Accessibility QA** tab rendering metric cards, WCAG principle breakdowns (Perceivable, Operable, Understandable, Robust), detailed findings table, and inclusive UX guarantees.
 
+## 17. Cross-Run QA Intelligence, Regression Detection & Historical QA Memory (Prompt 28)
+
+Sculra incorporates a production-grade Cross-Run QA Intelligence, Regression Detection, and Historical QA Memory Engine. It deterministically tracks application evolution across consecutive test runs, detects regressions against dimensional baselines, verifies defect recoveries with strict proof-of-retesting, classifies target flakiness and stability, monitors multi-domain score trends, boosts test strategy priorities for fragile targets, and generates grounded explanatory AI summaries protected against prompt injection.
+
+> [!IMPORTANT]
+> **Core Invariants & Non-Fabrication Guarantees**:
+> 
+> 1. **Zero Metric Fabrication**:
+>    Missing baselines, unavailable metrics, or unobserved deltas are explicitly reported as `BASELINE_MISSING` or `undefined` (`--`). Scores and metrics are NEVER defaulted with fallback constants (never `?? 100` / `|| 100`). Genuine score zero is truthfully preserved as `0`.
+> 
+> 2. **`NOT_RETESTED` != `FIXED`**:
+>    A defect is ONLY marked `RECOVERED` if its specific target (URL, selector, API endpoint, or check suite) was actively exercised cleanly during the current test execution. Targets skipped or unvisited remain `NOT_RETESTED`, preventing false resolution reporting.
+> 
+> 3. **`BASELINE_MISSING` != `REGRESSION`**:
+>    When executing on a new branch, environment, or viewport without an existing compatible baseline, Sculra initializes a new baseline and reports score trends as `INSUFFICIENT_DATA`. A missing baseline is never penalized as a regression.
+> 
+> 4. **Deterministic Authority vs AI Explanations**:
+>    All regression decisions, recovery verifications, flakiness calculations, and stability state classifications are computed deterministically. The AI layer is strictly explanatory, operating under strict prompt-injection defenses and secret redaction.
+
+### Architecture & Memory Flow
+
+```mermaid
+graph TD
+    CurrentRun[Current Test Run & Findings] --> RunNormalizer[RunNormalizer: Canonical Identifiers & Findings]
+    PastRuns[Past Test Runs & DB Issues] --> RunNormalizer
+    
+    RunNormalizer --> BaselineManager[BaselineManager: Dimensional Keys & Selection]
+    BaselineManager --> RunComparator[RunComparator: Compatibility & Scoring]
+    
+    RunComparator --> DefectMatcher[DefectMatcher: Dual-Phase SHA-256 & Signature Matching]
+    
+    DefectMatcher --> RegressionDetector[RegressionDetector: New Findings & Critical Workflows]
+    DefectMatcher --> RecoveryEvaluator[RecoveryEvaluator: Retest Verification & NOT_RETESTED]
+    DefectMatcher --> RecurrenceTracker[RecurrenceTracker: Consecutive Streaks & Frequencies]
+    DefectMatcher --> StabilityClassifier[StabilityClassifier: Flake Rate & Target Stability]
+    
+    RegressionDetector & RecoveryEvaluator & RecurrenceTracker & StabilityClassifier --> TrendAnalyzer[TrendAnalyzer: Multi-Domain Deltas & Score Trends]
+    TrendAnalyzer --> CoverageTracker[CoverageTracker: Structural Surface Deltas]
+    
+    TrendAnalyzer --> StrategyBooster[StrategyPrioritizer: +25 Priority Boosts for Regressions]
+    TrendAnalyzer --> AIInterpreter[AIInterpreter: Grounded Explanatory Summary & Sanitization]
+    TrendAnalyzer --> EvidencePersister[EvidenceFormatter: test_evidence Records]
+    TrendAnalyzer --> SignalPersister[(qa_history_signals RLS Table)]
+    
+    AIInterpreter & EvidencePersister & SignalPersister --> FrontendUI[Frontend Test-Run History & Project Health UI]
+```
+
+### Core Modules (`worker/src/history/`)
+
+1. **Types & Policy (`types.ts`, `policy.ts`)**:
+   - Domain models for `RunComparison`, `RegressionEvent`, `RecoveryEvent`, `RecurrenceEvent`, `TargetStabilityRecord`, `MetricTrendRecord`, `HistoricalScoreDeltas`, and `HistoricalPolicyConfig`.
+   - Bounded defaults: Max history window 30 runs, max target records 500, min runs for trend 2, min runs for flakiness 3, flakiness threshold 0.20 (20%), regression priority boost +25 points.
+2. **Run Normalizer (`run-normalizer.ts`)**:
+   - Normalizes runs, findings, DB issues, URLs, selectors, finding types, and metric names to canonical representations.
+   - Handles mapping from live `TestExecutionResult` via `fromExecutionResult`.
+3. **Dimensional Baseline Manager (`baseline.ts`)**:
+   - Constructs dimensional baseline keys: `projectId:environment:branch:viewport`.
+   - Selects the most recent compatible successful/completed run within the same dimension.
+4. **Run Comparator (`comparator.ts`)**:
+   - Assesses multi-dimensional compatibility (project, branch, environment, viewport, commit).
+   - Calculates compatibility score (0-100) and ranks prior candidate runs.
+5. **Dual-Phase Defect Matcher (`matcher.ts`)**:
+   - Phase 1 (Primary): Exact SHA-256 fingerprint matching.
+   - Phase 2 (Secondary): Fuzzy structured signature matching (target identifier + bug type + selector similarity $\ge 0.85$).
+6. **Regression Detector (`regression.ts`)**:
+   - Identifies findings present in current run that were absent in baseline.
+   - Cross-references with `ProductModel` to associate regressions with business-critical workflows and severity rankings.
+7. **Recovery Evaluator (`recovery.ts`)**:
+   - Inspects visited URLs, tested selectors, API endpoints, and check suites to verify active retesting.
+   - Strictly classifies un-retested baseline findings as `NOT_RETESTED`, preventing false recovery assertions.
+8. **Recurrence Tracker (`recurrence.ts`)**:
+   - Tracks consecutive run streaks, total occurrence counts, first seen run, and recurrence rate across history.
+9. **Target Stability & Flakiness Classifier (`stability.ts`)**:
+   - Computes target flake rates ($\text{fail count} / \text{total runs}$) and classifies targets into:
+     - `STABLE_PASS`: Clean pass rate $\ge 90\%$.
+     - `STABLE_FAILURE`: Persistent failure rate $\ge 80\%$.
+     - `INTERMITTENT`: Flaky pass/fail oscillation (flake rate $> 20\%$).
+     - `RECOVERED`: Target previously failing, now cleanly passing.
+     - `RECURRING`: Target persistently failing across multiple runs.
+     - `INSUFFICIENT_HISTORY`: Single run observed.
+10. **Multi-Domain Metric & Trend Analyzer (`trends.ts`)**:
+    - Analyzes metric deltas across Release Readiness, Accessibility, Performance, Security, and Functional defect counts.
+    - Classifies overall score trajectory: `IMPROVING`, `DEGRADING`, `STABLE`, `VOLATILE`, `INSUFFICIENT_DATA`.
+11. **Structural Coverage Tracker (`coverage.ts`)**:
+    - Tracks structural surface deltas: pages, forms, buttons, links, and responsive viewports.
+12. **Strategy Prioritization Booster (`strategy.ts`)**:
+    - Computes deterministic strategy boosts (+25 pts for regressed targets, +15 pts for flaky/intermittent targets, +10 pts for recurring targets).
+13. **Evidence Persistence (`evidence.ts`)**:
+    - Formats historical artifacts into `test_evidence` records (`historical_summary`, `regression_event`, `recovery_event`, `recurrence_event`, `stability_signal`, `trend_snapshot`, `coverage_trend`).
+14. **Prompt-Injection-Guarded AI Interpreter (`ai-interpreter.ts`)**:
+    - Generates grounded, executive summaries explaining evolution, regressions, and stability.
+    - Features prompt-injection sanitization (stripping control directives, Markdown escape attempts, and delimiters) and regex secret masking with automatic deterministic fallback.
+15. **Master Historical Analyzer (`analyzer.ts`)**:
+    - Coordinates the full analysis pipeline, generates signals, calculates score deltas, and produces `qa_history_signals` payloads.
+
+### Database Architecture (`public.qa_history_signals`)
+
+```sql
+CREATE TABLE IF NOT EXISTS public.qa_history_signals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  test_run_id UUID NOT NULL REFERENCES public.test_runs(id) ON DELETE CASCADE,
+  signal_type TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_identifier TEXT NOT NULL,
+  fingerprint TEXT,
+  severity TEXT,
+  confidence NUMERIC(3,2) DEFAULT 1.0,
+  occurrence_count INT DEFAULT 1,
+  consecutive_count INT DEFAULT 1,
+  environment TEXT,
+  viewport TEXT,
+  role TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  first_seen_at TIMESTAMPTZ DEFAULT now(),
+  last_seen_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Frontend User Experience
+
+1. **Test-Run Detail — History & Regressions Tab**:
+   - Baseline comparison banner with direct link to baseline run ID.
+   - Executive AI & deterministic evolution summary.
+   - Score delta scorecards (Release Readiness, Accessibility, Performance, Security, Regressions, Recoveries).
+   - New Regressions list with business criticality and workflow mappings.
+   - Verified Recoveries list with active retest verification proof.
+   - Recurring Defects watchlist with streak counters.
+   - Target Stability & Flakiness matrix table.
+   - Structural coverage deltas.
+   - Database audit log drawer of `qa_history_signals`.
+
+2. **Project QA History & Health Page (`/projects/[projectId]/history`)**:
+   - Overall stability trajectory badge.
+   - Chronological run evolution timeline and metrics table.
+   - Project-level flaky target watchlist.
+   - Real-time QA history signals log.
+
+
