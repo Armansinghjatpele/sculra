@@ -1188,3 +1188,87 @@ flowchart TD
 - **Privileged Key Enforcement**: Production worker nodes strictly require `SUPABASE_SERVICE_ROLE_KEY` to execute background jobs and reject unauthenticated / anon key starts.
 - **Deep Log Sanitization**: `WorkerLogger` scans and masks Bearer tokens, JWTs, Supabase secret keys (`sb_secret_*`, `service_role*`), passwords, cookies, and API keys across all log messages and nested JSON payloads.
 - **Graceful Process Shutdown**: Trapping `SIGINT` and `SIGTERM` initiates a graceful teardown: stopping new job polling, triggering cancellation tokens on in-flight tasks, allowing running executors a grace period to persist state, and stopping active heartbeat loops.
+
+---
+
+## 20. CI/CD QA Gates, Automatic Triggers & Developer Feedback Loop
+
+Sculra directly participates in software development workflows by accepting GitHub webhooks on code pushes and pull requests, enqueuing autonomous QA campaigns, computing deterministic gate verdicts, and delivering structured developer feedback.
+
+```mermaid
+flowchart TD
+    subgraph GitHub[GitHub Repository / Developer Workspace]
+        Push[Git Push / PR Opened] -->|1. Webhook HTTP POST| Webhook[POST /api/webhooks/github]
+        Checks[GitHub Checks / PR Feedback] <--|6. Markdown & JSON Feedback| FeedbackEngine[CIFeedbackGenerator]
+    end
+
+    subgraph API[Sculra API Gateway]
+        Webhook -->|2. Constant-Time HMAC SHA-256| SecCheck{Valid Signature?}
+        SecCheck -- No --> Reject[401 / 413 Rejection]
+        SecCheck -- Yes --> IdempCheck{Delivery Exists?}
+        IdempCheck -- Yes --> SkipDuplicate[200 already_processed]
+        IdempCheck -- No --> Enqueue[3. Insert qa_campaigns status='QUEUED']
+    end
+
+    subgraph ExecutionQueue[Prompt 30 Distributed Queue]
+        Enqueue --> Q[(qa_campaigns Table)]
+        WorkerDaemon[Worker Daemon] -->|4. Atomic Acquire & Lease| Q
+        WorkerDaemon --> Exec[CampaignExecutor]
+    end
+
+    subgraph ControlPlane[CI Gate & Evaluation Layer]
+        Exec -->|5. Campaign Summary| GateEngine[CIGateEngine]
+        GateEngine -->|Evaluate Policy| Decision[CIGateDecision]
+        Decision --> FeedbackEngine
+        Decision --> GateResults[(cicd_gate_results Table)]
+    end
+```
+
+### 20.1 Core Invariants & Security Guarantees
+
+1. **Zero Parallel Queue / Daemon**: Webhooks enqueue campaigns directly into `public.qa_campaigns` (`status = 'QUEUED'`). The existing `WorkerDaemon` and `JobAcquirer` claim and execute them with full lease, heartbeat, and retry guarantees.
+2. **Constant-Time HMAC SHA-256**: All incoming GitHub webhook payloads are validated against the project's configured `ci_webhook_secret` using `crypto.timingSafeEqual` on the `x-hub-signature-256` header, preventing timing side-channel attacks.
+3. **Payload Ceilings**: Webhook payloads are strictly capped at 1MB (1,048,576 bytes). Oversized requests are rejected immediately with HTTP 413.
+4. **Delivery Idempotency**: Each delivery is tracked by GitHub's `x-github-delivery` UUID in `public.cicd_webhook_events`. Duplicate deliveries return HTTP 200 without duplicate queueing.
+5. **Prompt Injection & Secret Defense**: User-controlled inputs (commit messages, PR titles, branch names) are sanitized with `sanitizeCIInput()` to neutralize prompt injection directives and defang scripts. All logs and feedback redact credentials with `maskSecrets()`.
+6. **Zero Metric Fabrication**: If a campaign is interrupted or evidence is insufficient, scores remain `null` and the gate evaluates to `INSUFFICIENT_EVIDENCE`. The platform never fabricates 100% or 0% scores.
+
+### 20.2 Gate Policies & Deterministic Verdicts
+
+| Gate Policy | Behavior | Failing Criteria |
+| :--- | :--- | :--- |
+| `BLOCK_ON_CRITICAL_ISSUE` (Default) | Standard production gate | Critical blockers > 0 OR release recommendation `DO_NOT_RELEASE` |
+| `STRICT` | Zero-defect high-assurance gate | Critical findings > 0 OR high findings > 0 OR regressions > 0 OR score < threshold (default 80) OR recommendation != `RELEASE` |
+| `PERMISSIVE` | Tolerant review gate | Critical findings >= 3 OR critical blockers with `DO_NOT_RELEASE` |
+| `BLOCK_ON_REGRESSION` | Regressions-only gate | Regressions count > 0 OR critical blockers > 0 |
+
+#### Deterministic Gate Verdicts:
+- **`PASS`**: All gate policy criteria satisfied.
+- **`FAIL`**: One or more gate policy thresholds violated.
+- **`INSUFFICIENT_EVIDENCE`**: Test coverage or release assessment confidence is insufficient.
+- **`CANCELLED`**: Campaign execution was cancelled.
+- **`ERROR`**: Premature infrastructure failure or missing summary evidence.
+
+### 20.3 CI/CD Domain Modules (`worker/src/cicd/`)
+
+| Module | Responsibility |
+| :--- | :--- |
+| `types.ts` | Unified interfaces: `NormalizedCIEvent`, `CIGateDecision`, `CIFeedback`, `ProjectCIConfig` |
+| `errors.ts` | Typed error hierarchy: `SignatureVerificationError`, `PayloadTooLargeError`, `DuplicateDeliveryError` |
+| `redaction.ts` | Prompt injection neutralization and deep secret masking |
+| `webhooks.ts` | Constant-time HMAC SHA-256 verification and 1MB ceiling enforcement |
+| `github.ts` | Normalization of `push`, `pull_request` (`opened`, `synchronize`, `reopened`), and `ping` |
+| `mapping.ts` | Deterministic resolution of GitHub repository coordinates to Sculra projects |
+| `gate.ts` | Deterministic evaluation engine implementing policy rule tables |
+| `feedback.ts` | GitHub-compatible Markdown summary and structured JSON generator |
+| `trigger.ts` | Automatic queue scheduler inserting into `public.qa_campaigns` |
+
+### 20.4 Developer Feedback Schema (`CIFeedback`)
+
+The synthesized developer feedback contains:
+- **Headline**: Emoji-tagged verdict status (e.g., `✅ Sculra CI Gate Passed (Score: 94/100)`).
+- **Summary Table**: Measured release score, recommendation, critical blockers count, regressions, recoveries.
+- **Blockers & Regressions**: Detailed itemized finding descriptions with severity tags and evidence summaries.
+- **Commit Context**: Repository full name, short commit SHA, author, and PR number.
+- **Deep Links**: Direct link to the autonomous QA campaign in the Sculra dashboard.
+- **GitHub Check Run Integration**: Typed conclusion (`success`, `failure`, `action_required`, `neutral`, `cancelled`).

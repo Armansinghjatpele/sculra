@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -178,6 +178,14 @@ export async function getProject(clerkToken: string, id: string) {
     environment: env,
     branch,
     createdAt: data.created_at ? new Date(data.created_at).toLocaleDateString() : undefined,
+    ciEnabled: !!data.ci_enabled,
+    githubRepoOwner: data.github_repo_owner || undefined,
+    githubRepoName: data.github_repo_name || undefined,
+    ciDefaultBranch: data.ci_default_branch || 'main',
+    ciTriggerOnPush: data.ci_trigger_on_push !== false,
+    ciTriggerOnPr: data.ci_trigger_on_pr !== false,
+    ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
+    ciWebhookSecret: data.ci_webhook_secret || undefined,
   } as Project;
 }
 
@@ -1030,6 +1038,180 @@ export async function cancelCampaign(
   if (error && !useFallback(error)) {
     throw new Error(`Failed to cancel campaign: ${error.message}`);
   }
+}
+
+// ------------------------------------------------------------------------------
+// CI/CD QA Gates & Integration Service Methods
+// ------------------------------------------------------------------------------
+
+export async function getProjectCIConfig(
+  clerkToken: string,
+  projectId: string
+) {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      id,
+      organization_id,
+      name,
+      ci_enabled,
+      github_repo_owner,
+      github_repo_name,
+      ci_default_branch,
+      ci_trigger_on_push,
+      ci_trigger_on_pr,
+      ci_gate_policy,
+      ci_webhook_secret,
+      source_url,
+      repository_url
+    `)
+    .eq('id', projectId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return {
+      projectId,
+      ciEnabled: false,
+      githubRepoOwner: '',
+      githubRepoName: '',
+      ciDefaultBranch: 'main',
+      ciTriggerOnPush: true,
+      ciTriggerOnPr: true,
+      ciGatePolicy: 'BLOCK_ON_CRITICAL_ISSUE' as const,
+      ciWebhookSecret: 'sec_' + Math.random().toString(36).slice(2, 10),
+    };
+  }
+
+  return {
+    projectId: data.id,
+    organizationId: data.organization_id,
+    name: data.name,
+    ciEnabled: !!data.ci_enabled,
+    githubRepoOwner: data.github_repo_owner || '',
+    githubRepoName: data.github_repo_name || '',
+    ciDefaultBranch: data.ci_default_branch || 'main',
+    ciTriggerOnPush: data.ci_trigger_on_push !== false,
+    ciTriggerOnPr: data.ci_trigger_on_pr !== false,
+    ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
+    ciWebhookSecret: data.ci_webhook_secret || '',
+    sourceUrl: data.source_url,
+    repositoryUrl: data.repository_url,
+  };
+}
+
+export async function updateProjectCIConfig(
+  clerkToken: string,
+  projectId: string,
+  updates: {
+    ciEnabled?: boolean;
+    githubRepoOwner?: string;
+    githubRepoName?: string;
+    ciDefaultBranch?: string;
+    ciTriggerOnPush?: boolean;
+    ciTriggerOnPr?: boolean;
+    ciGatePolicy?: 'BLOCK_ON_CRITICAL_ISSUE' | 'STRICT' | 'PERMISSIVE' | 'BLOCK_ON_REGRESSION';
+    ciWebhookSecret?: string;
+  }
+) {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const dbUpdates: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.ciEnabled !== undefined) dbUpdates.ci_enabled = updates.ciEnabled;
+  if (updates.githubRepoOwner !== undefined) dbUpdates.github_repo_owner = updates.githubRepoOwner.trim();
+  if (updates.githubRepoName !== undefined) dbUpdates.github_repo_name = updates.githubRepoName.trim();
+  if (updates.ciDefaultBranch !== undefined) dbUpdates.ci_default_branch = updates.ciDefaultBranch.trim();
+  if (updates.ciTriggerOnPush !== undefined) dbUpdates.ci_trigger_on_push = updates.ciTriggerOnPush;
+  if (updates.ciTriggerOnPr !== undefined) dbUpdates.ci_trigger_on_pr = updates.ciTriggerOnPr;
+  if (updates.ciGatePolicy !== undefined) dbUpdates.ci_gate_policy = updates.ciGatePolicy;
+  if (updates.ciWebhookSecret !== undefined) dbUpdates.ci_webhook_secret = updates.ciWebhookSecret.trim();
+
+  const { data, error } = await supabase
+    .from('projects')
+    .update(dbUpdates)
+    .eq('id', projectId)
+    .select('*')
+    .single();
+
+  if (error && !useFallback(error)) {
+    throw new Error(`Failed to update project CI configuration: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function getCICDWebhookEvents(
+  clerkToken: string,
+  projectId: string,
+  limit = 20
+): Promise<CICDWebhookEvent[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('cicd_webhook_events')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('received_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((e: any) => ({
+    id: e.id,
+    deliveryId: e.delivery_id,
+    provider: e.provider,
+    eventType: e.event_type,
+    projectId: e.project_id,
+    repository: e.repository,
+    commitSha: e.commit_sha,
+    pullRequestNumber: e.pull_request_number,
+    status: e.status,
+    campaignId: e.campaign_id,
+    errorCode: e.error_code,
+    receivedAt: e.received_at,
+    processedAt: e.processed_at,
+  }));
+}
+
+export async function getCICDGateResults(
+  clerkToken: string,
+  projectId: string,
+  limit = 20
+): Promise<CICDGateResult[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('cicd_gate_results')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((r: any) => ({
+    id: r.id,
+    campaignId: r.campaign_id,
+    testRunId: r.test_run_id,
+    projectId: r.project_id,
+    commitSha: r.commit_sha,
+    pullRequestNumber: r.pull_request_number,
+    branch: r.branch,
+    gateVerdict: r.gate_verdict,
+    gatePolicy: r.gate_policy,
+    releaseVerdict: r.release_verdict,
+    reasonCodes: r.reason_codes || [],
+    criticalFindingsCount: r.critical_findings_count || 0,
+    regressionCount: r.regression_count || 0,
+    evidenceStatus: r.evidence_status,
+    summaryMarkdown: r.summary_markdown,
+    feedbackJson: r.feedback_json || {},
+    createdAt: r.created_at,
+  }));
 }
 
 

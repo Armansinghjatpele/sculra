@@ -29,6 +29,8 @@ import { JobExecutor } from '../executor';
 import { CampaignExecutor } from '../campaign/executor';
 import { IEvidenceStorage } from '../storage';
 import { WorkerLogger } from '../logger';
+import { CIGateEngine } from '../cicd/gate';
+import { CIFeedbackGenerator } from '../cicd/feedback';
 
 export interface JobRunnerOptions {
   cancellationToken?: CancellationToken;
@@ -123,6 +125,69 @@ export class JobRunner {
             token.isCancelled
               ? (isTimedOut ? 'TIMEOUT' : 'CANCELLED')
               : (campResult.success ? 'COMPLETED' : 'FAILED');
+
+          // CI/CD Gate evaluation if campaign summary is available
+          if (this.supabase && campResult.summary) {
+            try {
+              const gatePolicy = job.config?.gatePolicy || 'BLOCK_ON_CRITICAL_ISSUE';
+              const decision = CIGateEngine.evaluateGate(campResult.summary, gatePolicy);
+              const feedback = CIFeedbackGenerator.generateFeedback(decision, campResult.summary, {
+                deliveryId: job.config?.deliveryId || '',
+                provider: job.config?.provider || 'github',
+                eventType: job.config?.eventType || 'push',
+                repository: { owner: '', name: '', fullName: '' },
+                commit: job.config?.commitSha ? {
+                  sha: job.config.commitSha,
+                  shortSha: String(job.config.commitSha).slice(0, 7),
+                  message: job.config.commitMessage || '',
+                  branch: job.config.branch || '',
+                } : undefined,
+                pullRequest: job.config?.pullRequestNumber ? {
+                  number: job.config.pullRequestNumber,
+                  title: job.config.commitMessage || '',
+                  headSha: job.config.commitSha || '',
+                  headBranch: job.config.branch || '',
+                  baseBranch: '',
+                  sender: '',
+                } : undefined,
+                receivedAt: new Date().toISOString(),
+              });
+
+              await this.supabase.from('cicd_gate_results').insert({
+                campaign_id: job.jobId,
+                test_run_id: job.testRunId || null,
+                project_id: job.projectId,
+                organization_id: job.organizationId || null,
+                commit_sha: job.config?.commitSha || null,
+                pull_request_number: job.config?.pullRequestNumber || null,
+                branch: job.config?.branch || null,
+                gate_verdict: decision.verdict,
+                gate_policy: decision.gatePolicy,
+                release_verdict: decision.releaseVerdict || null,
+                reason_codes: decision.reasonCodes,
+                critical_findings_count: decision.criticalFindingsCount,
+                regression_count: decision.regressionCount,
+                evidence_status: decision.evidenceStatus,
+                summary_markdown: feedback.markdownSummary,
+                feedback_json: feedback.structuredDetails,
+              });
+
+              if (job.config?.deliveryId) {
+                await this.supabase
+                  .from('cicd_webhook_events')
+                  .update({
+                    status: decision.passed ? 'COMPLETED' : 'FAILED',
+                    processed_at: new Date().toISOString(),
+                  })
+                  .eq('delivery_id', job.config.deliveryId);
+              }
+            } catch (gateErr: any) {
+              this.logger.warn('ci_gate_evaluation_failed', {
+                jobId: job.jobId,
+                error: gateErr.message,
+              });
+            }
+          }
 
           return {
             success: campResult.success && !token.isCancelled,

@@ -15,6 +15,50 @@ export interface Project {
   environment?: string;
   branch?: string;
   createdAt?: string;
+  ciEnabled?: boolean;
+  githubRepoOwner?: string;
+  githubRepoName?: string;
+  ciDefaultBranch?: string;
+  ciTriggerOnPush?: boolean;
+  ciTriggerOnPr?: boolean;
+  ciGatePolicy?: 'BLOCK_ON_CRITICAL_ISSUE' | 'STRICT' | 'PERMISSIVE' | 'BLOCK_ON_REGRESSION';
+  ciWebhookSecret?: string;
+}
+
+export interface CICDWebhookEvent {
+  id: string;
+  deliveryId: string;
+  provider: string;
+  eventType: string;
+  projectId: string;
+  repository: string;
+  commitSha?: string;
+  pullRequestNumber?: number;
+  status: 'RECEIVED' | 'PROCESSING' | 'SCHEDULED' | 'IGNORED' | 'FAILED' | 'COMPLETED';
+  campaignId?: string;
+  errorCode?: string;
+  receivedAt: string;
+  processedAt?: string;
+}
+
+export interface CICDGateResult {
+  id: string;
+  campaignId?: string;
+  testRunId?: string;
+  projectId: string;
+  commitSha?: string;
+  pullRequestNumber?: number;
+  branch?: string;
+  gateVerdict: 'PASS' | 'FAIL' | 'INSUFFICIENT_EVIDENCE' | 'ERROR' | 'CANCELLED';
+  gatePolicy: string;
+  releaseVerdict?: string;
+  reasonCodes: string[];
+  criticalFindingsCount: number;
+  regressionCount: number;
+  evidenceStatus: string;
+  summaryMarkdown?: string;
+  feedbackJson?: Record<string, any>;
+  createdAt: string;
 }
 
 export type TestRunStatus = 'passed' | 'running' | 'failed' | 'needs_review' | 'queued' | 'cancelled';
