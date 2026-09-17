@@ -135,31 +135,82 @@ export class WorkerDaemon {
       return 0;
     }
 
-    // 1. Fetch pending queued jobs
+    // 1. Fetch pending queued campaigns
+    const { data: queuedCampaigns } = await this.supabase
+      .from('qa_campaigns')
+      .select('id, project_id, created_at')
+      .eq('status', 'QUEUED')
+      .order('created_at', { ascending: true })
+      .limit(availableSlots);
+
+    let processedCount = 0;
+
+    if (queuedCampaigns && queuedCampaigns.length > 0) {
+      for (const camp of queuedCampaigns) {
+        if (this.activeJobs.has(camp.id)) continue;
+
+        const { data: claimed, error: claimError } = await this.supabase
+          .from('qa_campaigns')
+          .update({
+            status: 'RUNNING',
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', camp.id)
+          .eq('status', 'QUEUED')
+          .select('id')
+          .maybeSingle();
+
+        if (claimError || !claimed) continue;
+
+        processedCount++;
+        const token: CancellationToken = { isCancelled: false };
+        this.activeJobs.set(camp.id, token);
+
+        this.logger.log('campaign_job_claimed_by_daemon', { campaignId: camp.id });
+
+        (async () => {
+          try {
+            await this.executor.executeCampaign(camp.id, token);
+          } catch (execErr: any) {
+            this.logger.error('campaign_execution_failed_in_daemon', execErr.message);
+          } finally {
+            this.activeJobs.delete(camp.id);
+          }
+        })();
+
+        if (this.activeJobs.size >= this.concurrency) {
+          return processedCount;
+        }
+      }
+    }
+
+    const remainingSlots = this.concurrency - this.activeJobs.size;
+    if (remainingSlots <= 0) return processedCount;
+
+    // 2. Fetch pending queued test runs
     const { data: queuedRuns, error } = await this.supabase
       .from('test_runs')
       .select('id, project_id, created_at')
       .eq('status', 'queued')
       .order('created_at', { ascending: true })
-      .limit(availableSlots);
+      .limit(remainingSlots);
 
     if (error) {
       this.logger.error('failed_fetching_queued_runs', error.message);
-      return 0;
+      return processedCount;
     }
 
     if (!queuedRuns || queuedRuns.length === 0) {
-      return 0;
+      return processedCount;
     }
-
-    let processedCount = 0;
 
     for (const run of queuedRuns) {
       if (this.activeJobs.has(run.id)) {
         continue;
       }
 
-      // 2. Claim job atomically by transitioning status from 'queued' to 'running'
+      // Claim test run job atomically by transitioning status from 'queued' to 'running'
       const { data: claimed, error: claimError } = await this.supabase
         .from('test_runs')
         .update({
@@ -173,19 +224,24 @@ export class WorkerDaemon {
         .maybeSingle();
 
       if (claimError || !claimed) {
-        // Another worker or process already claimed this job
         continue;
       }
 
       processedCount++;
-      const cancellationToken: CancellationToken = { isCancelled: false };
-      this.activeJobs.set(run.id, cancellationToken);
+      const token: CancellationToken = { isCancelled: false };
+      this.activeJobs.set(run.id, token);
 
-      console.log(`[Worker Daemon]: Picked up job ${run.id} for project ${run.project_id}`);
-      this.logger.log('job_claimed', { testRunId: run.id, projectId: run.project_id });
+      this.logger.log('job_claimed_by_daemon', { testRunId: run.id });
 
-      // Execute asynchronously in background without blocking next poll loop
-      this.executeJob(run.id, cancellationToken);
+      (async () => {
+        try {
+          await this.executor.executeTestRun(run.id, token);
+        } catch (execErr: any) {
+          this.logger.error('job_execution_failed_in_daemon', execErr.message);
+        } finally {
+          this.activeJobs.delete(run.id);
+        }
+      })();
     }
 
     return processedCount;

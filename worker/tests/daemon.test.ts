@@ -87,7 +87,18 @@ describe('WorkerDaemon Queue Processing', () => {
             }),
           };
         }
-        return {};
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue({
+                  data: [],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
       }),
     };
 

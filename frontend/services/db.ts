@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -758,5 +758,279 @@ export async function getTestRunHistoricalEvidence(
     createdAt: e.created_at ? new Date(e.created_at).toLocaleString() : '',
   }));
 }
+
+// ------------------------------------------------------------------------------
+// Autonomous QA Campaign Service Methods
+// ------------------------------------------------------------------------------
+
+export async function createCampaign(
+  clerkToken: string,
+  projectId: string,
+  config: Record<string, any>
+): Promise<Campaign> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_campaigns')
+    .insert({
+      project_id: projectId,
+      name: config.name || 'Autonomous QA Campaign',
+      objective: config.objective || 'RELEASE_GATE',
+      status: 'PENDING',
+      current_stage: 'DISCOVERY_MAPPING',
+      config,
+      budget_status: {
+        durationSeconds: { current: 0, max: config.budget?.maxDurationSeconds || 900, exhausted: false },
+        tasks: { totalPlanned: 0, completed: 0, running: 0, failed: 0, skipped: 0, max: config.budget?.maxTasks || 25, exhausted: false },
+        retries: { count: 0, maxPerTask: config.budget?.maxRetriesPerTask || 1 },
+        overallExhausted: false,
+      },
+      progress_snapshot: {
+        status: 'PENDING',
+        currentStage: 'DISCOVERY_MAPPING',
+        activeTasks: 0,
+        completedTasks: 0,
+        failedTasks: 0,
+        totalTasks: 0,
+        percentComplete: 0,
+        elapsedDurationMs: 0,
+        coverage: {
+          pagesDiscovered: 0,
+          pagesTested: 0,
+          endpointsDiscovered: 0,
+          endpointsTested: 0,
+          criticalWorkflowsTotal: 0,
+          criticalWorkflowsTested: 0,
+          rolesTested: 0,
+          domainCoveragePercentage: {},
+        },
+      },
+    })
+    .select('*')
+    .single();
+
+  if (useFallback(error) || !data) {
+    return {
+      id: `camp-mock-${Date.now()}`,
+      projectId,
+      name: config.name || 'Autonomous QA Campaign',
+      objective: config.objective || 'RELEASE_GATE',
+      status: 'PENDING',
+      currentStage: 'DISCOVERY_MAPPING',
+      config: config as any,
+      budgetStatus: {},
+      progressSnapshot: {
+        campaignId: `camp-mock-${Date.now()}`,
+        status: 'PENDING',
+        currentStage: 'DISCOVERY_MAPPING',
+        activeTasks: 0,
+        completedTasks: 0,
+        failedTasks: 0,
+        totalTasks: 0,
+        percentComplete: 0,
+        elapsedDurationMs: 0,
+        coverage: {
+          pagesDiscovered: 0,
+          pagesTested: 0,
+          endpointsDiscovered: 0,
+          endpointsTested: 0,
+          criticalWorkflowsTotal: 0,
+          criticalWorkflowsTested: 0,
+          rolesTested: 0,
+          domainCoveragePercentage: {} as any,
+        },
+        budget: {
+          durationSeconds: { current: 0, max: config.budget?.maxDurationSeconds || 900, exhausted: false },
+          tasks: { totalPlanned: 0, completed: 0, running: 0, failed: 0, skipped: 0, max: config.budget?.maxTasks || 25, exhausted: false },
+          retries: { count: 0, maxPerTask: 1 },
+          overallExhausted: false,
+        },
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    id: data.id,
+    projectId: data.project_id,
+    organizationId: data.organization_id,
+    name: data.name,
+    objective: data.objective,
+    status: data.status,
+    currentStage: data.current_stage,
+    config: data.config,
+    budgetStatus: data.budget_status || {},
+    progressSnapshot: data.progress_snapshot || {},
+    summary: data.summary,
+    overallScore: data.overall_score !== null && data.overall_score !== undefined ? Number(data.overall_score) : undefined,
+    releaseVerdict: data.release_verdict,
+    errorMessage: data.error_message,
+    startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
+    completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : '',
+    updatedAt: data.updated_at ? new Date(data.updated_at).toLocaleString() : '',
+  };
+}
+
+export async function getCampaign(
+  clerkToken: string,
+  campaignId: string
+): Promise<Campaign | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .single();
+
+  if (useFallback(error) || !data) {
+    const found = mockCampaigns.find((c) => c.id === campaignId);
+    return found || null;
+  }
+
+  return {
+    id: data.id,
+    projectId: data.project_id,
+    organizationId: data.organization_id,
+    name: data.name,
+    objective: data.objective,
+    status: data.status,
+    currentStage: data.current_stage,
+    config: data.config,
+    budgetStatus: data.budget_status || {},
+    progressSnapshot: data.progress_snapshot || {},
+    summary: data.summary,
+    overallScore: data.overall_score !== null && data.overall_score !== undefined ? Number(data.overall_score) : undefined,
+    releaseVerdict: data.release_verdict,
+    errorMessage: data.error_message,
+    startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
+    completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : '',
+    updatedAt: data.updated_at ? new Date(data.updated_at).toLocaleString() : '',
+  };
+}
+
+export async function getProjectCampaigns(
+  clerkToken: string,
+  projectId: string
+): Promise<Campaign[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_campaigns')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return mockCampaigns.filter((c) => c.projectId === projectId);
+  }
+
+  return data.map((c: any) => ({
+    id: c.id,
+    projectId: c.project_id,
+    organizationId: c.organization_id,
+    name: c.name,
+    objective: c.objective,
+    status: c.status,
+    currentStage: c.current_stage,
+    config: c.config,
+    budgetStatus: c.budget_status || {},
+    progressSnapshot: c.progress_snapshot || {},
+    summary: c.summary,
+    overallScore: c.overall_score !== null && c.overall_score !== undefined ? Number(c.overall_score) : undefined,
+    releaseVerdict: c.release_verdict,
+    errorMessage: c.error_message,
+    startedAt: c.started_at ? new Date(c.started_at).toLocaleString() : undefined,
+    completedAt: c.completed_at ? new Date(c.completed_at).toLocaleString() : undefined,
+    createdAt: c.created_at ? new Date(c.created_at).toLocaleString() : '',
+    updatedAt: c.updated_at ? new Date(c.updated_at).toLocaleString() : '',
+  }));
+}
+
+export async function getCampaignTasks(
+  clerkToken: string,
+  campaignId: string
+): Promise<CampaignTask[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('qa_campaign_tasks')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error) || !data) {
+    return mockCampaignTasks.filter((t) => t.campaignId === campaignId);
+  }
+
+  return data.map((t: any) => ({
+    id: t.id,
+    campaignId: t.campaign_id,
+    taskKey: t.task_key,
+    stage: t.stage,
+    domain: t.domain,
+    status: t.status,
+    priority: t.priority,
+    target: t.target,
+    dependencies: t.dependencies || [],
+    retryCount: t.retry_count || 0,
+    maxRetries: t.max_retries || 1,
+    startedAt: t.started_at ? new Date(t.started_at).toLocaleString() : undefined,
+    completedAt: t.completed_at ? new Date(t.completed_at).toLocaleString() : undefined,
+    durationMs: t.duration_ms,
+    error: t.error,
+    observationsCount: t.observations_count || 0,
+    issuesDetected: t.issues_detected || 0,
+    metadata: t.metadata || {},
+    createdAt: t.created_at ? new Date(t.created_at).toLocaleString() : '',
+  }));
+}
+
+export async function getCampaignEvidence(
+  clerkToken: string,
+  campaignId: string
+): Promise<TestEvidence[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('test_evidence')
+    .select('*')
+    .eq('metadata->>campaignId', campaignId)
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((e: any) => ({
+    id: e.id,
+    testRunId: e.test_run_id,
+    projectId: e.project_id,
+    type: e.type,
+    title: e.title,
+    url: e.url,
+    message: e.message,
+    metadata: e.metadata,
+    storagePath: e.storage_path,
+    createdAt: e.created_at ? new Date(e.created_at).toLocaleString() : '',
+  }));
+}
+
+export async function cancelCampaign(
+  clerkToken: string,
+  campaignId: string
+): Promise<void> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('qa_campaigns')
+    .update({
+      status: 'CANCELLED',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', campaignId);
+
+  if (error && !useFallback(error)) {
+    throw new Error(`Failed to cancel campaign: ${error.message}`);
+  }
+}
+
 
 

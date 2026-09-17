@@ -116,13 +116,222 @@ export interface TestEvidence {
     | 'trend_snapshot'
     | 'coverage_trend'
     | 'historical_comparison'
-    | 'release_report';
+    | 'release_report'
+    | 'campaign_plan'
+    | 'campaign_progress'
+    | 'campaign_correlation'
+    | 'campaign_summary'
+    | 'campaign_stop'
+    | 'campaign_task_result';
   title: string;
   url?: string;
   message?: string;
   metadata?: Record<string, any>;
   storagePath?: string;
   createdAt: string;
+}
+
+export type CampaignObjective =
+  | 'FULL_REGRESSION'
+  | 'SMOKE'
+  | 'RELEASE_GATE'
+  | 'SECURITY_SWEEP'
+  | 'PERFORMANCE_AUDIT'
+  | 'ACCESSIBILITY_AUDIT'
+  | 'TARGETED_RETEST'
+  | 'EXPLORATORY';
+
+export type CampaignStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'TIMED_OUT'
+  | 'BUDGET_EXHAUSTED';
+
+export type CampaignStage =
+  | 'DISCOVERY_MAPPING'
+  | 'SURFACE_VERIFICATION'
+  | 'DEEP_ENGINE_AUDITS'
+  | 'HISTORICAL_CORRELATION'
+  | 'RELEASE_EVALUATION';
+
+export type CampaignTaskStatus =
+  | 'PENDING'
+  | 'READY'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SKIPPED'
+  | 'CANCELLED';
+
+export type CampaignDomain =
+  | 'discovery'
+  | 'product'
+  | 'strategy'
+  | 'journey'
+  | 'visual'
+  | 'auth'
+  | 'api'
+  | 'security'
+  | 'performance'
+  | 'accessibility'
+  | 'historical'
+  | 'release';
+
+export interface CampaignConfig {
+  name: string;
+  objective: CampaignObjective;
+  enabledDomains: CampaignDomain[];
+  targetUrl: string;
+  targetRole?: string;
+  budget: {
+    maxDurationSeconds: number;
+    maxTasks: number;
+    maxParallelStages: number;
+    maxRetriesPerTask: number;
+  };
+  adaptiveInsertion: boolean;
+  minReleaseScoreThreshold?: number;
+  environment?: string;
+  branch?: string;
+  commitHash?: string;
+}
+
+export interface CampaignBudgetProgress {
+  durationSeconds: { current: number; max: number; exhausted: boolean };
+  tasks: { totalPlanned: number; completed: number; running: number; failed: number; skipped: number; max: number; exhausted: boolean };
+  retries: { count: number; maxPerTask: number };
+  overallExhausted: boolean;
+  exhaustionReason?: string;
+}
+
+export interface CampaignProgress {
+  campaignId: string;
+  status: CampaignStatus;
+  currentStage: CampaignStage;
+  activeTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  totalTasks: number;
+  percentComplete: number;
+  elapsedDurationMs: number;
+  coverage: {
+    pagesDiscovered: number;
+    pagesTested: number;
+    endpointsDiscovered: number;
+    endpointsTested: number;
+    criticalWorkflowsTotal: number;
+    criticalWorkflowsTested: number;
+    rolesTested: number;
+    domainCoveragePercentage: Record<CampaignDomain, number>;
+  };
+  budget: CampaignBudgetProgress;
+  releaseReadinessStatus?: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
+  latestReleaseScore?: number;
+}
+
+export interface CampaignTask {
+  id: string;
+  campaignId: string;
+  taskKey: string;
+  stage: CampaignStage;
+  domain: CampaignDomain;
+  status: CampaignTaskStatus;
+  priority: number;
+  target?: {
+    type: 'PAGE' | 'API' | 'WORKFLOW' | 'ROLE' | 'GLOBAL';
+    identifier: string;
+    criticality?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    metadata?: Record<string, any>;
+  };
+  dependencies: string[];
+  retryCount: number;
+  maxRetries: number;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  error?: string;
+  observationsCount: number;
+  issuesDetected: number;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface CrossDomainCorrelation {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  contributingDomains: CampaignDomain[];
+  rootCauseHypothesis: string;
+  evidenceLinks: Array<{ evidenceId: string; domain: CampaignDomain; title: string; summary: string }>;
+  suggestedAction: string;
+}
+
+export interface CampaignSummary {
+  campaignId: string;
+  name: string;
+  objective: CampaignObjective;
+  status: CampaignStatus;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  totalTasksPlanned: number;
+  tasksCompleted: number;
+  tasksFailed: number;
+  tasksSkipped: number;
+  domainCoverage: Record<CampaignDomain, number>;
+  criticalWorkflowsTested: number;
+  criticalWorkflowsTotal: number;
+  issuesSummary: {
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    byDomain: Record<CampaignDomain, number>;
+  };
+  crossDomainCorrelations: CrossDomainCorrelation[];
+  releaseReadiness: {
+    verdict: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
+    overallScore?: number;
+    blockersCount: number;
+    blockers: Array<{ id: string; title: string; reason: string; category: string; severity: string }>;
+    riskLevel: string;
+    confidenceLevel: string;
+    recommendations: string[];
+  };
+  aiExecutiveNarrative?: {
+    overview: string;
+    keyHighlights: string[];
+    criticalConcerns: string[];
+    recommendedNextSteps: string[];
+    summaryRiskAssessment: string;
+  };
+}
+
+export interface Campaign {
+  id: string;
+  projectId: string;
+  organizationId?: string | null;
+  name: string;
+  objective: CampaignObjective;
+  status: CampaignStatus;
+  currentStage: CampaignStage;
+  config: CampaignConfig;
+  budgetStatus: Record<string, any>;
+  progressSnapshot: CampaignProgress;
+  summary?: CampaignSummary;
+  overallScore?: number;
+  releaseVerdict?: 'RELEASE' | 'RELEASE_WITH_CAUTION' | 'DO_NOT_RELEASE' | 'INSUFFICIENT_EVIDENCE';
+  errorMessage?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface QASignalRecord {
@@ -314,3 +523,191 @@ export const mockNotifications: Notification[] = [
   { id: 'not-1', title: 'Critical Security Sweep Failed', description: 'Sculra monorepo contains a leaked test variable in api config.', read: false, createdAt: '10m ago', type: 'alert' },
   { id: 'not-2', title: 'Performance Audit Complete', description: 'React 19 Sandbox bundle load score is 94/100.', read: true, createdAt: '1d ago', type: 'report' },
 ];
+
+export const mockCampaigns: Campaign[] = [
+  {
+    id: 'camp-1',
+    projectId: 'proj-1',
+    name: 'Production Release Gate Campaign',
+    objective: 'RELEASE_GATE',
+    status: 'COMPLETED',
+    currentStage: 'RELEASE_EVALUATION',
+    overallScore: 96,
+    releaseVerdict: 'RELEASE',
+    config: {
+      name: 'Production Release Gate Campaign',
+      objective: 'RELEASE_GATE',
+      enabledDomains: ['discovery', 'product', 'strategy', 'journey', 'visual', 'auth', 'api', 'security', 'performance', 'accessibility', 'historical', 'release'],
+      targetUrl: 'https://sculra.com',
+      budget: {
+        maxDurationSeconds: 600,
+        maxTasks: 20,
+        maxParallelStages: 1,
+        maxRetriesPerTask: 1,
+      },
+      adaptiveInsertion: true,
+      minReleaseScoreThreshold: 85,
+    },
+    budgetStatus: {
+      durationSeconds: { current: 185, max: 600, exhausted: false },
+      tasks: { totalPlanned: 12, completed: 12, running: 0, failed: 0, skipped: 0, max: 20, exhausted: false },
+      retries: { count: 0, maxPerTask: 1 },
+      overallExhausted: false,
+    },
+    progressSnapshot: {
+      campaignId: 'camp-1',
+      status: 'COMPLETED',
+      currentStage: 'RELEASE_EVALUATION',
+      activeTasks: 0,
+      completedTasks: 12,
+      failedTasks: 0,
+      totalTasks: 12,
+      percentComplete: 100,
+      elapsedDurationMs: 185000,
+      coverage: {
+        pagesDiscovered: 8,
+        pagesTested: 8,
+        endpointsDiscovered: 6,
+        endpointsTested: 6,
+        criticalWorkflowsTotal: 4,
+        criticalWorkflowsTested: 4,
+        rolesTested: 2,
+        domainCoveragePercentage: {
+          discovery: 100,
+          product: 100,
+          strategy: 100,
+          journey: 100,
+          visual: 100,
+          auth: 100,
+          api: 100,
+          security: 100,
+          performance: 100,
+          accessibility: 100,
+          historical: 100,
+          release: 100,
+        },
+      },
+      budget: {
+        durationSeconds: { current: 185, max: 600, exhausted: false },
+        tasks: { totalPlanned: 12, completed: 12, running: 0, failed: 0, skipped: 0, max: 20, exhausted: false },
+        retries: { count: 0, maxPerTask: 1 },
+        overallExhausted: false,
+      },
+      releaseReadinessStatus: 'RELEASE',
+      latestReleaseScore: 96,
+    },
+    summary: {
+      campaignId: 'camp-1',
+      name: 'Production Release Gate Campaign',
+      objective: 'RELEASE_GATE',
+      status: 'COMPLETED',
+      startedAt: '10m ago',
+      completedAt: '7m ago',
+      durationMs: 185000,
+      totalTasksPlanned: 12,
+      tasksCompleted: 12,
+      tasksFailed: 0,
+      tasksSkipped: 0,
+      domainCoverage: {
+        discovery: 100,
+        product: 100,
+        strategy: 100,
+        journey: 100,
+        visual: 100,
+        auth: 100,
+        api: 100,
+        security: 100,
+        performance: 100,
+        accessibility: 100,
+        historical: 100,
+        release: 100,
+      },
+      criticalWorkflowsTested: 4,
+      criticalWorkflowsTotal: 4,
+      issuesSummary: {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        byDomain: {
+          discovery: 0,
+          product: 0,
+          strategy: 0,
+          journey: 0,
+          visual: 0,
+          auth: 0,
+          api: 0,
+          security: 0,
+          performance: 0,
+          accessibility: 0,
+          historical: 0,
+          release: 0,
+        },
+      },
+      crossDomainCorrelations: [],
+      releaseReadiness: {
+        verdict: 'RELEASE',
+        overallScore: 96,
+        blockersCount: 0,
+        blockers: [],
+        riskLevel: 'LOW',
+        confidenceLevel: 'HIGH',
+        recommendations: ['Build meets quality and safety standards for deployment.'],
+      },
+      aiExecutiveNarrative: {
+        overview: 'Autonomous QA campaign completed with 100% stage pass rate and zero blocking regressions.',
+        keyHighlights: ['All 4 critical workflows passed verification', 'No visual or responsive regressions detected', 'Zero API 5xx errors recorded'],
+        criticalConcerns: [],
+        recommendedNextSteps: ['Proceed with staged production rollout.'],
+        summaryRiskAssessment: 'Low risk release candidate with high verification confidence.',
+      },
+    },
+    startedAt: '10m ago',
+    completedAt: '7m ago',
+    createdAt: '10m ago',
+    updatedAt: '7m ago',
+  },
+];
+
+export const mockCampaignTasks: CampaignTask[] = [
+  {
+    id: 'task-1',
+    campaignId: 'camp-1',
+    taskKey: 'stage_1_discovery_mapping',
+    stage: 'DISCOVERY_MAPPING',
+    domain: 'discovery',
+    status: 'COMPLETED',
+    priority: 100,
+    target: { type: 'GLOBAL', identifier: 'https://sculra.com', criticality: 'CRITICAL' },
+    dependencies: [],
+    retryCount: 0,
+    maxRetries: 1,
+    startedAt: '10m ago',
+    completedAt: '9m ago',
+    durationMs: 45000,
+    observationsCount: 8,
+    issuesDetected: 0,
+    createdAt: '10m ago',
+  },
+  {
+    id: 'task-2',
+    campaignId: 'camp-1',
+    taskKey: 'stage_2_surface_journeys',
+    stage: 'SURFACE_VERIFICATION',
+    domain: 'journey',
+    status: 'COMPLETED',
+    priority: 90,
+    target: { type: 'WORKFLOW', identifier: 'wf-checkout-primary', criticality: 'CRITICAL' },
+    dependencies: ['stage_1_discovery_mapping'],
+    retryCount: 0,
+    maxRetries: 1,
+    startedAt: '9m ago',
+    completedAt: '8m ago',
+    durationMs: 35000,
+    observationsCount: 5,
+    issuesDetected: 0,
+    createdAt: '10m ago',
+  },
+];
+

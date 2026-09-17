@@ -13,11 +13,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Injects Clerk JWT session token through the supported accessToken mechanism.
  */
 export function getSupabaseUserClient(clerkTokenOrFetcher?: string | (() => Promise<string | null>)) {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseAnonKey;
+  if (!url || !anonKey) {
     throw new Error('Supabase configuration is not loaded.');
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  return createClient(url, anonKey, {
     accessToken: async () => {
       if (typeof clerkTokenOrFetcher === 'function') {
         const token = await clerkTokenOrFetcher();

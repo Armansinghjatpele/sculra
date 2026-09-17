@@ -23,6 +23,7 @@ import {
   HistoricalEvidenceFormatter,
   HistoricalRun,
 } from './history';
+import { CampaignExecutor, CampaignSummary } from './campaign';
 
 export interface ExecutorConfig {
   supabaseUrl?: string;
@@ -904,6 +905,80 @@ export class JobExecutor {
       success: result.status === 'passed',
       status: result.status,
       error: result.failureReason,
+    };
+  }
+
+  async executeCampaign(
+    campaignId: string,
+    cancellationToken?: CancellationToken
+  ): Promise<{ success: boolean; status: string; summary?: CampaignSummary; error?: string }> {
+    const logger = new WorkerLogger(campaignId);
+    logger.log('campaign_job_initiated');
+
+    if (!this.supabase) {
+      logger.error('supabase_client_missing', 'Supabase credentials are not configured.');
+      return { success: false, status: 'FAILED', error: 'Database client not configured' };
+    }
+
+    // 1. Fetch Campaign & Project details
+    const { data: campaign, error: campError } = await this.supabase
+      .from('qa_campaigns')
+      .select('*, projects(*)')
+      .eq('id', campaignId)
+      .single();
+
+    if (campError || !campaign) {
+      logger.error('campaign_fetch_failed', campError?.message || 'Campaign not found');
+      return { success: false, status: 'FAILED', error: 'Campaign record not found' };
+    }
+
+    const project = campaign.projects;
+    if (!project) {
+      logger.error('project_not_found', 'Associated project record is missing.');
+      return { success: false, status: 'FAILED', error: 'Project record not found' };
+    }
+
+    const targetUrl = project.source_url || project.url;
+    if (!targetUrl) {
+      logger.error('missing_target_url', 'Project target URL is missing.');
+      return { success: false, status: 'FAILED', error: 'Target URL is missing.' };
+    }
+
+    // 2. Fetch past test runs for historical context
+    let pastRuns: any[] = [];
+    try {
+      const { data: dbPastRuns } = await this.supabase
+        .from('test_runs')
+        .select('*, issues(*), release_scores(*)')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false })
+        .limit(15);
+      pastRuns = dbPastRuns || [];
+    } catch {
+      // Non-fatal
+    }
+
+    // 3. Execute Autonomous Campaign
+    const campaignExecutor = new CampaignExecutor({
+      campaignId,
+      projectId: project.id,
+      organizationId: campaign.organization_id || undefined,
+      testRunId: campaign.test_run_id || undefined,
+      targetUrl,
+      objective: campaign.objective,
+      config: campaign.configuration,
+      supabaseClient: this.supabase,
+      pastRuns,
+      cancellationToken,
+    });
+
+    const result = await campaignExecutor.execute();
+
+    return {
+      success: result.success,
+      status: result.status,
+      summary: result.summary,
+      error: result.error,
     };
   }
 

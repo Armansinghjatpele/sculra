@@ -239,6 +239,10 @@ export class DeterministicPrioritizer {
           break;
         }
       }
+      if (hasUnmetDependency) {
+        baseScore -= 15;
+        reasons.push('Dependency notice: Prerequisite targets remain uncompleted (-15 pts)');
+      }
       // 7. Historical QA Memory & Regression Boosts
       if (context.historicalSignals || context.stabilitySignals || context.recentRegressions) {
         const { HistoricalStrategyEngine } = require('../history/strategy');

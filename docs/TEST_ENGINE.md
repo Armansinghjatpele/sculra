@@ -946,4 +946,186 @@ CREATE TABLE IF NOT EXISTS public.qa_history_signals (
    - Project-level flaky target watchlist.
    - Real-time QA history signals log.
 
+## 18. Autonomous QA Control Plane & End-to-End Test Campaigns (Prompt 29)
+
+Sculra incorporates an Autonomous QA Control Plane and End-to-End Campaign Engine that binds all 12 specialized QA domain engines into a single cohesive autonomous orchestration loop. Instead of running isolated single-module audits, Sculra executes unified, multi-stage, risk-prioritized, budget-bounded QA campaigns.
+
+> [!IMPORTANT]
+> **Key Architecture & Scope Invariants**:
+>
+> 1. **Zero Metric Fabrication**:
+>    Missing, unobserved, or unconfigured data is strictly reported as `undefined` / `--` in the UI and state models. Scores are never coerced to default 100 or fabricated values.
+>
+> 2. **Authoritative Deterministic Release Gate**:
+>    The deterministic `ReleaseScorer` remains the authoritative judge of quality and release safety. AI analysis is strictly advisory and grounded in deterministic observations.
+>
+> 3. **Strict DAG Dependency Scheduling**:
+>    Tasks execute according to a 5-stage Directed Acyclic Graph. Downstream audits (e.g., role checks, visual comparisons, release evaluation) only execute once prerequisite discovery and baseline dependencies are satisfied.
+>
+> 4. **Adaptive Dynamic Task Insertion**:
+>    When severe runtime crashes, HTTP 500 errors, or authentication anomalies are observed during surface verification, the control plane dynamically synthesizes and schedules high-priority re-test tasks within budget limits.
+>
+> 5. **Bounded Execution & Budget Guardrails**:
+>    Campaigns enforce hard upper limits on duration, total task count, parallel stages, retry attempts, and evidence links, preventing unbounded loops or resource exhaustion.
+
+### Control Plane Architecture & 5-Stage Pipeline
+
+```mermaid
+graph TD
+    UserReq[Campaign Request / CI Trigger] --> Planner[Autonomous Campaign Planner]
+    ProductMemory[(Product Model & Historical QA Memory)] --> Planner
+    
+    subgraph Control Plane Core
+        Planner --> DAG[Dependency Graph & 5-Stage DAG]
+        DAG --> Scheduler[DAG-Aware Task Scheduler]
+        Scheduler --> BudgetMgr[Real-Time Budget Manager]
+        BudgetMgr --> StateMgr[Campaign State Manager]
+    end
+    
+    subgraph 5-Stage Execution Pipeline
+        Stage1[Stage 1: Discovery & Mapping] --> Stage2[Stage 2: Surface Verification]
+        Stage2 --> Stage3[Stage 3: Deep Engine Audits]
+        Stage3 --> Stage4[Stage 4: Historical Correlation]
+        Stage4 --> Stage5[Stage 5: Release Evaluation]
+    end
+    
+    StateMgr --> Stage1 & Stage2 & Stage3 & Stage4 & Stage5
+    
+    subgraph 12 Domain Adapters
+        Stage1 --> DiscAdapter[Discovery Adapter] & ProdAdapter[Product Model Adapter]
+        Stage2 --> JourneyAdapter[User Journeys Adapter] & StratAdapter[Strategy Adapter]
+        Stage3 --> AuthAdapter[Auth & Roles] & ApiAdapter[API & Contracts] & SecAdapter[Security Adapter] & PerfAdapter[Performance] & A11yAdapter[Accessibility] & VisAdapter[Visual & Responsive]
+        Stage4 --> HistAdapter[Historical Memory Adapter] & Correlator[Cross-Domain Correlator]
+        Stage5 --> RelAdapter[Release Readiness Adapter] & AIReasoner[AI Advisory Reasoner]
+    end
+    
+    Stage1 & Stage2 & Stage3 & Stage4 & Stage5 --> EvPersistence[(public.test_evidence & public.qa_campaign_tasks)]
+    EvPersistence --> ControlPlaneUI[Frontend Live Control Plane & Campaign Dashboard]
+```
+
+### 5-Stage Directed Acyclic Graph (DAG) Pipeline
+
+1. **Stage 1: Discovery & Mapping (`DISCOVERY_MAPPING`)**:
+   - Crawls target application routes and builds `ApplicationMap`.
+   - Synthesizes `ProductModel` identifying features, workflows, and user roles.
+2. **Stage 2: Surface Verification (`SURFACE_VERIFICATION`)**:
+   - Executes deterministic core user journeys and primary navigation flows.
+   - Activates Strategy Prioritizer to identify high-risk exploratory targets.
+3. **Stage 3: Deep Engine Audits (`DEEP_ENGINE_AUDITS`)**:
+   - Executes domain audits in parallel or dependency-governed sequences:
+     - **Auth & Roles**: Role context switching and permission boundaries.
+     - **API & Backend**: Discovered endpoint contracts, schemas, and payload tests.
+     - **Security**: Headers, cookies, CORS, open redirects, sensitive exposures.
+     - **Performance**: Navigation timings, Core Web Vitals, and action latencies.
+     - **Accessibility**: WCAG 2.1 AA checks, keyboard navigation, contrast ratios.
+     - **Visual & Responsive**: Multi-viewport layout and visual delta checks.
+4. **Stage 4: Historical Correlation (`HISTORICAL_CORRELATION`)**:
+   - Compares results against historical dimensional baseline runs.
+   - Evaluates cross-domain evidence links (e.g., linking API 500 errors to functional button failures).
+   - Generates `qa_history_signals` for new regressions, recoveries, and recurring defects.
+5. **Stage 5: Release Evaluation (`RELEASE_EVALUATION`)**:
+   - Computes authoritative deterministic release readiness score and verdict (`RELEASE`, `RELEASE_WITH_CAUTION`, `DO_NOT_RELEASE`).
+   - Evaluates blockers (Blockers 1 through 9).
+   - Produces advisory AI Executive Narrative with highlights, critical concerns, and recommended next steps.
+
+### Core Modules (`worker/src/campaign/`)
+
+1. **Domain Types & Policy (`types.ts`, `policy.ts`)**:
+   - Type definitions for `CampaignState`, `CampaignTask`, `CampaignProgress`, `CampaignSummary`, `CampaignBudget`, `CampaignObjective`, and `CampaignDomain`.
+   - Default campaign policies and clamp bounds.
+2. **Autonomous Campaign Planner (`planner.ts`)**:
+   - Deconstructs campaign objectives into discrete, dependency-ordered tasks.
+   - Selects targets across pages, APIs, workflows, and roles.
+3. **Dependency Graph & Scheduler (`dependency-graph.ts`, `scheduler.ts`)**:
+   - Builds execution DAGs and validates prerequisite satisfaction before task dispatch.
+   - Allocates ready tasks to available concurrency slots.
+4. **Target Selector & Prioritizer (`target-selector.ts`)**:
+   - Scores candidate targets by combining product business criticality, historical regression signals (+25 pts), and intrinsic domain risk.
+5. **Budget Guardrail Manager (`budget.ts`)**:
+   - Tracks duration, executed tasks, retries, and dynamic adaptive insertions in real-time.
+   - Triggers graceful campaign termination when budget thresholds are reached.
+6. **Campaign State Manager (`state.ts`)**:
+   - Maintains immutable-safe shared campaign state, observation histories, and evidence links.
+7. **Cross-Domain Evidence Correlator (`correlation.ts`)**:
+   - Detects multi-engine correlations (e.g. backend server error matching frontend UI crash).
+   - Synthesizes root-cause hypotheses with confidence ratings.
+8. **Termination Evaluator (`termination.ts`)**:
+   - Evaluates deterministic campaign stopping conditions (`GOAL_SATISFIED`, `ALL_TASKS_COMPLETED`, `BUDGET_EXHAUSTED`, `TIME_LIMIT_REACHED`, `CANCELLED_BY_USER`, `CRITICAL_BLOCKER_THRESHOLD`).
+9. **AI Executive Reasoner (`ai-reasoner.ts`)**:
+   - Generates grounded, advisory executive narrative summaries with prompt-injection defenses.
+10. **Campaign Analyzer (`analyzer.ts`)**:
+    - Synthesizes completed campaign summary, coverage matrix, and release scorecard.
+11. **Evidence & Persistence Managers (`evidence.ts`, `persistence.ts`)**:
+    - Formats campaign evidence and manages database sync with `public.qa_campaigns`, `public.qa_campaign_tasks`, and `public.test_evidence`.
+12. **Master Campaign Executor (`executor.ts`)**:
+    - Executes the end-to-end adaptive campaign loop, coordinating adapters and daemon tasks.
+
+### Database Architecture (`public.qa_campaigns` & `public.qa_campaign_tasks`)
+
+```sql
+-- Campaigns Table
+CREATE TABLE IF NOT EXISTS public.qa_campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  current_stage TEXT NOT NULL DEFAULT 'DISCOVERY_MAPPING',
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  budget_status JSONB NOT NULL DEFAULT '{}'::jsonb,
+  progress_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+  summary JSONB,
+  overall_score NUMERIC(5,2),
+  release_verdict TEXT,
+  error_message TEXT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Campaign Tasks Table
+CREATE TABLE IF NOT EXISTS public.qa_campaign_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID NOT NULL REFERENCES public.qa_campaigns(id) ON DELETE CASCADE,
+  task_key TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  domain TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'QUEUED',
+  priority INT DEFAULT 50,
+  target JSONB NOT NULL DEFAULT '{}'::jsonb,
+  dependencies TEXT[] DEFAULT '{}'::text[],
+  retry_count INT DEFAULT 0,
+  max_retries INT DEFAULT 1,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  duration_ms INT,
+  error TEXT,
+  observations_count INT DEFAULT 0,
+  issues_detected INT DEFAULT 0,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Frontend User Experience
+
+1. **Project QA Campaigns Page (`/projects/[projectId]/campaigns`)**:
+   - Campaign history table with status, objective, stage, release verdict, and overall score.
+   - Status filtering (`ALL`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`).
+   - "New QA Campaign" Launch Modal with objective selection, domain checkboxes, duration/task budget controls, and adaptive task insertion options.
+
+2. **Campaign Live Control Plane Dashboard (`/campaigns/[campaignId]`)**:
+   - Live status banner with real-time execution polling.
+   - Start / Rerun / Cancel interactive controls.
+   - 5-Stage Directed Acyclic Graph (DAG) Pipeline timeline.
+   - 12-Engine Domain Coverage Matrix.
+   - Live Task Queue with status badges and durations.
+   - Cross-Domain Correlations panel with root cause analysis.
+   - Authoritative Release Readiness Scorecard and Blocker list.
+   - Advisory AI Executive Narrative summary.
+   - Structured Live Evidence Feed.
+
+
 
