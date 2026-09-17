@@ -323,12 +323,17 @@ export class CampaignExecutor {
       }
 
       // Final Termination & Summary
-      const finalTermination = CampaignTerminationEvaluator.evaluate(
-        this.stateManager.rawState,
-        this.budgetManager
-      );
+      const isCancelled = !!cancellationToken?.isCancelled;
+      const finalTermination = isCancelled
+        ? { status: 'CANCELLED', reason: 'CANCELLED_BY_USER' as const }
+        : CampaignTerminationEvaluator.evaluate(
+            this.stateManager.rawState,
+            this.budgetManager
+          );
 
-      const finalStatus = finalTermination.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+      const finalStatus: QACampaignStatus = isCancelled
+        ? 'CANCELLED'
+        : (finalTermination.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
       this.stateManager.setStatus(finalStatus);
 
       const summary = await this.analyzer.generateSummary(
@@ -365,15 +370,17 @@ export class CampaignExecutor {
         summary,
       };
     } catch (err: any) {
+      const isCancelled = !!cancellationToken?.isCancelled;
+      const finalStatus: QACampaignStatus = isCancelled ? 'CANCELLED' : 'FAILED';
       this.logger.error('campaign_fatal_error', err.message);
-      this.stateManager.setStatus('FAILED');
+      this.stateManager.setStatus(finalStatus);
 
       const fallbackSummary = await this.analyzer.generateSummary(
         this.stateManager.rawState,
-        'EXECUTION_FAILED'
+        isCancelled ? 'CANCELLED_BY_USER' : 'EXECUTION_FAILED'
       );
 
-      await this.persistenceManager.updateCampaign(campaignId, 'FAILED', {
+      await this.persistenceManager.updateCampaign(campaignId, finalStatus, {
         stateSnapshot: this.stateManager.getSerializableSnapshot(),
         summarySnapshot: fallbackSummary,
         completedAt: new Date().toISOString(),
@@ -381,7 +388,7 @@ export class CampaignExecutor {
 
       return {
         success: false,
-        status: 'FAILED',
+        status: finalStatus,
         summary: fallbackSummary,
         error: err.message || 'Campaign execution encountered fatal error',
       };

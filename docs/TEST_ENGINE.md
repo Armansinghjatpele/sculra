@@ -1127,5 +1127,64 @@ CREATE TABLE IF NOT EXISTS public.qa_campaign_tasks (
    - Advisory AI Executive Narrative summary.
    - Structured Live Evidence Feed.
 
+## 19. Production QA Execution Reliability, Distributed Job Queue & Worker Hardening
 
+Sculra's background execution engine is hardened for production multi-worker environments to eliminate duplicate job execution, zombie worker state overwrites, stuck jobs, uncaught process crashes, and silent infrastructure failures.
 
+```mermaid
+flowchart TD
+    subgraph DistributedQueue[Supabase Distributed Queue]
+        Q1[(qa_campaigns / test_runs)]
+        RPC[acquire_execution_job RPC]
+        HB[heartbeat_execution_job RPC]
+        REC[fail_exhausted_stale_jobs RPC]
+    end
+
+    subgraph WorkerAlpha[Worker Instance Alpha]
+        IdA[Worker Identity Alpha] --> AcqA[JobAcquirer]
+        AcqA -->|1. Atomic Claim + Lease| RPC
+        AcqA --> RunA[JobRunner]
+        RunA --> HBLoopA[Active Heartbeat Loop (15s)]
+        HBLoopA -->|2. Extend Lease| HB
+        RunA --> ExecA[Campaign / Job Executor]
+        ExecA --> FinA[Guarded JobFinalizer]
+        FinA -->|3. Terminal State Update (worker_id guard)| Q1
+    end
+
+    subgraph WorkerBeta[Worker Instance Beta]
+        IdB[Worker Identity Beta] --> ScanB[JobRecoveryScanner]
+        ScanB -->|4. Detect Expired Lease| REC
+        ScanB --> AcqB[JobAcquirer]
+        AcqB -->|5. Reclaim Stale Job (Attempt + 1)| RPC
+    end
+```
+
+### 19.1 Core Execution Invariants
+
+1. **Zero Duplicate Ownership**: At any point in time, an active job is leased by at most ONE worker instance (`worker_id`). A worker lease is valid for `JOB_LEASE_SECONDS = 60` and renewed every `JOB_HEARTBEAT_SECONDS = 15`.
+2. **Deterministic Stale Recovery**: If a worker node crashes or experiences a network partition, its heartbeat ceases. Once `lease_expires_at < NOW()`, peer workers reclaim the job (`status = 'QUEUED'`, `recovery_count++`, `previous_worker_id` recorded).
+3. **Bounded Retries**: A job can be retried up to `MAX_JOB_ATTEMPTS = 3`. Once attempts are exhausted, the job transitions to `status = 'FAILED'` with typed error code `MAX_ATTEMPTS_EXCEEDED`.
+4. **Guarded State Finalization**: Terminal status updates (`COMPLETED`, `FAILED`, `CANCELLED`) verify that the calling worker still owns the job (`WHERE id = :id AND worker_id = :worker_id`). Stale zombie workers that wake up after losing their lease are rejected and cannot overwrite recovered execution results.
+5. **Infrastructure Failure $\neq$ Task QA Verdict**: Worker timeouts, browser launch crashes, and database connection blips are recorded as typed `ExecutionError`s (`BROWSER_LAUNCH_FAILED`, `DATABASE_PERSISTENCE_FAILED`, `JOB_TIMEOUT`, `LEASE_LOST`) rather than task assertions.
+6. **Zero Metric Fabrication**: If a run or campaign is interrupted, uncollected metrics remain `null` or undefined. The system never injects fake 100% or 0% scores.
+
+### 19.2 Execution Modules (`worker/src/execution/`)
+
+| Module | Purpose | Key Classes & Functions |
+| :--- | :--- | :--- |
+| `types.ts` | Unified execution job and result contracts | `ExecutionJob`, `ExecutionResult`, `ExecutionErrorCode` |
+| `identity.ts` | Distributed worker identity and tagging | `WorkerIdentity`, `generateWorkerId()` |
+| `execution-errors.ts` | Typed error classification hierarchy | `classifyExecutionError()`, `isRetryableError()` |
+| `execution-policy.ts` | Lease timeouts, retry policies, backoff | `DEFAULT_JOB_LEASE_SECONDS`, `DEFAULT_MAX_JOB_ATTEMPTS` |
+| `job-acquirer.ts` | Atomic distributed job acquisition | `JobAcquirer.acquireNextJob()`, `acquireJobs()` |
+| `job-heartbeat.ts` | Active background lease renewal loop | `JobHeartbeatManager.startHeartbeat()` |
+| `job-finalizer.ts` | Guarded terminal state updater | `JobFinalizer.finalizeJob()` |
+| `job-recovery.ts` | Stale expired lease recovery scanner | `JobRecoveryScanner.scanAndRecoverStaleJobs()` |
+| `job-runner.ts` | Full job execution lifecycle coordinator | `JobRunner.runJob()` |
+| `metrics.ts` | Structured worker metrics tracking | `ExecutionMetricsTracker` |
+
+### 19.3 Security Hardening & Secret Redaction
+
+- **Privileged Key Enforcement**: Production worker nodes strictly require `SUPABASE_SERVICE_ROLE_KEY` to execute background jobs and reject unauthenticated / anon key starts.
+- **Deep Log Sanitization**: `WorkerLogger` scans and masks Bearer tokens, JWTs, Supabase secret keys (`sb_secret_*`, `service_role*`), passwords, cookies, and API keys across all log messages and nested JSON payloads.
+- **Graceful Process Shutdown**: Trapping `SIGINT` and `SIGTERM` initiates a graceful teardown: stopping new job polling, triggering cancellation tokens on in-flight tasks, allowing running executors a grace period to persist state, and stopping active heartbeat loops.

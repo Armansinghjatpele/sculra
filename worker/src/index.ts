@@ -30,6 +30,7 @@ export * from './performance';
 export * from './accessibility';
 export * from './logger';
 export * from './storage';
+export * from './execution';
 
 // CLI Support:
 // 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`
@@ -37,7 +38,7 @@ export * from './storage';
 if (require.main === module) {
   const arg = process.argv[2];
 
-  if (arg && arg !== '--daemon') {
+  if (arg && arg !== '--daemon' && !arg.startsWith('--')) {
     const testRunId = arg;
     const executor = new JobExecutor();
     console.log(`[Worker CLI]: Executing single test run ${testRunId}...`);
@@ -54,7 +55,7 @@ if (require.main === module) {
       });
   } else {
     const daemon = new WorkerDaemon();
-    console.log('[Worker CLI]: Starting Sculra Test Worker Daemon...');
+    console.log(`[Worker CLI]: Starting Sculra Test Worker Daemon (ID: ${daemon.identity.workerId})...`);
     daemon.start().catch((err) => {
       console.error('[Worker CLI]: Daemon failed to start:', err);
       process.exit(1);

@@ -31,17 +31,9 @@ describe('WorkerDaemon Queue Processing', () => {
 
   it('should return 0 when no queued runs exist in test_runs table', async () => {
     mockSupabase = {
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({
-                data: [],
-                error: null,
-              }),
-            }),
-          }),
-        }),
+      rpc: vi.fn().mockResolvedValue({
+        data: [],
+        error: null,
       }),
     };
 
@@ -57,48 +49,48 @@ describe('WorkerDaemon Queue Processing', () => {
   });
 
   it('should claim queued job atomically and invoke JobExecutor', async () => {
-    const mockRun = { id: 'run-123', project_id: 'proj-abc', created_at: '2026-09-07T00:00:00Z' };
+    const mockRun = {
+      job_id: 'run-123',
+      job_type: 'TEST_RUN',
+      project_id: 'proj-abc',
+      status: 'RUNNING',
+      attempt: 1,
+      max_attempts: 3,
+      worker_id: 'worker-test-1',
+      lease_expires_at: new Date(Date.now() + 60000).toISOString(),
+      target_url: 'https://example.com',
+      created_at: '2026-09-07T00:00:00Z',
+    };
 
     mockSupabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'test_runs') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue({
-                    data: [mockRun],
-                    error: null,
-                  }),
-                }),
-              }),
-            }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  select: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: { id: 'run-123' },
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          };
+      rpc: vi.fn((funcName: string) => {
+        if (funcName === 'acquire_execution_job') {
+          return Promise.resolve({
+            data: [mockRun],
+            error: null,
+          });
         }
-        return {
-          select: vi.fn().mockReturnValue({
+        if (funcName === 'heartbeat_execution_job') {
+          return Promise.resolve({
+            data: true,
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }),
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [],
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: 'run-123' },
                   error: null,
                 }),
               }),
             }),
           }),
-        };
+        }),
       }),
     };
 
@@ -128,7 +120,7 @@ describe('WorkerDaemon Queue Processing', () => {
     const fakeToken = { isCancelled: false, onCancel: vi.fn() };
     (daemon as any).activeJobs.set('test-run-999', fakeToken);
 
-    await daemon.stop();
+    await daemon.stop(0);
     expect(daemon.getIsRunning()).toBe(false);
     expect(fakeToken.isCancelled).toBe(true);
     expect(fakeToken.onCancel).toHaveBeenCalled();
