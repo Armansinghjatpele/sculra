@@ -70,6 +70,8 @@ export class CIFeedbackGenerator {
       ? `${dashboardBaseUrl}/campaigns/${campaignId}`
       : `${dashboardBaseUrl}/projects/${summary?.projectId || ''}`;
 
+    const ci = summary?.changeIntelligence;
+
     const structuredDetails: CIFeedbackStructuredDetails = {
       verdict,
       overallScore: decision.overallScore,
@@ -83,6 +85,20 @@ export class CIFeedbackGenerator {
       regressions: decision.regressions,
       reasons: decision.reasonCodes,
       dashboardUrl,
+      changeIntelligence: ci
+        ? {
+            riskScore: ci.riskScore,
+            riskLevel: ci.riskLevel,
+            changeCount: ci.changeCount,
+            additionsCount: ci.additionsCount,
+            deletionsCount: ci.deletionsCount,
+            affectedRoutes: ci.affectedRoutes,
+            affectedWorkflows: ci.affectedWorkflows,
+            affectedApis: ci.affectedApis,
+            recommendedDomains: ci.recommendedDomains,
+            isPartial: ci.isPartial,
+          }
+        : undefined,
     };
 
     // Synthesize Markdown Report
@@ -92,6 +108,30 @@ export class CIFeedbackGenerator {
     markdownLines.push('');
     markdownLines.push(`> **Policy**: \`${decision.gatePolicy}\` | **Verdict**: **\`${verdict}\`** | **Evidence**: \`${decision.evidenceStatus}\``);
     markdownLines.push('');
+
+    // Change Intelligence Impact Section
+    if (ci) {
+      markdownLines.push('### 🧠 Code Change Intelligence & Impact');
+      markdownLines.push('');
+      markdownLines.push(`- **Risk Score**: **${ci.riskScore}/100** (\`${ci.riskLevel}\`)`);
+      markdownLines.push(`- **Scope**: ${ci.changeCount} file(s) (+${ci.additionsCount} / -${ci.deletionsCount})`);
+      if (ci.isPartial) {
+        markdownLines.push('- ⚠️ *Diff exceeded safety boundary; evaluated via partial deterministic analysis.*');
+      }
+      if (ci.affectedRoutes && ci.affectedRoutes.length > 0) {
+        markdownLines.push(`- **Affected Routes (${ci.affectedRoutes.length})**: ${ci.affectedRoutes.slice(0, 5).map((r) => `\`${r}\``).join(', ')}${ci.affectedRoutes.length > 5 ? '...' : ''}`);
+      }
+      if (ci.affectedWorkflows && ci.affectedWorkflows.length > 0) {
+        markdownLines.push(`- **Affected Workflows (${ci.affectedWorkflows.length})**: ${ci.affectedWorkflows.slice(0, 5).map((w) => `\`${w}\``).join(', ')}${ci.affectedWorkflows.length > 5 ? '...' : ''}`);
+      }
+      if (ci.affectedApis && ci.affectedApis.length > 0) {
+        markdownLines.push(`- **Affected APIs (${ci.affectedApis.length})**: ${ci.affectedApis.slice(0, 5).map((a) => `\`${a}\``).join(', ')}${ci.affectedApis.length > 5 ? '...' : ''}`);
+      }
+      if (ci.recommendedDomains && ci.recommendedDomains.length > 0) {
+        markdownLines.push(`- **Recommended QA Focus**: ${ci.recommendedDomains.map((d) => `\`${d}\``).join(', ')}`);
+      }
+      markdownLines.push('');
+    }
 
     // Summary Table
     markdownLines.push('| Metric | Measured Value | Gate Requirement |');

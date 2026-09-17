@@ -261,6 +261,10 @@ export class CampaignStateManager {
     this.state.releaseAssessment = assessment;
   }
 
+  setChangeIntelligence(result: any): void {
+    this.state.changeIntelligence = result;
+  }
+
   mergeObservations(obs: BugObservation[]): void {
     if (!obs || obs.length === 0) return;
     this.state.bugObservations.push(...obs);

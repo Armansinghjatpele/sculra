@@ -24,6 +24,7 @@ import { CampaignTerminationEvaluator } from './termination';
 import { CampaignAnalyzer } from './analyzer';
 import { CampaignPersistenceManager } from './persistence';
 import { CampaignEvidenceFormatter } from './evidence';
+import { ChangeIntelligenceAnalyzer, ChangeAnalysisResult } from '../change-intelligence';
 import {
   DiscoveryAdapter,
   ProductAdapter,
@@ -150,11 +151,80 @@ export class CampaignExecutor {
         context = page.context();
       }
 
+      // 2.5 Change Intelligence Analysis (if commitSha or gitChanges provided)
+      let changeAnalysis: ChangeAnalysisResult | undefined =
+        this.stateManager.rawState.changeIntelligence || (this.stateManager.rawState.config as any)?.changeIntelligence;
+
+      if (!changeAnalysis && (this.options.config?.commitSha || this.options.config?.gitChanges)) {
+        try {
+          const analyzer = new ChangeIntelligenceAnalyzer({
+            supabaseClient: this.options.supabaseClient || undefined,
+            logger: this.logger,
+          });
+
+          changeAnalysis = await analyzer.analyze({
+            projectId,
+            organizationId: this.options.organizationId,
+            campaignId,
+            commitSha: this.options.config.commitSha || 'head',
+            baseSha: this.options.config.baseSha,
+            branch: this.options.config.branch,
+            pullRequestNumber: this.options.config.pullRequestNumber,
+            webhookPayloadFiles: this.options.config.gitChanges?.files || (Array.isArray(this.options.config.gitChanges) ? this.options.config.gitChanges : undefined),
+            unifiedDiffText: this.options.config.gitChanges?.diffText || (typeof this.options.config.gitChanges === 'string' ? this.options.config.gitChanges : undefined),
+            productModel: this.stateManager.rawState.productModel,
+            historicalSignals: this.stateManager.rawState.historicalSignals,
+          });
+
+          this.stateManager.setChangeIntelligence(changeAnalysis);
+          (this.stateManager.rawState.config as any).changeIntelligence = changeAnalysis;
+
+          // Persist to public.change_analyses if supabaseClient is available
+          if (this.options.supabaseClient) {
+            try {
+              const { error: insertErr } = await this.options.supabaseClient
+                .from('change_analyses')
+                .insert({
+                  organization_id: this.options.organizationId || null,
+                  project_id: projectId,
+                  campaign_id: campaignId,
+                  commit_sha: changeAnalysis.changeSet.commitSha || null,
+                  base_sha: changeAnalysis.changeSet.baseSha || null,
+                  branch: changeAnalysis.changeSet.branch || null,
+                  pull_request_number: changeAnalysis.changeSet.pullRequestNumber || null,
+                  change_count: changeAnalysis.changeSet.files.length,
+                  additions_count: changeAnalysis.changeSet.totalAdditions,
+                  deletions_count: changeAnalysis.changeSet.totalDeletions,
+                  risk_score: changeAnalysis.risk.score,
+                  risk_level: changeAnalysis.risk.level,
+                  analysis_status: changeAnalysis.status,
+                  classifications: changeAnalysis.classifications,
+                  summary: changeAnalysis.summary,
+                  impact_graph: changeAnalysis.impactGraph,
+                  metadata: {
+                    recommendedDomains: changeAnalysis.recommendedDomains,
+                    isPartial: changeAnalysis.isPartial,
+                    strategyBoostsCount: changeAnalysis.strategyBoosts.length,
+                  },
+                });
+              if (insertErr) {
+                this.logger.warn('change_analyses_persistence_warning', { error: insertErr.message });
+              }
+            } catch (err: any) {
+              this.logger.warn('change_analyses_persistence_warning', { error: err.message });
+            }
+          }
+        } catch (ciErr: any) {
+          this.logger.warn('change_intelligence_analysis_skipped', { error: ciErr.message });
+        }
+      }
+
       // 3. Target Selection & Task Planning
       const initialTargets = TargetSelector.selectInitialTargets({
         targetUrl,
         config: this.stateManager.rawState.config,
         historicalSignals: this.stateManager.rawState.historicalSignals,
+        changeIntelligence: changeAnalysis,
       });
 
       const plannedTasks = AutonomousCampaignPlanner.planCampaign(

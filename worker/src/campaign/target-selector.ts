@@ -8,6 +8,7 @@ import { ProductModel } from '../product';
 import { QASignalRecord } from '../history/types';
 import { BugObservation } from '../issues/types';
 import { ApiEndpoint } from '../api-qa/types';
+import { ChangeAnalysisResult } from '../change-intelligence/types';
 
 export interface TargetSelectorInput {
   targetUrl: string;
@@ -17,6 +18,7 @@ export interface TargetSelectorInput {
   historicalSignals?: QASignalRecord[];
   openIssues?: any[];
   apiEndpoints?: ApiEndpoint[];
+  changeIntelligence?: ChangeAnalysisResult;
 }
 
 export class TargetSelector {
@@ -27,7 +29,7 @@ export class TargetSelector {
     const targets: CampaignTarget[] = [];
     const seenKeys = new Set<string>();
 
-    const { targetUrl, config, applicationMap, productModel, historicalSignals = [], apiEndpoints = [] } = input;
+    const { targetUrl, config, applicationMap, productModel, historicalSignals = [], apiEndpoints = [], changeIntelligence } = input;
     const activeDomains = new Set(config.domains || []);
 
     // 1. Root Application Target
@@ -103,7 +105,76 @@ export class TargetSelector {
       }
     }
 
-    // 5. Correlate with Historical QA Memory Signals (Regressions, Recurrences, Flakiness)
+    // 5. Correlate with Change Intelligence (Routes, Workflows, APIs directly affected)
+    if (changeIntelligence) {
+      const affectedRoutes = changeIntelligence.affectedRoutes || [];
+      const affectedApis = changeIntelligence.affectedApis || [];
+      const affectedWorkflows = changeIntelligence.affectedWorkflows || [];
+
+      // Add affected routes as PAGE targets if not already present
+      for (const item of affectedRoutes) {
+        const route = item.route;
+        const key = `PAGE:${route}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          targets.push({
+            id: `target-page-change-${route.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'root'}`,
+            type: 'PAGE',
+            identifier: route,
+            url: route.startsWith('http') ? route : `${targetUrl.replace(/\/$/, '')}${route.startsWith('/') ? '' : '/'}${route}`,
+            businessCriticality: 'HIGH',
+            strategyScore: 85,
+            isChangeAffected: true,
+            changeType: 'DIRECT',
+          });
+        }
+      }
+
+      // Add affected APIs as API targets if active domain includes API and not already present
+      if (activeDomains.has('API')) {
+        for (const ep of affectedApis) {
+          const method = ep.method || 'GET';
+          const endpoint = ep.path;
+          const key = `API:${method}:${endpoint}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            targets.push({
+              id: `target-api-change-${method.toLowerCase()}-${endpoint.replace(/[^a-z0-9]+/g, '-')}`,
+              type: 'API',
+              identifier: `${method} ${endpoint}`,
+              method: method,
+              url: endpoint.startsWith('http') ? endpoint : `${targetUrl.replace(/\/$/, '')}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`,
+              businessCriticality: 'HIGH',
+              strategyScore: 85,
+              isChangeAffected: true,
+              changeType: 'DIRECT',
+            });
+          }
+        }
+      }
+
+      // Mark affected workflows and existing targets
+      for (const target of targets) {
+        const isAffectedRoute = affectedRoutes.some(
+          (r) => r.route === target.identifier || target.identifier.includes(r.route) || (target.url && target.url.includes(r.route))
+        );
+        const isAffectedWf =
+          target.type === 'WORKFLOW' &&
+          affectedWorkflows.some(
+            (w) => w.workflowName === target.workflowName || w.workflowId === target.workflowId
+          );
+        const isAffectedApi =
+          target.type === 'API' &&
+          affectedApis.some((a) => target.identifier.includes(a.path));
+
+        if (isAffectedRoute || isAffectedWf || isAffectedApi) {
+          target.isChangeAffected = true;
+          target.changeType = isAffectedWf ? 'BUSINESS_CRITICAL' : 'DIRECT';
+        }
+      }
+    }
+
+    // 6. Correlate with Historical QA Memory Signals (Regressions, Recurrences, Flakiness)
     for (const target of targets) {
       const matchingSignals = historicalSignals.filter(
         (s) =>
@@ -117,10 +188,10 @@ export class TargetSelector {
         target.isRecentRegression = matchingSignals.some((s) => s.signalType === 'NEW_REGRESSION' || s.signalType === 'REGRESSION' as any);
         target.isRecurringDefect = matchingSignals.some((s) => s.signalType === 'RECURRING_DEFECT' || s.signalType === 'RECURRING' as any);
         target.isFlaky = matchingSignals.some((s) => s.signalType === 'INTERMITTENT_TARGET' || s.signalType === 'INTERMITTENT' as any);
-
-        // Boost priority if historical defect present
-        target.strategyScore = this.computeTargetPriority(target);
       }
+
+      // Recompute deterministic score for each target
+      target.strategyScore = this.computeTargetPriority(target);
     }
 
     // Sort descending by priority score
@@ -139,6 +210,13 @@ export class TargetSelector {
     if (target.businessCriticality === 'CRITICAL') score += 30;
     else if (target.businessCriticality === 'HIGH') score += 20;
     else if (target.businessCriticality === 'MEDIUM') score += 10;
+
+    // Change intelligence impact bonus
+    if (target.isChangeAffected) {
+      if (target.changeType === 'BUSINESS_CRITICAL') score += 30;
+      else if (target.changeType === 'SECURITY') score += 30;
+      else score += 20;
+    }
 
     // Historical QA memory signals
     if (target.isRecentRegression) score += 25; // High priority regression re-check

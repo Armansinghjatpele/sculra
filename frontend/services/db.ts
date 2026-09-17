@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, ChangeAnalysis, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -1210,6 +1210,45 @@ export async function getCICDGateResults(
     evidenceStatus: r.evidence_status,
     summaryMarkdown: r.summary_markdown,
     feedbackJson: r.feedback_json || {},
+    createdAt: r.created_at,
+  }));
+}
+
+export async function getProjectChangeAnalyses(
+  clerkToken: string,
+  projectId: string,
+  limit = 10
+): Promise<ChangeAnalysis[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('change_analyses')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((r: any) => ({
+    id: r.id,
+    projectId: r.project_id,
+    campaignId: r.campaign_id,
+    commitSha: r.commit_sha,
+    baseSha: r.base_sha,
+    branch: r.branch,
+    pullRequestNumber: r.pull_request_number,
+    changeCount: r.change_count || 0,
+    additionsCount: r.additions_count || 0,
+    deletionsCount: r.deletions_count || 0,
+    riskScore: r.risk_score ?? 0,
+    riskLevel: r.risk_level || 'LOW',
+    analysisStatus: r.analysis_status || 'COMPLETED',
+    classifications: r.classifications || [],
+    summary: r.summary || {},
+    impactGraph: r.impact_graph || {},
+    metadata: r.metadata || {},
     createdAt: r.created_at,
   }));
 }

@@ -16,6 +16,7 @@ export interface PrioritizationContext {
   historicalSignals?: import('../history/types').QASignalRecord[];
   stabilitySignals?: import('../history/types').StabilitySignal[];
   recentRegressions?: import('../history/types').RegressionEvent[];
+  changeIntelligence?: import('../change-intelligence/types').ChangeAnalysisResult;
 }
 
 export class DeterministicPrioritizer {
@@ -197,6 +198,61 @@ export class DeterministicPrioritizer {
         reasons.push('Product Criticality: Part of MEDIUM criticality product capability (+5 pts)');
       }
 
+      // 4.5 Code Change Intelligence Modifiers
+      if (context.changeIntelligence) {
+        const ci = context.changeIntelligence;
+        const candidateId = candidate.id;
+        const candidateIdentifier = candidate.identifier || candidate.selector || candidate.pageUrl || '';
+        const candidateUrl = candidate.url || candidate.pageUrl || '';
+
+        // Check explicit strategy boosts
+        const matchingBoosts = (ci.strategyBoosts || []).filter(
+          (b) =>
+            b.targetId === candidateId ||
+            b.targetId === candidateIdentifier ||
+            candidateIdentifier.includes(b.targetId) ||
+            candidateUrl.includes(b.targetId)
+        );
+
+        for (const boost of matchingBoosts) {
+          baseScore += boost.priorityBonus;
+          reasons.push(`Code change impact [${boost.boostType}]: ${boost.reason} (+${boost.priorityBonus} pts)`);
+        }
+
+        // Direct Route Impact Boost
+        const matchesRoute = (ci.affectedRoutes || []).some(
+          (r) =>
+            r.route === candidateIdentifier ||
+            candidateIdentifier.includes(r.route) ||
+            candidateUrl.includes(r.route)
+        );
+        if (matchesRoute && !matchingBoosts.some((b) => b.boostType === 'CHANGE_DIRECT')) {
+          baseScore += 25;
+          reasons.push('Code change impact [CHANGE_DIRECT]: Target route directly modified in code change (+25 pts)');
+        }
+
+        // Direct API Impact Boost
+        const matchesApi = (ci.affectedApis || []).some(
+          (a) => candidateIdentifier.includes(a.path) || candidateUrl.includes(a.path)
+        );
+        if (matchesApi && !matchingBoosts.some((b) => b.boostType === 'CHANGE_DIRECT')) {
+          baseScore += 25;
+          reasons.push('Code change impact [CHANGE_DIRECT]: Target API directly modified in code change (+25 pts)');
+        }
+
+        // Business Critical Workflow Boost
+        const matchesWorkflow = (ci.affectedWorkflows || []).some(
+          (w) =>
+            w.workflowName === candidateIdentifier ||
+            candidateIdentifier.includes(w.workflowName) ||
+            candidateIdentifier.includes(w.workflowId)
+        );
+        if (matchesWorkflow && !matchingBoosts.some((b) => b.boostType === 'CHANGE_BUSINESS_CRITICAL')) {
+          baseScore += 20;
+          reasons.push('Code change impact [CHANGE_BUSINESS_CRITICAL]: Target workflow touched by code change (+20 pts)');
+        }
+      }
+
       // 5. Role & Authorization Boundary Modifier
       if (candidate.isAuthorizationBoundary) {
         baseScore += 25;
@@ -233,7 +289,7 @@ export class DeterministicPrioritizer {
       // 6. Check Dependencies
       // If candidate has unmet dependencies, lower score slightly so prerequisites execute first
       let hasUnmetDependency = false;
-      for (const depId of candidate.dependencies) {
+      for (const depId of candidate.dependencies || []) {
         if (!completed.has(depId)) {
           hasUnmetDependency = true;
           break;
@@ -259,6 +315,28 @@ export class DeterministicPrioritizer {
         }
       }
 
+      // 8. Code Change Intelligence & Impact Boosts
+      if (context.changeIntelligence) {
+        const ci = context.changeIntelligence;
+        const targetUrl = (candidate.pageUrl || (candidate as any).url || '').toLowerCase();
+        const targetId = candidate.id.toLowerCase();
+        const workflowId = (candidate.workflowId || '').toLowerCase();
+
+        for (const boost of ci.strategyBoosts) {
+          const boostTarget = boost.targetId.toLowerCase();
+          const isMatch =
+            boostTarget === targetId ||
+            (boostTarget.length > 2 && targetUrl.includes(boostTarget)) ||
+            (workflowId && boostTarget.includes(workflowId));
+
+          if (isMatch) {
+            baseScore += boost.priorityBonus;
+            reasons.push(boost.reason);
+            break; // Apply highest matching boost
+          }
+        }
+      }
+
       // Bound score cleanly between 0 and 100
       const finalScore = Math.max(0, Math.min(100, Math.round(baseScore)));
 
@@ -268,7 +346,7 @@ export class DeterministicPrioritizer {
         priorityScore: finalScore,
         priorityLevel:
           finalScore >= 85 ? 'critical' : finalScore >= 70 ? 'high' : finalScore >= 45 ? 'medium' : 'low',
-        reasons: [...candidate.reasons, ...reasons],
+        reasons: [...(candidate.reasons || []), ...reasons],
       };
 
       scoredTargets.push({

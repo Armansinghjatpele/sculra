@@ -424,6 +424,32 @@ export interface ReleaseBlocker {
   relatedIssueFingerprints?: string[];
 }
 
+export interface ChangeAnalysis {
+  id: string;
+  projectId: string;
+  campaignId?: string | null;
+  commitSha: string;
+  baseSha?: string | null;
+  branch?: string | null;
+  pullRequestNumber?: number | null;
+  changeCount: number;
+  additionsCount: number;
+  deletionsCount: number;
+  riskScore: number;
+  riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  analysisStatus: 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'NOT_AVAILABLE';
+  classifications?: string[];
+  summary?: {
+    headline?: string;
+    markdownSummary?: string;
+    riskScore?: number;
+    riskLevel?: string;
+  };
+  impactGraph?: any;
+  metadata?: any;
+  createdAt: string;
+}
+
 export interface ScoreDeduction {
   category: string;
   points: number;

@@ -145,6 +145,18 @@ export interface CIFeedbackStructuredDetails {
   regressions: string[];
   reasons: CIGateReasonCode[];
   dashboardUrl?: string;
+  changeIntelligence?: {
+    riskScore: number;
+    riskLevel: string;
+    changeCount: number;
+    additionsCount: number;
+    deletionsCount: number;
+    affectedRoutes: string[];
+    affectedWorkflows: string[];
+    affectedApis: string[];
+    recommendedDomains: string[];
+    isPartial: boolean;
+  };
 }
 
 export interface CIFeedback {

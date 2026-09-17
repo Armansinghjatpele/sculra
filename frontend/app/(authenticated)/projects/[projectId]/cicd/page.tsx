@@ -15,7 +15,21 @@ import { Card } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { Stack, Flex, Grid } from '@/components/LayoutPrimitives';
 import { getVerdictBadgeClass, getVerdictLabel, getPolicyLabel, formatCommitSha, formatTimestamp, getReasonCodeLabel } from '@/lib/cicdUtils';
-import { CICDGateResult, CICDWebhookEvent } from '@/lib/demoData';
+import { CICDGateResult, CICDWebhookEvent, ChangeAnalysis } from '@/lib/demoData';
+
+function getRiskBadgeClass(level: string) {
+  switch (level) {
+    case 'CRITICAL':
+      return 'bg-rose-500/10 text-rose-400 border border-rose-500/30';
+    case 'HIGH':
+      return 'bg-orange-500/10 text-orange-400 border border-orange-500/30';
+    case 'MEDIUM':
+      return 'bg-amber-500/10 text-amber-400 border border-amber-500/30';
+    case 'LOW':
+    default:
+      return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+  }
+}
 
 export default function ProjectCICDPage() {
   const params = useParams();
@@ -42,6 +56,7 @@ export default function ProjectCICDPage() {
   // History state
   const [gateResults, setGateResults] = useState<CICDGateResult[]>([]);
   const [events, setEvents] = useState<CICDWebhookEvent[]>([]);
+  const [changeAnalyses, setChangeAnalyses] = useState<ChangeAnalysis[]>([]);
   const [selectedResult, setSelectedResult] = useState<CICDGateResult | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -73,6 +88,7 @@ export default function ProjectCICDPage() {
           }
           if (data.gateResults) setGateResults(data.gateResults);
           if (data.events) setEvents(data.events);
+          if (data.changeAnalyses) setChangeAnalyses(data.changeAnalyses);
         }
       } catch (err: any) {
         console.error('[CI/CD Page Load Error]:', err);
@@ -500,6 +516,105 @@ export default function ProjectCICDPage() {
                         <Link href={`/campaigns/${res.campaignId}`}>
                           <Button variant="accent" size="sm">
                             Campaign
+                          </Button>
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Code Change Intelligence & Impact */}
+      <Card className="p-6 border border-border/60 bg-surface">
+        <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Code Change Intelligence & Impact Analysis
+        </h2>
+
+        {changeAnalyses.length === 0 ? (
+          <div className="text-center py-10 border border-dashed border-border/50 rounded-lg">
+            <p className="text-muted-foreground text-sm">No code change impact analyses recorded yet.</p>
+            <p className="text-xs text-muted-foreground/80 mt-1">
+              When commits and pull requests are analyzed, semantic classification, risk scoring, and workflow impacts will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border/60 text-xs uppercase tracking-wider text-muted-foreground bg-background/30">
+                <tr>
+                  <th className="py-3 px-4">Risk Level</th>
+                  <th className="py-3 px-4">Commit / PR</th>
+                  <th className="py-3 px-4">Files Touched</th>
+                  <th className="py-3 px-4">Classifications</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Analyzed</th>
+                  <th className="py-3 px-4 text-right">Campaign</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {changeAnalyses.map((ca) => (
+                  <tr key={ca.id} className="hover:bg-surface-hover/30 transition-colors">
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${getRiskBadgeClass(ca.riskLevel)}`}>
+                        <span>{ca.riskScore}/100</span>
+                        <span className="text-[10px] opacity-80 uppercase font-mono">({ca.riskLevel})</span>
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-xs text-foreground">
+                      <div>
+                        {ca.pullRequestNumber ? (
+                          <span className="font-semibold text-accent mr-1.5">PR #{ca.pullRequestNumber}</span>
+                        ) : null}
+                        <span className="text-muted-foreground">{ca.commitSha ? ca.commitSha.slice(0, 7) : 'head'}</span>
+                        {ca.branch && <span className="ml-2 text-xs text-muted-foreground font-sans">({ca.branch})</span>}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-xs">
+                      <div className="font-semibold text-foreground">{ca.changeCount} file(s)</div>
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        <span className="text-emerald-400">+{ca.additionsCount}</span> / <span className="text-rose-400">-{ca.deletionsCount}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-xs">
+                      <div className="flex flex-wrap gap-1 max-w-xs">
+                        {(ca.classifications || []).slice(0, 3).map((c) => (
+                          <span key={c} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent/10 text-accent border border-accent/20">
+                            {c}
+                          </span>
+                        ))}
+                        {(ca.classifications || []).length > 3 && (
+                          <span className="text-[10px] text-muted-foreground self-center">
+                            +{(ca.classifications || []).length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-xs">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        ca.analysisStatus === 'COMPLETED'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : ca.analysisStatus === 'PARTIAL'
+                          ? 'bg-amber-500/10 text-amber-400'
+                          : 'bg-rose-500/10 text-rose-400'
+                      }`}>
+                        {ca.analysisStatus}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                      {formatTimestamp(ca.createdAt)}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {ca.campaignId && (
+                        <Link href={`/campaigns/${ca.campaignId}`}>
+                          <Button variant="accent" size="sm">
+                            View
                           </Button>
                         </Link>
                       )}

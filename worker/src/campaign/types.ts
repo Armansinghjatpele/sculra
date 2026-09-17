@@ -91,6 +91,11 @@ export interface CampaignConfig {
   accessibilityPolicy?: any;
   historicalPolicy?: any;
   allowLocalhost?: boolean;
+  commitSha?: string;
+  baseSha?: string;
+  pullRequestNumber?: number;
+  gitChanges?: any;
+  changeIntelligence?: any;
 }
 
 export interface CampaignBudget {
@@ -123,6 +128,8 @@ export interface CampaignTarget {
   isRecentRegression?: boolean;
   isRecurringDefect?: boolean;
   isFlaky?: boolean;
+  isChangeAffected?: boolean;
+  changeType?: 'DIRECT' | 'TRANSITIVE' | 'BUSINESS_CRITICAL' | 'SECURITY' | 'HISTORICAL';
 }
 
 export interface CampaignTask {
@@ -261,6 +268,7 @@ export interface CampaignState {
   consoleErrors: CapturedConsoleError[];
   networkErrors: CapturedNetworkError[];
   screenshots: CapturedScreenshot[];
+  changeIntelligence?: any;
   terminationReason?: CampaignTerminationReason;
   terminationDetails?: string;
 }
@@ -303,6 +311,20 @@ export interface CampaignSummary {
   releaseAssessment?: ReleaseAssessment;
   historicalScoreDeltas?: HistoricalMetricDelta[];
   aiExecutiveSummary?: string;
+  changeIntelligence?: {
+    riskScore: number;
+    riskLevel: string;
+    changeCount: number;
+    additionsCount: number;
+    deletionsCount: number;
+    affectedRoutes: string[];
+    affectedWorkflows: string[];
+    affectedApis: string[];
+    recommendedDomains: string[];
+    isPartial: boolean;
+    status: string;
+    summaryMarkdown?: string;
+  };
 }
 
 export interface CampaignRecord {

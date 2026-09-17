@@ -1272,3 +1272,142 @@ The synthesized developer feedback contains:
 - **Commit Context**: Repository full name, short commit SHA, author, and PR number.
 - **Deep Links**: Direct link to the autonomous QA campaign in the Sculra dashboard.
 - **GitHub Check Run Integration**: Typed conclusion (`success`, `failure`, `action_required`, `neutral`, `cancelled`).
+
+---
+
+## 21. Code Change Intelligence, Impact Analysis & Change-Aware QA
+
+Sculra understands what changed, where it changed, what application capabilities and user journeys are impacted, which QA targets and business workflows are affected, and which QA engines should execute with priority while maintaining safety coverage baselines.
+
+```mermaid
+flowchart TD
+    subgraph ChangeIngestion[Git Change Ingestion Layer]
+        GitEvent[Push / PR Webhook Payload] -->|Files & Patches| GitProvider[GitHubChangeProvider]
+        GitProvider --> SafeParser[Bounded Unified Diff Parser]
+        SafeParser --> Classify[Multi-Evidence Semantic Classifier]
+    end
+
+    subgraph ImpactAnalysis[Impact & Correlation Engine]
+        Classify --> SymbolScanner[Bounded AST & Export Scanner]
+        Classify --> RouteMapper[Next.js App / Pages Route Mapper]
+        Classify --> ApiMapper[API Endpoint & Method Impact Scanner]
+        RouteMapper & ApiMapper --> ProductLinker[ProductModel Workflow Linker]
+        ProductLinker --> HistLinker[Historical QA Memory Cross-Referencer]
+        HistLinker --> GraphBuilder[Bounded Impact Graph Builder]
+    end
+
+    subgraph Strategy[Strategy & Prioritization Layer]
+        GraphBuilder --> RiskCalc[Deterministic 0-100 Change Risk Calculator]
+        GraphBuilder --> StrategyBoosts[Strategy Prioritization Engine]
+        RiskCalc --> CampaignPlan[Autonomous Campaign Planner]
+        StrategyBoosts -->|CHANGE_DIRECT / CHANGE_BUSINESS_CRITICAL| CampaignPlan
+    end
+
+    subgraph Evaluation[Campaign Execution & Developer Feedback]
+        CampaignPlan --> CampaignExec[CampaignExecutor]
+        CampaignExec --> GateEngine[CI Gate Engine]
+        GateEngine --> FeedbackGen[CIFeedbackGenerator]
+        FeedbackGen --> GitHubPR[PR Markdown Comment & Dashboard Card]
+    end
+```
+
+### 21.1 Core Invariants & Safety Guarantees
+
+1. **No External Code Execution**: Sculra never clones arbitrary untrusted repositories, never runs `npm install` or build commands, and never executes repository shell scripts. Analysis is performed strictly on unified diff patches and metadata.
+2. **Deterministic Bounded Limits**:
+   - `MAX_CHANGED_FILES = 500`
+   - `MAX_PATCH_BYTES = 2MB` (2,097,152 bytes)
+   - `MAX_HUNKS_PER_FILE = 100`
+   - `MAX_LINES_PER_HUNK = 300`
+   - `MAX_TOTAL_CHANGED_LINES = 10,000`
+   - `MAX_GRAPH_NODES = 1,000`
+   - `MAX_GRAPH_EDGES = 3,000`
+   When any threshold is exceeded, the analysis status is marked as `PARTIAL` with a clear explanation, ensuring bounded execution without crashing or hanging workers.
+3. **Strict No-Fake-Data Guarantee**: Risk scores, impact graphs, and priority boosts are 100% deterministically calculated from empirical evidence. `?? 100` and `?? 0` fallbacks or simulated percentages are strictly prohibited.
+4. **Balanced Change-Aware QA**: Change intelligence prioritizes tests directly and transitively affected by code changes without creating tunnel vision. Safety baselines for visual, accessibility, and security assurance continue executing according to campaign objectives.
+
+### 21.2 Deterministic Change Risk Scoring (0–100)
+
+Change risk is calculated via additive weighted factors representing real operational risk:
+
+| Factor | Condition | Score Adjustment |
+| :--- | :--- | :--- |
+| `AUTHENTICATION_IMPACT` | `AUTHENTICATION` or `AUTHORIZATION` classification | +25 |
+| `PAYMENT_IMPACT` | `PAYMENT` classification or Stripe/billing keywords | +25 |
+| `DATABASE_IMPACT` | `DATABASE` migrations, schema, or ORM changes | +20 |
+| `ROUTING_IMPACT` | User-facing route or layout modified | +15 |
+| `API_IMPACT` | API route handler or contract changed | +15 |
+| `CRITICAL_WORKFLOW_TOUCHED` | Touches CRITICAL business workflow in `ProductModel` | +25 |
+| `HIGH_WORKFLOW_TOUCHED` | Touches HIGH business workflow in `ProductModel` | +15 |
+| `HISTORICAL_REGRESSION_RISK`| Historically associated with recent regressions | +20 |
+| `VERY_LARGE_DIFF` | Size category is `VERY_LARGE` (>50 files or >2,000 lines) | +15 |
+| `DOCUMENTATION_ONLY` | Only documentation modified (e.g. `.md`, `.rst`) | Score fixed to 5 (`LOW`) |
+| `TEST_ONLY` | Only test files modified (e.g. `.test.ts`, `.spec.ts`) | Score fixed to 15 (`LOW`) |
+
+#### Risk Levels:
+- **`CRITICAL`**: Score $\ge$ 80
+- **`HIGH`**: Score $\ge$ 60
+- **`MEDIUM`**: Score $\ge$ 30
+- **`LOW`**: Score $<$ 30
+
+### 21.3 Strategy Engine Prioritization Boosts
+
+The deterministic prioritizer (`DeterministicPrioritizer`) applies typed priority boosts to targets affected by code changes:
+
+- **`CHANGE_DIRECT`** (+25 pts): Target URL, route, or API is directly modified in the commit diff.
+- **`CHANGE_TRANSITIVE`** (+15 pts): Target is downstream of a modified component or layout.
+- **`CHANGE_BUSINESS_CRITICAL`** (+20 pts): Target executes steps within an affected CRITICAL `ProductModel` workflow.
+- **`CHANGE_SECURITY`** (+25 pts): Target resides in an authentication or authorization boundary modified by the commit.
+- **`CHANGE_HISTORICAL`** (+20 pts): Target is associated with past regressions and intersects current code changes.
+
+All priority scores remain strictly bounded between 0 and 100.
+
+### 21.4 Change Intelligence Domain Modules (`worker/src/change-intelligence/`)
+
+| Module | Responsibility |
+| :--- | :--- |
+| `types.ts` | Unified domain models: `ChangeSet`, `ChangedFile`, `ChangeHunk`, `ImpactGraph`, `ChangeRisk`, `ChangeAnalysisResult` |
+| `policy.ts` | Execution limits, file size categories, and risk tier definitions |
+| `normalizer.ts` | Path normalization, directory traversal defense, binary file, lockfile, and doc filters |
+| `parser.ts` | Safe bounded unified diff parser enforcing hunk and line thresholds |
+| `classifier.ts` | Multi-evidence semantic classifier (`AUTH`, `API`, `ROUTING`, `DATABASE`, `UI`, `STYLE`, `CONFIG`) |
+| `symbol-impact.ts` | Bounded scanner extracting exported symbols, components, and HTTP route handlers (`GET`, `POST`, etc.) |
+| `route-impact.ts` | Next.js App Router and Pages Router route extractor |
+| `api-impact.ts` | API endpoint matcher identifying impacted backend routes |
+| `product-impact.ts` | Cross-referencer linking changed routes to `ProductModel` critical workflows and features |
+| `historical-impact.ts` | Cross-referencer tagging historically associated flakiness and prior regressions |
+| `risk.ts` | Deterministic 0–100 Change Risk score and factor calculator |
+| `graph.ts` | Bounded graph builder constructing nodes and edges with cycle protection |
+| `matcher.ts` | QA domain recommender and strategy boost generator |
+| `git-provider.ts` | Provider abstraction and context models |
+| `github.ts` | GitHub change fetcher with graceful offline fallback to webhook payload |
+| `evidence.ts` | Formatter generating structured `TestEvidencePayload` records for campaign persistence |
+| `redaction.ts` | Token and password sanitization |
+| `analyzer.ts` | Master `ChangeIntelligenceAnalyzer.analyze()` orchestrator |
+
+### 21.5 Database Schema (`public.change_analyses`)
+
+Analysis records are persisted to `public.change_analyses` with Row-Level Security:
+```sql
+CREATE TABLE IF NOT EXISTS public.change_analyses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  campaign_id UUID REFERENCES public.qa_campaigns(id) ON DELETE SET NULL,
+  commit_sha TEXT NOT NULL,
+  base_sha TEXT,
+  branch TEXT,
+  pull_request_number INTEGER,
+  change_count INTEGER NOT NULL DEFAULT 0,
+  additions_count INTEGER NOT NULL DEFAULT 0,
+  deletions_count INTEGER NOT NULL DEFAULT 0,
+  risk_score NUMERIC(5, 2) NOT NULL DEFAULT 0,
+  risk_level TEXT NOT NULL DEFAULT 'LOW',
+  analysis_status TEXT NOT NULL DEFAULT 'COMPLETED',
+  classifications JSONB NOT NULL DEFAULT '[]'::jsonb,
+  summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  impact_graph JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+```

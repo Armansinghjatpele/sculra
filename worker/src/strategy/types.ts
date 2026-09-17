@@ -92,6 +92,8 @@ export interface TestTarget {
   id: string;
   targetType: TestTargetType;
   pageUrl: string;
+  identifier?: string;
+  url?: string;
   selector?: string;
   action?: JourneyActionType;
   value?: string;

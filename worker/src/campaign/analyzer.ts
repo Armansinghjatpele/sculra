@@ -98,6 +98,24 @@ export class CampaignAnalyzer {
       historicalScoreDeltas: state.historicalComparison?.metricDeltas,
     };
 
+    const ci = state.changeIntelligence || (state.config as any)?.changeIntelligence;
+    if (ci && ci.risk && ci.changeSet) {
+      summary.changeIntelligence = {
+        riskScore: ci.risk.score,
+        riskLevel: ci.risk.level,
+        changeCount: ci.changeSet.files?.length || 0,
+        additionsCount: ci.changeSet.totalAdditions || 0,
+        deletionsCount: ci.changeSet.totalDeletions || 0,
+        affectedRoutes: ci.impactGraph?.affectedRoutes || [],
+        affectedWorkflows: (ci.impactGraph?.affectedWorkflows || []).map((w: any) => w.workflowName || w.workflowId || String(w)),
+        affectedApis: (ci.impactGraph?.affectedApis || []).map((a: any) => `${a.method || 'GET'} ${a.endpoint || a.path || String(a)}`),
+        recommendedDomains: ci.recommendedDomains || [],
+        isPartial: !!ci.isPartial,
+        status: ci.status || 'COMPLETED',
+        summaryMarkdown: ci.summary?.markdownSummary,
+      };
+    }
+
     // Generate grounded AI executive narrative
     summary.aiExecutiveSummary = await this.aiReasoner.generateExecutiveSummary(state, summary);
 

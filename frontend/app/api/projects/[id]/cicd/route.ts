@@ -10,6 +10,7 @@ import {
   updateProjectCIConfig,
   getCICDWebhookEvents,
   getCICDGateResults,
+  getProjectChangeAnalyses,
   getProject,
 } from '@/services/db';
 
@@ -44,10 +45,11 @@ export async function GET(
       );
     }
 
-    const [config, events, gateResults] = await Promise.all([
+    const [config, events, gateResults, changeAnalyses] = await Promise.all([
       getProjectCIConfig(token, id),
       getCICDWebhookEvents(token, id, 30),
       getCICDGateResults(token, id, 30),
+      getProjectChangeAnalyses(token, id, 10),
     ]);
 
     return NextResponse.json({
@@ -55,6 +57,7 @@ export async function GET(
       config,
       events,
       gateResults,
+      changeAnalyses,
     });
   } catch (err: any) {
     console.error('[API Project CI/CD GET Error]:', err);

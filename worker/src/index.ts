@@ -32,6 +32,7 @@ export * from './logger';
 export * from './storage';
 export * from './execution';
 export * from './cicd';
+export * from './change-intelligence';
 
 // CLI Support:
 // 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`
