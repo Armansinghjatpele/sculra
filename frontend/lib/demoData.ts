@@ -515,6 +515,96 @@ export interface Issue {
   lastSeenAt?: string;
   reproductionSteps?: StructuredReproductionStep[];
   metadata?: Record<string, any>;
+  remediation?: RemediationAnalysis | null;
+}
+
+export interface BugDiagnosis {
+  summary: string;
+  category: string;
+  status: 'NOT_ANALYZED' | 'ANALYZING' | 'DIAGNOSED' | 'PARTIAL' | 'INSUFFICIENT_EVIDENCE' | 'FAILED';
+  confidence: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  directLocations: Array<{ filePath: string; line?: number; functionName?: string }>;
+  explanation: string;
+  limitations: string[];
+  provenanceTrail: string[];
+}
+
+export interface RootCauseHypothesis {
+  id: string;
+  category: string;
+  statement: string;
+  status: 'CANDIDATE' | 'SUPPORTED' | 'WEAKLY_SUPPORTED' | 'REJECTED' | 'UNRESOLVED';
+  confidence: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  supportingEvidenceIds: string[];
+  contradictingEvidenceIds: string[];
+  filePaths: string[];
+  symbols: string[];
+  sourceReferences: string[];
+  affectedTarget?: string;
+  affectedCode?: string;
+  rejectionReason?: string;
+}
+
+export interface FixStep {
+  stepNumber: number;
+  description: string;
+  targetFile?: string;
+  targetSymbol?: string;
+  action: 'INSPECT' | 'HANDLE_ERROR' | 'VALIDATE_INPUT' | 'UPDATE_LOGIC' | 'ADD_TEST' | 'REVERT_CHANGE';
+  rationale: string;
+  safetyNotes?: string;
+}
+
+export interface FixPlan {
+  summary: string;
+  affectedFiles: string[];
+  affectedSymbols: string[];
+  steps: FixStep[];
+  expectedBehavior: string;
+  riskAssessment: 'LOW' | 'MEDIUM' | 'HIGH' | 'SECURITY_RISK';
+  securityHazards?: string[];
+  requiredTests: string[];
+}
+
+export interface VerificationPlan {
+  suggestedDomains: string[];
+  existingTargets: string[];
+  regressionTests: string[];
+}
+
+export interface RemediationAnalysis {
+  id: string;
+  organizationId?: string;
+  projectId: string;
+  issueId: string;
+  campaignId?: string;
+  testRunId?: string;
+  fingerprint: string;
+  analysisVersion: number;
+  status: 'NOT_ANALYZED' | 'ANALYZING' | 'DIAGNOSED' | 'PARTIAL' | 'INSUFFICIENT_EVIDENCE' | 'FAILED';
+  confidence: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  diagnosis: BugDiagnosis;
+  hypotheses: RootCauseHypothesis[];
+  fixPlan: FixPlan;
+  verificationPlan: VerificationPlan;
+  codeContextSummary?: {
+    filesRetrieved: number;
+    symbolsIdentified: number;
+    isPartial: boolean;
+    partialReason?: string;
+  };
+  changeContextSummary?: {
+    commitSha?: string;
+    hasRelevantChanges: boolean;
+    relationship: string;
+  };
+  historicalContextSummary?: {
+    isRecurring: boolean;
+    isRecentRegression: boolean;
+    totalOccurrences: number;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AIInsight {

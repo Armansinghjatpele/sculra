@@ -157,6 +157,15 @@ export interface CIFeedbackStructuredDetails {
     recommendedDomains: string[];
     isPartial: boolean;
   };
+  remediationSummaries?: Array<{
+    issueTitle: string;
+    observed: string;
+    likelyCause: string;
+    confidence: string;
+    suggestedFix: string;
+    verification: string;
+    affectedFiles?: string[];
+  }>;
 }
 
 export interface CIFeedback {

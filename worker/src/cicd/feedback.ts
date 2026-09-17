@@ -99,6 +99,15 @@ export class CIFeedbackGenerator {
             isPartial: ci.isPartial,
           }
         : undefined,
+      remediationSummaries: summary?.remediationAnalyses?.map((r) => ({
+        issueTitle: r.summary,
+        observed: r.summary,
+        likelyCause: r.category.replace(/_/g, ' '),
+        confidence: r.confidence,
+        suggestedFix: r.fixSummary,
+        verification: `Re-test ${r.affectedFiles?.join(', ') || 'affected targets'} across relevant QA domains.`,
+        affectedFiles: r.affectedFiles,
+      })),
     };
 
     // Synthesize Markdown Report
@@ -161,6 +170,20 @@ export class CIFeedbackGenerator {
         markdownLines.push(`- ${reg}`);
       }
       markdownLines.push('');
+    }
+
+    // AI Root Cause Diagnosis & Fix Planning Section (Prompt 33)
+    if (structuredDetails.remediationSummaries && structuredDetails.remediationSummaries.length > 0) {
+      markdownLines.push('### 🔬 AI Root Cause Diagnosis & Fix Plan');
+      markdownLines.push('');
+      for (const rem of structuredDetails.remediationSummaries) {
+        markdownLines.push(`**Observed**: ${rem.observed}`);
+        markdownLines.push(`- **Likely Cause**: ${rem.likelyCause}`);
+        markdownLines.push(`- **Confidence**: \`${rem.confidence}\``);
+        markdownLines.push(`- **Suggested Fix**: ${rem.suggestedFix}`);
+        markdownLines.push(`- **Verification**: ${rem.verification}`);
+        markdownLines.push('');
+      }
     }
 
     // Git context

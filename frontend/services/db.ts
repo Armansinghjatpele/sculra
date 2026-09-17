@@ -5,7 +5,7 @@
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
 
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, ChangeAnalysis, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
+import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, ChangeAnalysis, RemediationAnalysis, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -1250,6 +1250,86 @@ export async function getProjectChangeAnalyses(
     impactGraph: r.impact_graph || {},
     metadata: r.metadata || {},
     createdAt: r.created_at,
+  }));
+}
+
+export async function getIssueRemediationAnalysis(
+  clerkToken: string,
+  issueId: string
+): Promise<RemediationAnalysis | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('issue_remediation_analyses')
+    .select('*')
+    .eq('issue_id', issueId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    projectId: data.project_id,
+    issueId: data.issue_id,
+    campaignId: data.campaign_id,
+    testRunId: data.test_run_id,
+    fingerprint: data.fingerprint,
+    analysisVersion: data.analysis_version,
+    status: data.status,
+    confidence: data.confidence,
+    diagnosis: data.diagnosis,
+    hypotheses: data.hypotheses || [],
+    fixPlan: data.fix_plan,
+    verificationPlan: data.verification_plan,
+    codeContextSummary: data.code_context_summary,
+    changeContextSummary: data.change_context_summary,
+    historicalContextSummary: data.historical_context_summary,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getProjectRemediationAnalyses(
+  clerkToken: string,
+  projectId: string,
+  limit = 20
+): Promise<RemediationAnalysis[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('issue_remediation_analyses')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return [];
+  }
+
+  return data.map((r: any) => ({
+    id: r.id,
+    organizationId: r.organization_id,
+    projectId: r.project_id,
+    issueId: r.issue_id,
+    campaignId: r.campaign_id,
+    testRunId: r.test_run_id,
+    fingerprint: r.fingerprint,
+    analysisVersion: r.analysis_version,
+    status: r.status,
+    confidence: r.confidence,
+    diagnosis: r.diagnosis,
+    hypotheses: r.hypotheses || [],
+    fixPlan: r.fix_plan,
+    verificationPlan: r.verification_plan,
+    codeContextSummary: r.code_context_summary,
+    changeContextSummary: r.change_context_summary,
+    historicalContextSummary: r.historical_context_summary,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   }));
 }
 

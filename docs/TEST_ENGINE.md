@@ -1411,3 +1411,209 @@ CREATE TABLE IF NOT EXISTS public.change_analyses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 ```
+
+---
+
+## 22. AI Root Cause Analysis, Code-Aware Bug Diagnosis & Fix Planning
+
+Sculra bridges the gap between test execution failure and developer remediation. When an issue or test failure occurs, the engine performs structured root cause analysis, diagnoses whether the failure is an application bug, test defect, environmental glitch, or regression, pinpoints the relevant source code files and functions, correlates with recent git changes, and produces an actionable, step-by-step fix plan and verification strategy.
+
+```mermaid
+flowchart TD
+    subgraph EvidenceIngestion[1. Evidence Ingestion & Normalization]
+        Obs[Failure Observation / Issue] --> Extractor[Evidence Normalizer & Secret Redactor]
+        Extractor --> TraceParser[Structured Stack Trace & Error Parser]
+        Extractor --> NetworkDOM[Network Failure & DOM State Extractor]
+    end
+
+    subgraph CodeCorrelation[2. Bounded Code & Context Correlation]
+        TraceParser --> RouteMap[Route & API Handler Resolver]
+        RouteMap --> SymbolMap[Exported Symbol & Component Scanner]
+        SymbolMap --> GitHubCtx[Read-Only GitHub Contents API Provider]
+        GitHubCtx --> CodeCtx[Prioritized Bounded Code Context]
+        CodeCtx --> ChangeCtx[Change Intelligence Correlator Prompt 32]
+        CodeCtx --> HistCtx[Historical QA Memory Cross-Referencer Prompt 28]
+    end
+
+    subgraph HypothesisEngine[3. Deterministic Hypothesis & Validation]
+        CodeCtx & ChangeCtx & HistCtx --> CandGen[Remediation Candidate Generator]
+        CandGen --> HypoValidator[Evidence Consistency & Timeline Validator]
+        HypoValidator --> ConfCalc[Deterministic 5-Tier Confidence Calculator]
+    end
+
+    subgraph AISynthesis[4. AI Synthesis & Fix Planning]
+        HypoValidator & ConfCalc --> PromptQuarantine[Quarantined AI Context Formatter]
+        PromptQuarantine --> OpenAIProvider[OpenAI Structured Outputs / Fallback]
+        OpenAIProvider --> AIValidator[AI Output Hallucination Validator]
+        AIValidator --> FixPlanner[Safe Step-by-Step Fix Planner]
+        FixPlanner --> VerifPlanner[Targeted Verification Strategy Planner]
+    end
+
+    subgraph DeveloperSurfaces[5. Feedback & UI Surfaces]
+        VerifPlanner --> PersistDB[(public.issue_remediation_analyses)]
+        VerifPlanner --> PersistEv[(public.test_evidence Records)]
+        PersistDB --> CIFeedback[CI/CD Developer Feedback Report]
+        PersistDB --> DashboardUI[Dashboard Issue Remediation Panel]
+    end
+```
+
+### 22.1 Core Invariants, Source of Truth Hierarchy & Security Guarantees
+
+1. **Strict Separation of Evidentiary Categories**:
+   - **`OBSERVED FACT`**: Empirical runtime logs, HTTP status codes, console error strings, stack traces, and DOM element snapshots.
+   - **`INFERENCE`**: Code-to-route mappings, AST symbol definitions, or change correlations.
+   - **`HYPOTHESIS`**: Proposed root cause explanations that are tested for consistency against observed facts.
+   - **`RECOMMENDATION`**: Actionable remediation steps and targeted verification tests.
+   *The system never treats an inference or hypothesis as an established fact.*
+
+2. **Source of Truth Hierarchy**:
+   1. Direct QA runtime evidence (screenshots, console logs, network logs, DOM state)
+   2. Runtime error & stack trace (exact line numbers, stack frames)
+   3. Network evidence (status codes, payloads, timings)
+   4. DOM / Application behavior (visual state, rendered elements)
+   5. Changed code (git commit diffs, modified hunks)
+   6. Static code relationships (imports, exports, component trees)
+   7. Historical QA evidence (past pass/fail runs, flaky history)
+   8. ProductModel (workflows, user journeys)
+   9. AI inference (*weakest source of truth — never overrides empirical facts*)
+
+3. **Strict Scope Constraint (Diagnosis & Fix Planning ONLY)**:
+   - Sculra is strictly a diagnostic and planning engine.
+   - **DO NOT modify the user's code repository.**
+   - **DO NOT create commits or pull requests on target repositories.**
+   - **DO NOT auto-apply patches.**
+   - All repository interaction is strictly read-only via GitHub Contents API / raw file lookups.
+
+4. **Deterministic Bounded Limits**:
+   - `MAX_EVIDENCE_ITEMS = 50`
+   - `MAX_TOTAL_EVIDENCE_BYTES = 512KB`
+   - `MAX_RELEVANT_FILES = 20`
+   - `MAX_BYTES_PER_FILE = 50KB`
+   - `MAX_TOTAL_CODE_CONTEXT = 300KB`
+   - `MAX_SYMBOLS = 100`
+   - `MAX_IMPORT_DEPTH = 3`
+   - `MAX_ANALYSES_PER_CAMPAIGN = 20`
+   - `MAX_AI_REQUESTS_PER_ANALYSIS = 2`
+   - `MAX_ANALYSIS_SECONDS = 45`
+
+5. **Prompt Injection & Secret Quarantine**:
+   - All inputs (console errors, stack traces, untrusted code snippets) are filtered with `maskSecrets()` to scrub API keys, JWTs, Bearer tokens, and database passwords.
+   - Untrusted repository content and error messages are quarantined as raw data blocks to prevent prompt injection hijacking.
+
+6. **Zero Hallucination Enforcement (`AIOutputValidator`)**:
+   - Every file path, symbol name, and route referenced in AI responses is strictly validated against the ingested code context.
+   - Hallucinated references are automatically stripped before persisting or surfacing to developers.
+   - If AI analysis fails, times out, or returns malformed data, the system falls back seamlessly to deterministic rule-based analysis.
+
+### 22.2 Bug Diagnosis Taxonomy
+
+Every diagnosed failure is classified into an authoritative category:
+
+| Diagnosis Category | Description | Typical Evidentiary Signal |
+| :--- | :--- | :--- |
+| `APPLICATION_BUG` | Defect in application source code or business logic | Unhandled 500 exceptions, `TypeError: Cannot read properties of undefined`, logical assertion failures |
+| `TEST_DEFECT` | Flawed test definition, incorrect selector, or outdated expectation | Element selector mismatch when DOM is healthy, stale assertion expectation |
+| `ENVIRONMENT_GLITCH` | Infrastructure outage, network timeout, or third-party service downtime | `ECONNREFUSED`, `503 Service Unavailable`, gateway timeout 504 |
+| `REGRESSION` | Previously working functionality broken by recent code changes | Failure on a route modified in the latest commit diff with historical passing runs |
+| `CONFIGURATION_ERROR` | Missing environment variables, invalid CORS, or misconfigured auth | `401 Unauthorized`, `CORS header missing`, undefined configuration keys |
+| `DATA_ISSUE` | Corrupted test fixtures, missing seed records, or unexpected database state | Foreign key constraint violation, empty result set on required entity |
+| `FLAKY_BEHAVIOR` | Non-deterministic timing, race condition, or animation delay | Intermittent failures across consecutive runs on unchanged code |
+| `UNKNOWN` | Insufficient evidence to establish a definitive diagnosis category | Partial logs, missing stack trace, generic unstructured failure |
+
+### 22.3 Deterministic Confidence Scoring (5-Tier)
+
+Confidence is calculated deterministically from empirical evidence points minus ambiguity penalties:
+
+- **Empirical Additive Factors**:
+  - `DIRECT_STACK_TRACE_MATCH`: +30 pts
+  - `RECENT_CHANGE_CORRELATION`: +25 pts
+  - `EXACT_ERROR_SIGNATURE`: +20 pts
+  - `REPRODUCIBLE_ACROSS_RUNS`: +15 pts
+  - `DOM_EVIDENCE_CORROBORATION`: +10 pts
+  - `NETWORK_EVIDENCE_CORROBORATION`: +10 pts
+  - `HISTORICAL_REGRESSION_MATCH`: +10 pts
+
+- **Penalties**:
+  - `MISSING_STACK_TRACE`: -25 pts
+  - `MULTIPLE_PLAUSIBLE_HYPOTHESES`: -20 pts
+  - `UNRESOLVED_SOURCE_MAP`: -15 pts
+  - `NO_MATCHING_SOURCE_FILE`: -20 pts
+  - `FLAKY_FAILURE_HISTORY`: -15 pts
+
+- **Calculated Confidence Tiers**:
+  - **`VERY_HIGH`** ($\ge 85$ pts): Complete stack trace, verified source file, exact error signature.
+  - **`HIGH`** ($\ge 70$ pts): Clear runtime evidence and correlated source file or change.
+  - **`MEDIUM`** ($\ge 50$ pts): Plausible hypothesis with partial evidence or indirect correlation.
+  - **`LOW`** ($\ge 30$ pts): Ambiguous symptoms, missing stack frames, or multiple competing hypotheses.
+  - **`VERY_LOW`** ($< 30$ pts): Severely degraded or purely inferential context.
+
+### 22.4 Remediation Domain Modules (`worker/src/remediation/`)
+
+| Module | Responsibility |
+| :--- | :--- |
+| `types.ts` | Unified domain models: `FailureObservation`, `BugDiagnosis`, `RootCauseHypothesis`, `CodeContext`, `FixPlan`, `VerificationPlan`, `RemediationAnalysis` |
+| `policy.ts` | Ceilings, byte limits, timeout configurations, and version constants |
+| `errors.ts` | Typed error hierarchy: `RemediationError`, `CodeContextUnavailableError`, `AIInvalidOutputError`, `InsufficientEvidenceError` |
+| `redaction.ts` | Deep secret masking (OpenAI, GitHub, AWS, JWT, URI) and prompt injection neutralizing |
+| `stack-trace.ts` | V8/Node and browser stack trace parser with Turbopack/Webpack chunk normalization |
+| `error-parser.ts` | Runtime error parser extracting signatures, referenced files, and symbols |
+| `source-map.ts` | Source map locator with SSRF protection against cloud metadata endpoints |
+| `route-mapper.ts` | Next.js App Router and Pages Router route and API matcher |
+| `symbol-mapper.ts` | AST / export scanner extracting symbols and constructing import graphs |
+| `github-context.ts` | Read-only GitHub Contents API retriever (no git clone, no shell execution) |
+| `code-context.ts` | Prioritized context builder assembling bounded code context |
+| `change-context.ts` | Prompt 32 Change Intelligence cross-referencer (`DIRECT_CHANGE`, `TRANSITIVE_CHANGE`) |
+| `history-context.ts` | Prompt 28 Historical Memory cross-referencer tagging past flakiness and regressions |
+| `evidence-context.ts` | Failure observation normalizer and evidence bundler |
+| `candidate-generator.ts` | `RemediationCandidateGenerator` generating deterministic root cause candidates |
+| `hypothesis-validator.ts` | Consistency validator discarding contradictory hypotheses |
+| `confidence.ts` | Deterministic 5-tier confidence calculator |
+| `fix-plan.ts` | Step-by-step fix planner with `SECURITY_RISK` detection for auth bypass |
+| `verification-plan.ts` | Targeted verification planner recommending QA domains and regression assertions |
+| `ai-schema.ts` | JSON Schema for OpenAI Structured Outputs |
+| `ai-validator.ts` | `AIOutputValidator` stripping unverified file/symbol/route hallucinations |
+| `ai-analyzer.ts` | `AIRootCauseAnalyzer` orchestrating LLM diagnosis with prompt injection quarantine |
+| `evidence.ts` | Structured `TestEvidencePayload` formatter for campaign persistence |
+| `analyzer.ts` | Master `RemediationAnalyzer.analyze()` orchestrator |
+
+### 22.5 Database Schema (`public.issue_remediation_analyses`)
+
+Remediation analyses are persisted to `public.issue_remediation_analyses`:
+```sql
+CREATE TABLE IF NOT EXISTS public.issue_remediation_analyses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  issue_id UUID REFERENCES public.issues(id) ON DELETE CASCADE,
+  campaign_id UUID REFERENCES public.qa_campaigns(id) ON DELETE SET NULL,
+  test_run_id UUID REFERENCES public.test_runs(id) ON DELETE SET NULL,
+  analysis_status TEXT NOT NULL DEFAULT 'COMPLETED',
+  analysis_version INTEGER NOT NULL DEFAULT 1,
+  bug_diagnosis JSONB NOT NULL DEFAULT '{}'::jsonb,
+  root_cause_hypotheses JSONB NOT NULL DEFAULT '[]'::jsonb,
+  code_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+  change_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+  historical_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+  confidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+  fix_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
+  verification_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+```
+
+### 22.6 Developer Experience & Frontend Surfaces
+
+- **CI/CD Developer Feedback**:
+  Every CI run failing a gate due to critical blockers or regressions includes an itemized remediation section (`### 🔬 AI Root Cause Diagnosis & Fix Plan`) with the diagnosed category, primary root cause explanation, confidence score, suspected files and lines, and recommended fix steps.
+- **Interactive Issue Remediation Panel (`IssueRemediationPanel.tsx`)**:
+  Integrated directly inside the expanded view of issues in `IssueList.tsx`:
+  - **Honest Status Badges**: Displays `Not analyzed`, `Diagnosed`, `Partial analysis`, `Insufficient evidence`, or `Analysis unavailable`.
+  - **Categorized Tabs**:
+    1. **Root Cause**: Primary hypothesis, reasoning, contradiction checks, alternative hypotheses.
+    2. **Fix Plan**: Step-by-step remediation guide with file references and safety warnings.
+    3. **Verification Plan**: Targeted QA domains, specific regression checks, and edge cases.
+    4. **Code & Change Context**: Referenced source files, line numbers, and commit diff relationships (`DIRECT_CHANGE`, `TRANSITIVE_CHANGE`).
+    5. **Empirical Evidence**: Cleaned console errors, stack traces, and network logs with secret masking.
+

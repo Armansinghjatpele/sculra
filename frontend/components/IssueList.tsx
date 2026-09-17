@@ -1,15 +1,34 @@
-'use client';
-
 import * as React from 'react';
 import { SeverityBadge } from './SeverityBadge';
-import { Issue } from '@/lib/demoData';
+import { Issue, RemediationAnalysis } from '@/lib/demoData';
+import { IssueRemediationPanel } from './IssueRemediationPanel';
 import { ChevronDown, ChevronRight, AlertTriangle, ExternalLink, Repeat } from 'lucide-react';
 
 export function IssueList({ issues }: { issues: Issue[] }) {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [remediations, setRemediations] = React.useState<Record<string, RemediationAnalysis | null>>({});
+  const [loadingRemediations, setLoadingRemediations] = React.useState<Record<string, boolean>>({});
 
-  const toggleExpand = (id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+  const toggleExpand = async (id: string) => {
+    const nextId = expandedId === id ? null : id;
+    setExpandedId(nextId);
+
+    if (nextId && remediations[nextId] === undefined) {
+      try {
+        setLoadingRemediations((prev) => ({ ...prev, [nextId]: true }));
+        const res = await fetch(`/api/issues/${nextId}/remediation`);
+        if (res.ok) {
+          const json = await res.json();
+          setRemediations((prev) => ({ ...prev, [nextId]: json.remediation || null }));
+        } else {
+          setRemediations((prev) => ({ ...prev, [nextId]: null }));
+        }
+      } catch {
+        setRemediations((prev) => ({ ...prev, [nextId]: null }));
+      } finally {
+        setLoadingRemediations((prev) => ({ ...prev, [nextId]: false }));
+      }
+    }
   };
 
   return (
@@ -179,6 +198,12 @@ export function IssueList({ issues }: { issues: Issue[] }) {
                     </div>
                   </div>
                 )}
+
+                {/* AI Root Cause Diagnosis & Remediation Panel (Prompt 33) */}
+                <IssueRemediationPanel
+                  remediation={remediations[issue.id] ?? issue.remediation}
+                  loading={loadingRemediations[issue.id]}
+                />
               </div>
             )}
           </div>

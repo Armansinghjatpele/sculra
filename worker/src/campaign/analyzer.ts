@@ -116,6 +116,10 @@ export class CampaignAnalyzer {
       };
     }
 
+    if ((state as any).remediationAnalyses) {
+      summary.remediationAnalyses = (state as any).remediationAnalyses;
+    }
+
     // Generate grounded AI executive narrative
     summary.aiExecutiveSummary = await this.aiReasoner.generateExecutiveSummary(state, summary);
 

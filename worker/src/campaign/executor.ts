@@ -25,6 +25,8 @@ import { CampaignAnalyzer } from './analyzer';
 import { CampaignPersistenceManager } from './persistence';
 import { CampaignEvidenceFormatter } from './evidence';
 import { ChangeIntelligenceAnalyzer, ChangeAnalysisResult } from '../change-intelligence';
+import { RemediationAnalyzer } from '../remediation';
+import { BugObservation } from '../issues/types';
 import {
   DiscoveryAdapter,
   ProductAdapter,
@@ -390,6 +392,65 @@ export class CampaignExecutor {
             }
           }
         }
+      }
+
+      // 6.5 Code-Aware Bug Diagnosis & Remediation Planning (Prompt 33)
+      try {
+        const executedResults = Array.from(this.stateManager.rawState.executedTaskResults.values());
+        const rawBugs: BugObservation[] = [];
+        const seenFingerprints = new Set<string>();
+
+        for (const res of executedResults) {
+          if (res.observations && res.observations.length > 0) {
+            for (const obs of res.observations) {
+              if (obs.fingerprint && !seenFingerprints.has(obs.fingerprint)) {
+                seenFingerprints.add(obs.fingerprint);
+                rawBugs.push(obs);
+              }
+            }
+          }
+        }
+
+        if (rawBugs.length > 0) {
+          const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+          rawBugs.sort((a, b) => (severityRank[b.severity] || 0) - (severityRank[a.severity] || 0));
+          const bugsToAnalyze = rawBugs.slice(0, 20);
+
+          const remediationAnalyzer = new RemediationAnalyzer(this.logger);
+          const remediationSummaries: any[] = [];
+
+          for (const bug of bugsToAnalyze) {
+            const analysis = await remediationAnalyzer.analyze(
+              {
+                observation: bug as any,
+                projectId,
+                organizationId: this.options.organizationId,
+                campaignId,
+                testRunId: this.options.testRunId,
+                changeAnalysis: this.stateManager.rawState.changeIntelligence,
+                historicalRuns: pastRuns,
+              },
+              this.options.supabaseClient
+            );
+
+            remediationSummaries.push({
+              issueId: analysis.issueId,
+              fingerprint: analysis.fingerprint,
+              status: analysis.status,
+              confidence: analysis.confidence,
+              category: analysis.diagnosis.category,
+              summary: analysis.diagnosis.summary,
+              fixSummary: analysis.fixPlan.summary,
+              affectedFiles: analysis.fixPlan.affectedFiles,
+            });
+          }
+
+          (this.stateManager.rawState as any).remediationAnalyses = remediationSummaries;
+        }
+      } catch (remErr: any) {
+        this.logger.warn('campaign_remediation_analysis_error', {
+          message: remErr?.message || String(remErr),
+        });
       }
 
       // Final Termination & Summary

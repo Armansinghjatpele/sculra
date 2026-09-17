@@ -325,6 +325,16 @@ export interface CampaignSummary {
     status: string;
     summaryMarkdown?: string;
   };
+  remediationAnalyses?: Array<{
+    issueId: string;
+    fingerprint: string;
+    status: string;
+    confidence: string;
+    category: string;
+    summary: string;
+    fixSummary: string;
+    affectedFiles: string[];
+  }>;
 }
 
 export interface CampaignRecord {
