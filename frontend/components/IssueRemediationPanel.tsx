@@ -19,17 +19,23 @@ import {
   CheckSquare,
   HelpCircle,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
+import { FixAgentPanel } from './FixAgentPanel';
 
 export function IssueRemediationPanel({
   remediation,
   loading = false,
+  projectId,
+  issueId,
 }: {
   remediation?: RemediationAnalysis | null;
   loading?: boolean;
+  projectId?: string;
+  issueId?: string;
 }) {
   const [activeTab, setActiveTab] = React.useState<
-    'diagnosis' | 'hypotheses' | 'code' | 'changes' | 'fix' | 'verify'
+    'diagnosis' | 'hypotheses' | 'code' | 'changes' | 'fix' | 'verify' | 'remediate'
   >('diagnosis');
 
   if (loading) {
@@ -184,6 +190,16 @@ export function IssueRemediationPanel({
             }`}
           >
             Verification
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('remediate')}
+            className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
+              activeTab === 'remediate' ? 'bg-purple-900/40 text-purple-300 font-semibold border border-purple-700/50' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 text-purple-400" />
+            <span>Fix Agent</span>
           </button>
         </div>
       </div>
@@ -429,8 +445,18 @@ export function IssueRemediationPanel({
               ))}
             </div>
 
-            <div className="p-2.5 rounded bg-zinc-900/40 border border-white/5 text-3xs text-muted-foreground font-mono">
-              ⚠️ Note: This is an analytical remediation plan. Sculra does not automatically edit code repositories in Prompt 33.
+            <div className="p-3 rounded-lg bg-cyan-950/30 border border-cyan-800/40 flex items-center justify-between gap-3 font-mono text-3xs">
+              <div className="flex items-center gap-2 text-cyan-300">
+                <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Autonomous Safe Fix Agent is ready to generate and test code for this issue.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('remediate')}
+                className="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors cursor-pointer text-4xs shrink-0"
+              >
+                Launch Fix Agent →
+              </button>
             </div>
           </div>
         )}
@@ -473,6 +499,15 @@ export function IssueRemediationPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Tab 7: Safe Fix Agent */}
+        {activeTab === 'remediate' && (
+          <FixAgentPanel
+            projectId={projectId || remediation.projectId}
+            issueId={issueId || remediation.issueId}
+            remediationAnalysisId={remediation.id}
+          />
         )}
       </div>
     </div>

@@ -1617,3 +1617,180 @@ CREATE TABLE IF NOT EXISTS public.issue_remediation_analyses (
     4. **Code & Change Context**: Referenced source files, line numbers, and commit diff relationships (`DIRECT_CHANGE`, `TRANSITIVE_CHANGE`).
     5. **Empirical Evidence**: Cleaned console errors, stack traces, and network logs with secret masking.
 
+---
+
+## 23. Autonomous Safe Fix Agent & Code Remediation
+
+### 23.1 Closed-Loop Remediation Flow
+Prompt 34 completes Sculra's end-to-end autonomous quality engineering loop, transitioning the system from analytical planning into safe, automated code remediation:
+
+```
+QA FAILURE
+    ↓
+EMPIRICAL EVIDENCE (DOM, console, network, visual diff)
+    ↓
+ROOT CAUSE DIAGNOSIS & RELEVANT CODE
+    ↓
+GROUNDED FIX PLAN (affected files & symbols)
+    ↓
+AUTHORIZATION & POLICY CHECK (mode ceilings, allowlists)
+    ↓
+ISOLATED SCRATCH WORKSPACE (outside repository tree)
+    ↓
+BASELINE REPRODUCTION (reproduces failure deterministically)
+    ↓
+STRUCTURED PATCH GENERATION & VALIDATION (AST/context-anchored)
+    ↓
+ATOMIC PATCH APPLICATION
+    ↓
+TARGETED TEST VERIFICATION (determines pass & zero regressions)
+    ↓
+INDEPENDENT DIFF REVIEW (syntax, secret leaks, unauthorized files)
+    ↓
+DEDICATED REMEDIATION BRANCH (`sculra/fix/...`)
+    ↓
+PULL REQUEST CREATION (with structured markdown evidence)
+    ↓
+HUMAN APPROVAL GATE (mandatory review; no auto-merge)
+```
+
+### 23.2 Core Invariants & Safety Ceilings
+
+1. **Default Branch Immutability**:
+   - The user's default branch (`main`, `master`, `production`, `release`, etc.) is strictly read-only.
+   - Sculra NEVER commits, modifies, or merges directly to the default branch.
+2. **Dedicated Remediation Branches**:
+   - All proposed fixes are committed to dedicated branches following the pattern:
+     `sculra/fix/<issue-short-id>/<safe-slug>`
+   - Protected branch names are rejected by git safety guards.
+3. **No Automatic Merging**:
+   - PRs are opened for human review. Sculra NEVER auto-merges pull requests. Human inspection and approval are mandatory.
+4. **Execution Modes**:
+   - `PLAN_ONLY` (default): Analyzes root cause and validates fix plan; no sandbox, no code edit, no git operation.
+   - `DRY_RUN`: Generates structured patch and performs diff review without executing test commands or touching git.
+   - `APPLY_AND_VERIFY`: Applies patch in isolated sandbox, runs baseline and post-fix verification tests, and verifies zero regressions.
+   - `CREATE_PR`: Commits verified patch to isolated branch and opens a GitHub Pull Request with full evidence. Requires explicit project enablement (`fix_agent_enabled = true`).
+5. **Hard Safety Ceilings**:
+   - Max 10 remediations per campaign.
+   - Max 10 files changed per patch.
+   - Max 500 diff lines (additions + deletions) per patch.
+   - Max 2 patch generation attempts per remediation.
+   - Max 5 deterministic test commands (allowlisted only).
+   - 120s timeout per command, 300s timeout per remediation run.
+   - 200KB max test output capture.
+6. **Automatic Rollback & Sandbox Teardown**:
+   - Any failure in baseline reproduction, patch application, verification tests, diff review, or git operations immediately initiates atomic rollback. Scratch directories are purged with zero lingering files.
+
+### 23.3 Worker Architecture & Modules (`worker/src/fix-agent/`)
+
+| Module | Responsibility |
+| :--- | :--- |
+| `types.ts` | Domain models (`FixAgentMode`, `FixAgentState`, `FixRemediationRecord`, `FixEvidenceRecord`, `StructuredPatch`, `DiffReviewResult`, `FixVerificationResult`) |
+| `policy.ts` | Ceilings, timeouts, constants, and `DEFAULT_PROJECT_FIX_POLICY` |
+| `errors.ts` | Typed error hierarchy (`FixAgentError`, `PolicyBlockedError`, `GitSafetyError`, `BaselineNotReproducedError`, `RollbackError`, etc.) |
+| `redaction.ts` | Secret masking and prompt injection neutralizing |
+| `security.ts` | `FixSecurityScanner` detecting security-sensitive paths/code and destructive shell commands |
+| `state.ts` | 18-state `FixAgentStateMachine` with transition guards and history tracking |
+| `authorization.ts` | `FixAuthorizationManager` validating project enablement, mode ceilings, and path permissions |
+| `plan-validator.ts` | `FixPlanValidator` validating grounded diagnosis, path traversal checks, and confidence thresholds |
+| `code-context.ts` | `FixCodeContextRetriever` assembling bounded, secret-masked context from target files |
+| `patch-generator.ts` | `FixPatchGenerator` with OpenAI Structured Outputs and deterministic fallback |
+| `patch-validator.ts` | `FixPatchValidator` validating file limits, diff lines, blocked paths, and security regressions |
+| `workspace.ts` | `IsolatedWorkspaceManager` creating scratch sandbox directories outside the main tree |
+| `git.ts` | `SafeGitOperations` generating `sculra/fix/...` branch names and commit messages with safety assertions |
+| `patch-applier.ts` | `PatchApplier` using exact context anchoring to replace code atomically |
+| `diff-reviewer.ts` | Independent `DiffReviewer` computing additions/deletions and scanning for secrets and obfuscation |
+| `test-planner.ts` | `TestPlanner` mapping verification plans to allowlisted commands |
+| `test-runner.ts` | `TestRunner` running commands with 120s timeout and 200KB output cap |
+| `verification.ts` | `VerificationManager` coordinating baseline reproduction and post-fix verification |
+| `rollback.ts` | `RollbackManager` safely tearing down workspaces and cleaning up branches |
+| `pr.ts` | `GitHubPRCreator` opening pull requests with structured markdown evidence |
+| `telemetry.ts` | `FixTelemetryTracker` capturing execution metrics, token usage, and durations |
+| `analyzer.ts` | Master `FixAgentOrchestrator` orchestrating the 18 steps with concurrency locks and DB persistence |
+
+### 23.4 Database Schema
+
+Remediations and evidence are persisted in PostgreSQL with Row Level Security:
+
+```sql
+-- Project fix policy columns on public.projects
+ALTER TABLE public.projects
+  ADD COLUMN fix_agent_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN fix_agent_mode TEXT NOT NULL DEFAULT 'PLAN_ONLY',
+  ADD COLUMN fix_allowed_paths TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN fix_blocked_paths TEXT[] NOT NULL DEFAULT ARRAY['.github/**', 'supabase/migrations/**', 'package.json']::TEXT[],
+  ADD COLUMN fix_max_files_changed INTEGER NOT NULL DEFAULT 10,
+  ADD COLUMN fix_max_diff_lines INTEGER NOT NULL DEFAULT 500,
+  ADD COLUMN fix_allowed_test_commands TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN fix_require_human_approval BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN fix_auto_pr_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN fix_branch_prefix TEXT NOT NULL DEFAULT 'sculra/fix/';
+
+-- Public fix remediations tracking 18 execution states
+CREATE TABLE public.fix_remediations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  issue_id UUID REFERENCES public.issues(id) ON DELETE CASCADE,
+  remediation_analysis_id UUID REFERENCES public.issue_remediation_analyses(id) ON DELETE SET NULL,
+  mode TEXT NOT NULL DEFAULT 'PLAN_ONLY',
+  status TEXT NOT NULL DEFAULT 'INITIAL',
+  branch_name TEXT,
+  base_branch TEXT DEFAULT 'main',
+  commit_sha TEXT,
+  patch_unified TEXT,
+  patch_structured JSONB,
+  files_changed TEXT[] DEFAULT ARRAY[]::TEXT[],
+  lines_added INTEGER NOT NULL DEFAULT 0,
+  lines_removed INTEGER NOT NULL DEFAULT 0,
+  baseline_status TEXT NOT NULL DEFAULT 'NOT_RUN',
+  verification_status TEXT NOT NULL DEFAULT 'NOT_RUN',
+  verification_results JSONB,
+  diff_review_results JSONB,
+  pull_request_number INTEGER,
+  pull_request_url TEXT,
+  pull_request_status TEXT NOT NULL DEFAULT 'NONE',
+  human_approved BOOLEAN NOT NULL DEFAULT false,
+  approved_by TEXT,
+  approved_at TIMESTAMPTZ,
+  error_message TEXT,
+  error_code TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  max_retries INTEGER NOT NULL DEFAULT 2,
+  execution_time_ms INTEGER NOT NULL DEFAULT 0,
+  ai_model TEXT,
+  token_usage JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  completed_at TIMESTAMPTZ
+);
+
+-- Public fix evidence table for audit logs
+CREATE TABLE public.fix_evidence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  remediation_id UUID NOT NULL REFERENCES public.fix_remediations(id) ON DELETE CASCADE,
+  evidence_type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  structured_data JSONB,
+  file_path TEXT,
+  file_line INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+```
+
+### 23.5 Frontend Surfaces & Developer Controls
+
+1. **Fix Agent Dashboard (`/projects/[projectId]/fixes`)**:
+   - **Metrics Overview**: Stored counts for Total Remediations, Targeted Verification Pass Rate (%), PRs Opened, and Awaiting Human Review.
+   - **Safety Policy Drawer**: Allows project admins to toggle agent enablement, set maximum execution mode, configure max files / diff lines, set allowed/blocked path globs, and enforce the mandatory human review gate.
+   - **Remediation History List**: Real-time listing of past and active remediations with status badges, diff counters, and branch links.
+2. **Interactive Remediation Panel (`FixAgentPanel.tsx`)**:
+   - Embedded in both the Fixes Dashboard and Issue details.
+   - **Unified Diff Tab**: Syntax-colored code diffs rendered via `DiffViewer.tsx` with secret masking and additions/deletions badges.
+   - **Verification Results Tab**: Baseline reproduction vs post-fix verification status, exit codes, test counts, and command stdout/stderr logs.
+   - **Diff Review & Security Tab**: Independent reviewer verdict, secret leak checks, and policy compliance.
+   - **Git & PR Tab**: Branch name, commit SHA, PR link, and "Approve & Open PR" button.
+3. **Issue Integration (`IssueRemediationPanel.tsx`)**:
+   - Added direct tab switch and "Launch Fix Agent" callout within the diagnosed root cause and fix plan tabs, allowing instant progression from analysis to automated remediation.
+
+

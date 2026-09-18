@@ -23,6 +23,22 @@ export interface Project {
   ciTriggerOnPr?: boolean;
   ciGatePolicy?: 'BLOCK_ON_CRITICAL_ISSUE' | 'STRICT' | 'PERMISSIVE' | 'BLOCK_ON_REGRESSION';
   ciWebhookSecret?: string;
+  fixAgentPolicy?: ProjectFixPolicy;
+}
+
+export type FixAgentMode = 'PLAN_ONLY' | 'DRY_RUN' | 'APPLY_AND_VERIFY' | 'CREATE_PR';
+
+export interface ProjectFixPolicy {
+  fixAgentEnabled: boolean;
+  fixAgentMode: FixAgentMode;
+  fixAllowedPaths: string[];
+  fixBlockedPaths: string[];
+  fixMaxFilesChanged: number;
+  fixMaxDiffLines: number;
+  fixAllowedTestCommands: string[];
+  fixRequireHumanApproval: boolean;
+  fixAutoPrEnabled: boolean;
+  fixBranchPrefix: string;
 }
 
 export interface CICDWebhookEvent {
@@ -516,6 +532,8 @@ export interface Issue {
   reproductionSteps?: StructuredReproductionStep[];
   metadata?: Record<string, any>;
   remediation?: RemediationAnalysis | null;
+  remediations?: FixRemediation[];
+  latestFixRemediation?: FixRemediation | null;
 }
 
 export interface BugDiagnosis {
@@ -605,6 +623,126 @@ export interface RemediationAnalysis {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+export type FixAgentState =
+  | 'INITIAL'
+  | 'AUTHORIZED'
+  | 'PLAN_VALIDATED'
+  | 'CONTEXT_RETRIEVED'
+  | 'PATCH_GENERATED'
+  | 'PATCH_VALIDATED'
+  | 'WORKSPACE_INITIALIZED'
+  | 'BASELINE_RUN'
+  | 'PATCH_APPLIED'
+  | 'TESTS_RUN'
+  | 'DIFF_REVIEWED'
+  | 'BRANCH_COMMITTED'
+  | 'BRANCH_PUSHED'
+  | 'PR_OPENED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'ROLLED_BACK';
+
+export type FixBaselineStatus = 'PASSED' | 'FAILED' | 'SKIPPED' | 'NOT_RUN' | 'ERROR';
+export type FixVerificationStatus = 'PASSED' | 'FAILED' | 'SKIPPED' | 'NOT_RUN' | 'ERROR';
+
+export interface PatchEdit {
+  filePath: string;
+  action: 'MODIFY' | 'CREATE' | 'DELETE';
+  originalCode?: string;
+  replacementCode?: string;
+  contextBefore?: string;
+  contextAfter?: string;
+}
+
+export interface StructuredPatch {
+  summary: string;
+  filesChanged: number;
+  additions: number;
+  deletions: number;
+  edits: PatchEdit[];
+}
+
+export interface DiffReviewResult {
+  passed: boolean;
+  additions: number;
+  deletions: number;
+  filesChanged: number;
+  unauthorizedModifications: string[];
+  syntaxViolations: string[];
+  secretLeaksDetected: string[];
+  comments: string[];
+}
+
+export interface TestCommandResult {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  timedOut: boolean;
+}
+
+export interface FixVerificationResult {
+  baselineStatus: FixBaselineStatus;
+  verificationStatus: FixVerificationStatus;
+  testsRun: number;
+  testsPassed: number;
+  testsFailed: number;
+  commandResults: TestCommandResult[];
+  regressionDetected: boolean;
+  failureReason?: string;
+}
+
+export interface FixRemediation {
+  id: string;
+  organizationId?: string;
+  projectId: string;
+  issueId: string;
+  remediationAnalysisId?: string;
+  mode: FixAgentMode;
+  status: FixAgentState;
+  branchName?: string;
+  baseBranch?: string;
+  commitSha?: string;
+  patchUnified?: string;
+  patchStructured?: StructuredPatch;
+  filesChanged?: string[];
+  linesAdded: number;
+  linesRemoved: number;
+  baselineStatus: FixBaselineStatus;
+  verificationStatus: FixVerificationStatus;
+  verificationResults?: FixVerificationResult;
+  diffReviewResults?: DiffReviewResult;
+  pullRequestNumber?: number;
+  pullRequestUrl?: string;
+  pullRequestStatus?: 'NONE' | 'OPEN' | 'MERGED' | 'CLOSED';
+  humanApproved?: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  errorMessage?: string;
+  errorCode?: string;
+  retryCount: number;
+  maxRetries: number;
+  executionTimeMs: number;
+  aiModel?: string;
+  tokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface FixEvidence {
+  id: string;
+  remediationId: string;
+  evidenceType: 'BASELINE_LOG' | 'VERIFICATION_LOG' | 'DIFF' | 'STATIC_ANALYSIS' | 'TEST_OUTPUT' | 'ROLLBACK_LOG';
+  content: string;
+  structuredData?: Record<string, any>;
+  filePath?: string;
+  fileLine?: number;
+  createdAt: string;
 }
 
 export interface AIInsight {
@@ -868,6 +1006,79 @@ export const mockCampaignTasks: CampaignTask[] = [
     observationsCount: 5,
     issuesDetected: 0,
     createdAt: '10m ago',
+  },
+];
+
+export const mockFixRemediations: FixRemediation[] = [
+  {
+    id: 'fix-1',
+    projectId: 'proj-1',
+    issueId: 'iss-1',
+    mode: 'CREATE_PR',
+    status: 'PR_OPENED',
+    branchName: 'sculra/fix/iss-1/null-pointer-cart',
+    baseBranch: 'main',
+    commitSha: 'a1b2c3d4e5f678901234567890abcdef12345678',
+    patchUnified: `--- a/src/cart/calculate.ts\n+++ b/src/cart/calculate.ts\n@@ -12,4 +12,7 @@\n-  return items.reduce((sum, item) => sum + item.price, 0);\n+  if (!items || !Array.isArray(items)) {\n+    return 0;\n+  }\n+  return items.reduce((sum, item) => sum + (item.price || 0), 0);`,
+    patchStructured: {
+      summary: 'Safely guard against null or undefined cart items in calculation',
+      filesChanged: 1,
+      additions: 4,
+      deletions: 1,
+      edits: [
+        {
+          filePath: 'src/cart/calculate.ts',
+          action: 'MODIFY',
+          originalCode: '  return items.reduce((sum, item) => sum + item.price, 0);',
+          replacementCode: '  if (!items || !Array.isArray(items)) {\n    return 0;\n  }\n  return items.reduce((sum, item) => sum + (item.price || 0), 0);',
+        },
+      ],
+    },
+    filesChanged: ['src/cart/calculate.ts'],
+    linesAdded: 4,
+    linesRemoved: 1,
+    baselineStatus: 'FAILED',
+    verificationStatus: 'PASSED',
+    verificationResults: {
+      baselineStatus: 'FAILED',
+      verificationStatus: 'PASSED',
+      testsRun: 6,
+      testsPassed: 6,
+      testsFailed: 0,
+      commandResults: [
+        {
+          command: 'npm test -- src/cart/calculate.test.ts',
+          exitCode: 0,
+          stdout: 'PASS src/cart/calculate.test.ts\n  ✓ calculates total correctly\n  ✓ handles null items gracefully\n',
+          stderr: '',
+          durationMs: 1420,
+          timedOut: false,
+        },
+      ],
+      regressionDetected: false,
+    },
+    diffReviewResults: {
+      passed: true,
+      additions: 4,
+      deletions: 1,
+      filesChanged: 1,
+      unauthorizedModifications: [],
+      syntaxViolations: [],
+      secretLeaksDetected: [],
+      comments: ['Diff adheres to project policy and cleanly addresses root cause without security regressions.'],
+    },
+    pullRequestNumber: 42,
+    pullRequestUrl: 'https://github.com/Armansinghjatpele/sculra/pull/42',
+    pullRequestStatus: 'OPEN',
+    humanApproved: false,
+    retryCount: 0,
+    maxRetries: 2,
+    executionTimeMs: 14500,
+    aiModel: 'gpt-4o',
+    tokenUsage: { promptTokens: 1200, completionTokens: 320, totalTokens: 1520 },
+    createdAt: '15m ago',
+    updatedAt: '12m ago',
+    completedAt: '12m ago',
   },
 ];
 

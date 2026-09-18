@@ -3,9 +3,36 @@
 // ==============================================================================
 // Unified query/mutation interfaces extracting tables securely.
 // Utilizes getSupabaseUserClient to verify Clerk token authorization at the DB RLS layer.
-
 import { getSupabaseUserClient } from '../lib/supabase';
-import { Project, TestRun, Issue, AIInsight, Notification, TestEvidence, ReleaseScore, QASignalRecord, Campaign, CampaignTask, CICDWebhookEvent, CICDGateResult, ChangeAnalysis, RemediationAnalysis, mockProjects, mockTestRuns, mockIssues, mockAIInsights, mockNotifications, mockTestEvidence, mockCampaigns, mockCampaignTasks } from '../lib/demoData';
+import {
+  Project,
+  TestRun,
+  Issue,
+  AIInsight,
+  Notification,
+  TestEvidence,
+  ReleaseScore,
+  QASignalRecord,
+  Campaign,
+  CampaignTask,
+  CICDWebhookEvent,
+  CICDGateResult,
+  ChangeAnalysis,
+  RemediationAnalysis,
+  ProjectFixPolicy,
+  FixRemediation,
+  FixEvidence,
+  FixAgentMode,
+  mockProjects,
+  mockTestRuns,
+  mockIssues,
+  mockAIInsights,
+  mockNotifications,
+  mockTestEvidence,
+  mockCampaigns,
+  mockCampaignTasks,
+  mockFixRemediations,
+} from '../lib/demoData';
 
 function useFallback(error: any) {
   if (error) {
@@ -186,6 +213,18 @@ export async function getProject(clerkToken: string, id: string) {
     ciTriggerOnPr: data.ci_trigger_on_pr !== false,
     ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
     ciWebhookSecret: data.ci_webhook_secret || undefined,
+    fixAgentPolicy: {
+      fixAgentEnabled: !!data.fix_agent_enabled,
+      fixAgentMode: data.fix_agent_mode || 'PLAN_ONLY',
+      fixAllowedPaths: data.fix_allowed_paths || [],
+      fixBlockedPaths: data.fix_blocked_paths || [],
+      fixMaxFilesChanged: data.fix_max_files_changed ?? 10,
+      fixMaxDiffLines: data.fix_max_diff_lines ?? 500,
+      fixAllowedTestCommands: data.fix_allowed_test_commands || [],
+      fixRequireHumanApproval: data.fix_require_human_approval !== false,
+      fixAutoPrEnabled: !!data.fix_auto_pr_enabled,
+      fixBranchPrefix: data.fix_branch_prefix || 'sculra/fix/',
+    },
   } as Project;
 }
 
@@ -1332,6 +1371,354 @@ export async function getProjectRemediationAnalyses(
     updatedAt: r.updated_at,
   }));
 }
+
+export async function getProjectFixPolicy(
+  clerkToken: string,
+  projectId: string
+): Promise<ProjectFixPolicy | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('projects')
+    .select(`
+      fix_agent_enabled,
+      fix_agent_mode,
+      fix_allowed_paths,
+      fix_blocked_paths,
+      fix_max_files_changed,
+      fix_max_diff_lines,
+      fix_allowed_test_commands,
+      fix_require_human_approval,
+      fix_auto_pr_enabled,
+      fix_branch_prefix
+    `)
+    .eq('id', projectId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return {
+      fixAgentEnabled: false,
+      fixAgentMode: 'PLAN_ONLY',
+      fixAllowedPaths: [],
+      fixBlockedPaths: [],
+      fixMaxFilesChanged: 10,
+      fixMaxDiffLines: 500,
+      fixAllowedTestCommands: [],
+      fixRequireHumanApproval: true,
+      fixAutoPrEnabled: false,
+      fixBranchPrefix: 'sculra/fix/',
+    };
+  }
+
+  return {
+    fixAgentEnabled: !!data.fix_agent_enabled,
+    fixAgentMode: data.fix_agent_mode || 'PLAN_ONLY',
+    fixAllowedPaths: data.fix_allowed_paths || [],
+    fixBlockedPaths: data.fix_blocked_paths || [],
+    fixMaxFilesChanged: data.fix_max_files_changed ?? 10,
+    fixMaxDiffLines: data.fix_max_diff_lines ?? 500,
+    fixAllowedTestCommands: data.fix_allowed_test_commands || [],
+    fixRequireHumanApproval: data.fix_require_human_approval !== false,
+    fixAutoPrEnabled: !!data.fix_auto_pr_enabled,
+    fixBranchPrefix: data.fix_branch_prefix || 'sculra/fix/',
+  };
+}
+
+export async function updateProjectFixPolicy(
+  clerkToken: string,
+  projectId: string,
+  policy: Partial<ProjectFixPolicy>
+): Promise<ProjectFixPolicy> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  const updatePayload: Record<string, any> = {};
+  if (policy.fixAgentEnabled !== undefined) updatePayload.fix_agent_enabled = policy.fixAgentEnabled;
+  if (policy.fixAgentMode !== undefined) updatePayload.fix_agent_mode = policy.fixAgentMode;
+  if (policy.fixAllowedPaths !== undefined) updatePayload.fix_allowed_paths = policy.fixAllowedPaths;
+  if (policy.fixBlockedPaths !== undefined) updatePayload.fix_blocked_paths = policy.fixBlockedPaths;
+  if (policy.fixMaxFilesChanged !== undefined) updatePayload.fix_max_files_changed = policy.fixMaxFilesChanged;
+  if (policy.fixMaxDiffLines !== undefined) updatePayload.fix_max_diff_lines = policy.fixMaxDiffLines;
+  if (policy.fixAllowedTestCommands !== undefined) updatePayload.fix_allowed_test_commands = policy.fixAllowedTestCommands;
+  if (policy.fixRequireHumanApproval !== undefined) updatePayload.fix_require_human_approval = policy.fixRequireHumanApproval;
+  if (policy.fixAutoPrEnabled !== undefined) updatePayload.fix_auto_pr_enabled = policy.fixAutoPrEnabled;
+  if (policy.fixBranchPrefix !== undefined) updatePayload.fix_branch_prefix = policy.fixBranchPrefix;
+
+  const { data, error } = await supabase
+    .from('projects')
+    .update(updatePayload)
+    .eq('id', projectId)
+    .select(`
+      fix_agent_enabled,
+      fix_agent_mode,
+      fix_allowed_paths,
+      fix_blocked_paths,
+      fix_max_files_changed,
+      fix_max_diff_lines,
+      fix_allowed_test_commands,
+      fix_require_human_approval,
+      fix_auto_pr_enabled,
+      fix_branch_prefix
+    `)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return {
+      fixAgentEnabled: policy.fixAgentEnabled ?? false,
+      fixAgentMode: policy.fixAgentMode || 'PLAN_ONLY',
+      fixAllowedPaths: policy.fixAllowedPaths || [],
+      fixBlockedPaths: policy.fixBlockedPaths || [],
+      fixMaxFilesChanged: policy.fixMaxFilesChanged ?? 10,
+      fixMaxDiffLines: policy.fixMaxDiffLines ?? 500,
+      fixAllowedTestCommands: policy.fixAllowedTestCommands || [],
+      fixRequireHumanApproval: policy.fixRequireHumanApproval ?? true,
+      fixAutoPrEnabled: policy.fixAutoPrEnabled ?? false,
+      fixBranchPrefix: policy.fixBranchPrefix || 'sculra/fix/',
+    };
+  }
+
+  return {
+    fixAgentEnabled: !!data.fix_agent_enabled,
+    fixAgentMode: data.fix_agent_mode || 'PLAN_ONLY',
+    fixAllowedPaths: data.fix_allowed_paths || [],
+    fixBlockedPaths: data.fix_blocked_paths || [],
+    fixMaxFilesChanged: data.fix_max_files_changed ?? 10,
+    fixMaxDiffLines: data.fix_max_diff_lines ?? 500,
+    fixAllowedTestCommands: data.fix_allowed_test_commands || [],
+    fixRequireHumanApproval: data.fix_require_human_approval !== false,
+    fixAutoPrEnabled: !!data.fix_auto_pr_enabled,
+    fixBranchPrefix: data.fix_branch_prefix || 'sculra/fix/',
+  };
+}
+
+function mapFixRemediationRecord(r: any): FixRemediation {
+  return {
+    id: r.id,
+    organizationId: r.organization_id,
+    projectId: r.project_id,
+    issueId: r.issue_id,
+    remediationAnalysisId: r.remediation_analysis_id,
+    mode: r.mode || 'PLAN_ONLY',
+    status: r.status || 'INITIAL',
+    branchName: r.branch_name,
+    baseBranch: r.base_branch,
+    commitSha: r.commit_sha,
+    patchUnified: r.patch_unified,
+    patchStructured: r.patch_structured,
+    filesChanged: r.files_changed || [],
+    linesAdded: r.lines_added ?? 0,
+    linesRemoved: r.lines_removed ?? 0,
+    baselineStatus: r.baseline_status || 'NOT_RUN',
+    verificationStatus: r.verification_status || 'NOT_RUN',
+    verificationResults: r.verification_results,
+    diffReviewResults: r.diff_review_results,
+    pullRequestNumber: r.pull_request_number,
+    pullRequestUrl: r.pull_request_url,
+    pullRequestStatus: r.pull_request_status || 'NONE',
+    humanApproved: r.human_approved ?? false,
+    approvedBy: r.approved_by,
+    approvedAt: r.approved_at,
+    errorMessage: r.error_message,
+    errorCode: r.error_code,
+    retryCount: r.retry_count ?? 0,
+    maxRetries: r.max_retries ?? 2,
+    executionTimeMs: r.execution_time_ms ?? 0,
+    aiModel: r.ai_model,
+    tokenUsage: r.token_usage,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    completedAt: r.completed_at,
+  };
+}
+
+function mapFixEvidenceRecord(e: any): FixEvidence {
+  return {
+    id: e.id,
+    remediationId: e.remediation_id,
+    evidenceType: e.evidence_type,
+    content: e.content,
+    structuredData: e.structured_data,
+    filePath: e.file_path,
+    fileLine: e.file_line,
+    createdAt: e.created_at,
+  };
+}
+
+export async function getProjectFixRemediations(
+  clerkToken: string,
+  projectId: string,
+  limit = 20
+): Promise<FixRemediation[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return mockFixRemediations.filter((r) => r.projectId === projectId || projectId.startsWith('proj'));
+  }
+
+  return data.map(mapFixRemediationRecord);
+}
+
+export async function getIssueFixRemediations(
+  clerkToken: string,
+  issueId: string
+): Promise<FixRemediation[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .select('*')
+    .eq('issue_id', issueId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return mockFixRemediations.filter((r) => r.issueId === issueId);
+  }
+
+  return data.map(mapFixRemediationRecord);
+}
+
+export async function getFixRemediation(
+  clerkToken: string,
+  id: string
+): Promise<{ remediation: FixRemediation; evidence: FixEvidence[] } | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .select('*, fix_evidence(*)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    const mockRem = mockFixRemediations.find((r) => r.id === id);
+    if (!mockRem) return null;
+    return {
+      remediation: mockRem,
+      evidence: [],
+    };
+  }
+
+  const evidence = (data.fix_evidence || []).map(mapFixEvidenceRecord);
+  return {
+    remediation: mapFixRemediationRecord(data),
+    evidence,
+  };
+}
+
+export async function createFixRemediation(
+  clerkToken: string,
+  params: {
+    projectId: string;
+    issueId: string;
+    remediationAnalysisId?: string;
+    mode?: FixAgentMode;
+  }
+): Promise<FixRemediation> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .insert({
+      project_id: params.projectId,
+      issue_id: params.issueId,
+      remediation_analysis_id: params.remediationAnalysisId || null,
+      mode: params.mode || 'PLAN_ONLY',
+      status: 'INITIAL',
+      baseline_status: 'NOT_RUN',
+      verification_status: 'NOT_RUN',
+    })
+    .select()
+    .single();
+
+  if (useFallback(error) || !data) {
+    const newMock: FixRemediation = {
+      id: `fix-${Date.now()}`,
+      projectId: params.projectId,
+      issueId: params.issueId,
+      remediationAnalysisId: params.remediationAnalysisId,
+      mode: params.mode || 'PLAN_ONLY',
+      status: 'INITIAL',
+      linesAdded: 0,
+      linesRemoved: 0,
+      baselineStatus: 'NOT_RUN',
+      verificationStatus: 'NOT_RUN',
+      retryCount: 0,
+      maxRetries: 2,
+      executionTimeMs: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockFixRemediations.unshift(newMock);
+    return newMock;
+  }
+
+  return mapFixRemediationRecord(data);
+}
+
+export async function cancelFixRemediation(
+  clerkToken: string,
+  id: string
+): Promise<FixRemediation | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .update({
+      status: 'CANCELLED',
+      error_message: 'Remediation cancelled by user.',
+      error_code: 'CANCELLED_BY_USER',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    const mock = mockFixRemediations.find((r) => r.id === id);
+    if (mock) {
+      mock.status = 'CANCELLED';
+      mock.errorMessage = 'Remediation cancelled by user.';
+      mock.errorCode = 'CANCELLED_BY_USER';
+      return mock;
+    }
+    return null;
+  }
+
+  return mapFixRemediationRecord(data);
+}
+
+export async function approveFixRemediation(
+  clerkToken: string,
+  id: string,
+  approvedBy: string
+): Promise<FixRemediation | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('fix_remediations')
+    .update({
+      human_approved: true,
+      approved_by: approvedBy,
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    const mock = mockFixRemediations.find((r) => r.id === id);
+    if (mock) {
+      mock.humanApproved = true;
+      mock.approvedBy = approvedBy;
+      mock.approvedAt = new Date().toISOString();
+      return mock;
+    }
+    return null;
+  }
+
+  return mapFixRemediationRecord(data);
+}
+
 
 
 

@@ -199,10 +199,12 @@ export function IssueList({ issues }: { issues: Issue[] }) {
                   </div>
                 )}
 
-                {/* AI Root Cause Diagnosis & Remediation Panel (Prompt 33) */}
+                {/* AI Root Cause Diagnosis & Remediation Panel (Prompt 33 + Prompt 34) */}
                 <IssueRemediationPanel
                   remediation={remediations[issue.id] ?? issue.remediation}
                   loading={loadingRemediations[issue.id]}
+                  projectId={issue.projectId}
+                  issueId={issue.id}
                 />
               </div>
             )}
