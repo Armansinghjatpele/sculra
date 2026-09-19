@@ -2,6 +2,7 @@ import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { getSupabaseServiceClient } from '@/lib/supabase';
+import { mapClerkRoleToSculra } from '@/lib/authz';
 
 /**
  * Next.js Route handler to receive Clerk Webhook triggers.
@@ -122,8 +123,7 @@ export async function POST(req: Request) {
 
       case 'organizationMembership.created': {
         const memb = evt.data;
-        // Mapped role logic
-        const dbRole = memb.role === 'org:admin' ? 'admin' : 'member';
+        const mappedRole = (mapClerkRoleToSculra(memb.role) || 'DEVELOPER').toLowerCase();
         
         // Find internal organizations id
         const { data: dbOrg } = await supabase
@@ -135,11 +135,37 @@ export async function POST(req: Request) {
         if (dbOrg) {
           const { error } = await supabase
             .from('organization_memberships')
-            .insert({
+            .upsert({
               organization_id: dbOrg.id,
               clerk_user_id: memb.public_user_data.user_id,
-              role: dbRole,
-            });
+              role: mappedRole,
+              status: 'active',
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'organization_id,clerk_user_id' });
+          if (error) throw error;
+        }
+        break;
+      }
+
+      case 'organizationMembership.updated': {
+        const memb = evt.data;
+        const mappedRole = (mapClerkRoleToSculra(memb.role) || 'DEVELOPER').toLowerCase();
+
+        const { data: dbOrg } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('clerk_organization_id', memb.organization.id)
+          .maybeSingle();
+
+        if (dbOrg) {
+          const { error } = await supabase
+            .from('organization_memberships')
+            .update({
+              role: mappedRole,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('organization_id', dbOrg.id)
+            .eq('clerk_user_id', memb.public_user_data.user_id);
           if (error) throw error;
         }
         break;
@@ -156,7 +182,10 @@ export async function POST(req: Request) {
         if (dbOrg) {
           const { error } = await supabase
             .from('organization_memberships')
-            .delete()
+            .update({
+              status: 'removed',
+              updated_at: new Date().toISOString(),
+            })
             .eq('organization_id', dbOrg.id)
             .eq('clerk_user_id', memb.public_user_data.user_id);
           if (error) throw error;

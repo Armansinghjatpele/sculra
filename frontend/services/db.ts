@@ -51,7 +51,11 @@ import {
   mockProjectSources,
   mockSourceSnapshots,
   mockSourceHealthObservations,
+  OrganizationMember,
+  mockOrganizationMembers,
 } from '../lib/demoData';
+import { PolicyManager } from '../lib/authz/policy';
+import type { SculraRole } from '../lib/authz/roles';
 
 function useFallback(error: any) {
   if (error) {
@@ -2514,6 +2518,205 @@ export async function validateProjectSource(
     errors: [],
     warnings: [],
   };
+}
+
+// In-memory store for development/demo fallback mutations
+let localMembers = [...mockOrganizationMembers];
+
+export async function getOrganizationMembers(
+  clerkToken: string,
+  clerkOrgId?: string | null
+): Promise<OrganizationMember[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  let orgId = clerkOrgId || 'org_demo_1';
+  const { data: dbOrg } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('clerk_organization_id', orgId)
+    .maybeSingle();
+
+  const internalOrgId = dbOrg?.id || orgId;
+
+  const { data, error } = await supabase
+    .from('organization_memberships')
+    .select('*, profiles:clerk_user_id(display_name, avatar_url)')
+    .eq('organization_id', internalOrgId);
+
+  if (useFallback(error)) {
+    return localMembers;
+  }
+
+  return (data || []).map((m: any) => ({
+    id: m.id,
+    organizationId: m.organization_id,
+    userId: m.clerk_user_id,
+    email: m.email || `${m.clerk_user_id}@sculra.io`,
+    displayName: m.profiles?.display_name || m.clerk_user_id,
+    avatarUrl: m.profiles?.avatar_url || '',
+    role: (m.role?.toUpperCase() as SculraRole) || 'VIEWER',
+    status: (m.status?.toUpperCase() as any) || 'ACTIVE',
+    invitedBy: m.invited_by,
+    joinedAt: m.created_at,
+    lastActiveAt: m.last_active_at || undefined,
+    createdAt: m.created_at,
+    updatedAt: m.updated_at,
+  }));
+}
+
+export async function inviteOrganizationMember(
+  clerkToken: string,
+  clerkOrgId: string,
+  email: string,
+  role: SculraRole,
+  invitedBy: string
+): Promise<OrganizationMember> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  const { data: dbOrg } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('clerk_organization_id', clerkOrgId)
+    .maybeSingle();
+
+  const internalOrgId = dbOrg?.id || clerkOrgId;
+
+  const newMember: OrganizationMember = {
+    id: `mem-${Date.now()}`,
+    organizationId: internalOrgId,
+    userId: `usr_inv_${Date.now().toString().slice(-6)}`,
+    email: email.trim().toLowerCase(),
+    displayName: email.split('@')[0],
+    role,
+    status: 'INVITED',
+    invitedBy,
+    joinedAt: undefined,
+    lastActiveAt: undefined, // Factual missing activity
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('organization_memberships')
+    .insert({
+      organization_id: internalOrgId,
+      clerk_user_id: newMember.userId,
+      role: role.toLowerCase(),
+      status: 'invited',
+      invited_by: invitedBy,
+    })
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    localMembers.unshift(newMember);
+    return newMember;
+  }
+
+  return {
+    ...newMember,
+    id: data.id,
+  };
+}
+
+export async function updateOrganizationMemberRole(
+  clerkToken: string,
+  clerkOrgId: string,
+  memberId: string,
+  newRole: SculraRole,
+  callerRole: SculraRole,
+  callerUserId?: string
+): Promise<OrganizationMember> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  // 1. Fetch current members to evaluate owner safety
+  const members = await getOrganizationMembers(clerkToken, clerkOrgId);
+  const target = members.find((m) => m.id === memberId || m.userId === memberId);
+
+  if (!target) {
+    throw new Error('Organization member not found.');
+  }
+
+  const activeOwnerCount = members.filter((m) => m.role === 'OWNER' && m.status === 'ACTIVE').length;
+  const isSelf = callerUserId ? target.userId === callerUserId : false;
+
+  // 2. Evaluate Owner Safety Policy
+  PolicyManager.evaluateRoleChange({
+    callerRole,
+    targetCurrentRole: target.role,
+    targetNewRole: newRole,
+    activeOwnerCount,
+    isSelfOperation: isSelf,
+  });
+
+  // 3. Persist update
+  const { data, error } = await supabase
+    .from('organization_memberships')
+    .update({
+      role: newRole.toLowerCase(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', target.id)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const updated: OrganizationMember = {
+      ...target,
+      role: newRole,
+      updatedAt: new Date().toISOString(),
+    };
+    localMembers = localMembers.map((m) => (m.id === target.id ? updated : m));
+    return updated;
+  }
+
+  return {
+    ...target,
+    role: newRole,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function removeOrganizationMember(
+  clerkToken: string,
+  clerkOrgId: string,
+  memberId: string,
+  callerRole: SculraRole,
+  callerUserId?: string
+): Promise<{ success: boolean; memberId: string }> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  // 1. Fetch current members
+  const members = await getOrganizationMembers(clerkToken, clerkOrgId);
+  const target = members.find((m) => m.id === memberId || m.userId === memberId);
+
+  if (!target) {
+    throw new Error('Organization member not found.');
+  }
+
+  const activeOwnerCount = members.filter((m) => m.role === 'OWNER' && m.status === 'ACTIVE').length;
+  const isSelf = callerUserId ? target.userId === callerUserId : false;
+
+  // 2. Evaluate Owner Safety Policy
+  PolicyManager.evaluateMemberRemoval({
+    callerRole,
+    targetCurrentRole: target.role,
+    activeOwnerCount,
+    isSelfOperation: isSelf,
+  });
+
+  // 3. Persist removal
+  const { error } = await supabase
+    .from('organization_memberships')
+    .delete()
+    .eq('id', target.id);
+
+  if (useFallback(error)) {
+    localMembers = localMembers.filter((m) => m.id !== target.id);
+    return { success: true, memberId: target.id };
+  }
+
+  return { success: true, memberId: target.id };
 }
 
 

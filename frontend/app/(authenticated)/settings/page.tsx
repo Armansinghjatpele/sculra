@@ -26,10 +26,11 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
   const settingsTabs = [
     { title: 'Account', value: 'account' },
     { title: 'Workspace', value: 'workspace' },
-    { title: 'Team', value: 'team', href: '/team' }, // Redirects to dedicated team page
-    { title: 'Security', value: 'security' },
+    { title: 'Team & Members', value: 'team', href: '/settings/team' },
+    { title: 'Permissions', value: 'permissions', href: '/settings/permissions' },
+    { title: 'Security', value: 'security', href: '/settings/security' },
+    { title: 'Integrations', value: 'integrations', href: '/settings/integrations' },
     { title: 'Notifications', value: 'notifications' },
-    { title: 'Integrations', value: 'integrations' },
     { title: 'Billing', value: 'billing' },
   ];
 

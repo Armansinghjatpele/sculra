@@ -24,6 +24,28 @@ export interface Project {
   ciGatePolicy?: 'BLOCK_ON_CRITICAL_ISSUE' | 'STRICT' | 'PERMISSIVE' | 'BLOCK_ON_REGRESSION';
   ciWebhookSecret?: string;
   fixAgentPolicy?: ProjectFixPolicy;
+  organizationId?: string | null;
+  organization_id?: string | null;
+  createdBy?: string;
+  created_by?: string;
+}
+
+import type { SculraRole, MembershipStatus } from './authz/roles';
+
+export interface OrganizationMember {
+  id: string;
+  organizationId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string;
+  role: SculraRole;
+  status: MembershipStatus;
+  invitedBy?: string;
+  joinedAt?: string;
+  lastActiveAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type FixAgentMode = 'PLAN_ONLY' | 'DRY_RUN' | 'APPLY_AND_VERIFY' | 'CREATE_PR';
@@ -1990,6 +2012,88 @@ export const mockSourceHealthObservations: SourceHealthObservation[] = [
       reason: 'Desktop test agent worker infrastructure not provisioned.',
     },
     observedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+];
+
+export const mockOrganizationMembers: OrganizationMember[] = [
+  {
+    id: 'mem-1',
+    organizationId: 'org_demo_1',
+    userId: 'user_owner_1',
+    email: 'alex.chen@enterprise.io',
+    displayName: 'Alex Chen',
+    role: 'OWNER',
+    status: 'ACTIVE',
+    joinedAt: '2026-01-15T09:00:00Z',
+    lastActiveAt: new Date(Date.now() - 18 * 60000).toISOString(),
+    createdAt: '2026-01-15T09:00:00Z',
+    updatedAt: '2026-01-15T09:00:00Z',
+  },
+  {
+    id: 'mem-2',
+    organizationId: 'org_demo_1',
+    userId: 'user_admin_1',
+    email: 'sarah.vance@enterprise.io',
+    displayName: 'Sarah Vance',
+    role: 'ADMIN',
+    status: 'ACTIVE',
+    joinedAt: '2026-02-01T11:30:00Z',
+    lastActiveAt: new Date(Date.now() - 3 * 3600000).toISOString(),
+    createdAt: '2026-02-01T11:30:00Z',
+    updatedAt: '2026-02-01T11:30:00Z',
+  },
+  {
+    id: 'mem-3',
+    organizationId: 'org_demo_1',
+    userId: 'user_qa_1',
+    email: 'marcus.brooks@enterprise.io',
+    displayName: 'Marcus Brooks',
+    role: 'QA_LEAD',
+    status: 'ACTIVE',
+    joinedAt: '2026-02-10T14:15:00Z',
+    lastActiveAt: new Date(Date.now() - 45 * 60000).toISOString(),
+    createdAt: '2026-02-10T14:15:00Z',
+    updatedAt: '2026-02-10T14:15:00Z',
+  },
+  {
+    id: 'mem-4',
+    organizationId: 'org_demo_1',
+    userId: 'user_dev_1',
+    email: 'elena.rostova@enterprise.io',
+    displayName: 'Elena Rostova',
+    role: 'DEVELOPER',
+    status: 'ACTIVE',
+    joinedAt: '2026-03-01T10:00:00Z',
+    lastActiveAt: undefined, // Truthful missing activity: UI will render "--"
+    createdAt: '2026-03-01T10:00:00Z',
+    updatedAt: '2026-03-01T10:00:00Z',
+  },
+  {
+    id: 'mem-5',
+    organizationId: 'org_demo_1',
+    userId: 'user_viewer_1',
+    email: 'auditor.stakeholder@partner.com',
+    displayName: 'Jordan Lee',
+    role: 'VIEWER',
+    status: 'ACTIVE',
+    joinedAt: '2026-03-12T16:45:00Z',
+    lastActiveAt: undefined, // Truthful missing activity: UI will render "--"
+    createdAt: '2026-03-12T16:45:00Z',
+    updatedAt: '2026-03-12T16:45:00Z',
+  },
+  {
+    id: 'mem-6',
+    organizationId: 'org_demo_1',
+    userId: 'user_invited_1',
+    email: 'candidate.qa@recruiting.org',
+    displayName: 'Pending QA Engineer',
+    role: 'QA_LEAD',
+    status: 'INVITED',
+    invitedBy: 'user_admin_1',
+    joinedAt: undefined,
+    lastActiveAt: undefined,
+    createdAt: '2026-09-18T12:00:00Z',
+    updatedAt: '2026-09-18T12:00:00Z',
   },
 ];
 

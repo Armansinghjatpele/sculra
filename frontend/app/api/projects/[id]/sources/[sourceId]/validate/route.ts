@@ -4,54 +4,27 @@
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import {
-  getProject,
-  getProjectSource,
-  validateProjectSource,
-} from '@/services/db';
+import { requireProjectPermission, PERMISSIONS } from '@/lib/authz';
+import { getProjectSource, validateProjectSource } from '@/services/db';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; sourceId: string }> }
 ) {
   try {
-    const { userId, getToken } = await auth();
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. Sign in required.' },
-        { status: 401 }
-      );
-    }
-
-    const token = await getToken();
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Session token expired or missing.' },
-        { status: 401 }
-      );
-    }
-
     const { id, sourceId } = await params;
-    const project = await getProject(token, id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found or access denied.' },
-        { status: 404 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.SOURCES_VALIDATE);
 
-    const source = await getProjectSource(token, sourceId);
+    const source = await getProjectSource(authContext.clerkToken, sourceId);
     if (!source || source.projectId !== id) {
       return NextResponse.json(
-        { success: false, error: 'Source not found.' },
+        { success: false, error: 'Source not found in project.' },
         { status: 404 }
       );
     }
 
     const result = await validateProjectSource(
-      token,
+      authContext.clerkToken,
       source.type,
       source.locator,
       source.configuration
@@ -60,13 +33,13 @@ export async function POST(
     return NextResponse.json({
       success: true,
       sourceId,
-      result,
+      validation: result,
     });
   } catch (err: any) {
-    console.error('[API Source Validate POST Error]:', err);
+    const status = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed validating source.' },
-      { status: 500 }
+      { success: false, error: err.message || 'Failed validating source.', code: err.code },
+      { status }
     );
   }
 }

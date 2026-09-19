@@ -1,14 +1,21 @@
 // ==============================================================================
 // Sculra Centralized Server-Side Authorization Layer (frontend/lib/auth.ts)
 // ==============================================================================
-// Exposes robust, reusable server-side authorization checks and helpers.
-// Integrates with Clerk session context and organization roles.
-// Throws custom typed errors (401/403 exceptions) on authorization failures.
+// Re-exports and delegates to the centralized authorization architecture (frontend/lib/authz)
+// Preserves backward compatibility across server components and legacy callers.
 
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { AuthError, PermissionError } from '../../shared/utils/errors';
+import {
+  SculraRole as CanonicalSculraRole,
+  mapClerkRoleToSculra as canonicalMapRole,
+  PERMISSIONS,
+  SculraPermission,
+} from './authz';
 
-export type SculraRole = 'OWNER' | 'ADMIN' | 'DEVELOPER' | 'QA' | 'VIEWER';
+export * from './authz';
+
+export type SculraRole = CanonicalSculraRole;
 
 /**
  * Assures user session is active.
@@ -18,7 +25,7 @@ export async function requireUser() {
   const { userId } = await auth();
 
   if (!userId) {
-    throw new AuthError('Authentication required. Plese sign in to access this resource.', 'UNAUTHENTICATED');
+    throw new AuthError('Authentication required. Please sign in to access this resource.', 'UNAUTHENTICATED');
   }
 
   const user = await currentUser();
@@ -48,9 +55,6 @@ export async function requireOrganization() {
  */
 export async function requireRole(allowedRoles: SculraRole[]) {
   const { orgRole } = await requireOrganization();
-
-  // Clerk maps roles as: 'org:admin' (Admin/Owner), 'org:member' (Member)
-  // We align these to application-level roles
   const mappedRole = mapClerkRoleToSculra(orgRole);
 
   if (!mappedRole || !allowedRoles.includes(mappedRole)) {
@@ -61,50 +65,56 @@ export async function requireRole(allowedRoles: SculraRole[]) {
 }
 
 /**
- * central helper to check role permissions
+ * Helper to check role permissions (supports legacy array-of-roles check or single permission string check).
  */
-export function hasPermission(userRole: string | undefined, allowedRoles: SculraRole[]): boolean {
+export function hasPermission(
+  userRole: string | undefined,
+  allowedRolesOrPermission: SculraRole[] | SculraPermission
+): boolean {
+  if (!userRole) return false;
   const mapped = mapClerkRoleToSculra(userRole);
-  return mapped ? allowedRoles.includes(mapped) : false;
+  if (!mapped) return false;
+
+  if (Array.isArray(allowedRolesOrPermission)) {
+    return allowedRolesOrPermission.includes(mapped);
+  }
+
+  // Permission string check
+  const { hasPermission: canonicalHasPermission } = require('./authz');
+  return canonicalHasPermission(mapped, allowedRolesOrPermission);
 }
 
 /**
- * central helper mapping Clerk role strings to Sculra roles
+ * Maps Clerk role strings to Sculra roles with fallback.
  */
 export function mapClerkRoleToSculra(clerkRole: string | null | undefined): SculraRole | null {
   if (!clerkRole) return null;
-  // Standard Clerk roles mapping:
-  if (clerkRole === 'org:admin' || clerkRole === 'admin' || clerkRole === 'owner') return 'ADMIN';
-  if (clerkRole === 'org:member' || clerkRole === 'member') return 'DEVELOPER';
-  if (clerkRole === 'qa_engineer' || clerkRole === 'qa') return 'QA';
-  if (clerkRole === 'viewer') return 'VIEWER';
-  
-  // Default fallback if custom role configuration matches
-  return 'VIEWER';
+  return canonicalMapRole(clerkRole);
 }
 
 // Role-specific helpers for use in server components / API handlers
-export async function isOwner() {
+export async function isOwner(): Promise<boolean> {
   const { orgRole } = await requireOrganization();
-  return orgRole === 'org:admin'; // Defaulting owner as admin in Clerk
+  return mapClerkRoleToSculra(orgRole) === 'OWNER';
 }
 
-export async function isAdmin() {
+export async function isAdmin(): Promise<boolean> {
   const { orgRole } = await requireOrganization();
-  return orgRole === 'org:admin';
+  const role = mapClerkRoleToSculra(orgRole);
+  return role === 'ADMIN' || role === 'OWNER';
 }
 
-export async function isDeveloper() {
+export async function isDeveloper(): Promise<boolean> {
   const { orgRole } = await requireOrganization();
-  return orgRole === 'org:member';
+  return mapClerkRoleToSculra(orgRole) === 'DEVELOPER';
 }
 
-export async function isQA() {
+export async function isQA(): Promise<boolean> {
   const { orgRole } = await requireOrganization();
-  return mapClerkRoleToSculra(orgRole) === 'QA';
+  return mapClerkRoleToSculra(orgRole) === 'QA_LEAD';
 }
 
-export async function isViewer() {
+export async function isViewer(): Promise<boolean> {
   const { orgRole } = await requireOrganization();
   return mapClerkRoleToSculra(orgRole) === 'VIEWER';
 }

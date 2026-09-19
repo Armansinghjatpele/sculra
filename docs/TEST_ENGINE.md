@@ -2172,3 +2172,100 @@ In `AutonomousCampaignPlanner`, tasks evaluate source capabilities:
   - `GET / POST /api/projects/[id]/sources/[sourceId]/health`: Health history and live probe.
   - `GET /api/projects/[id]/sources/[sourceId]/snapshots`: Snapshot audit trail.
   - `GET /api/projects/[id]/sources/[sourceId]/capabilities`: Capability matrix.
+
+---
+
+## 26. Enterprise Workspace, Teams, Roles & Permission Control Plane
+
+### 26.1 System Overview
+Sculra implements a centralized, production-grade enterprise authorization and governance control plane spanning frontend UI gates, Next.js server route guards, Playwright test workers, background daemons, and Supabase PostgreSQL Row-Level Security (RLS). The system enforces explicit role hierarchies, domain-specific granular permissions, owner safety invariants, strict multi-tenant boundary checks (IDOR defenses returning 404), worker service identity isolation, and truthful metrics with zero synthetic values.
+
+### 26.2 Canonical Roles & Privilege Hierarchy
+The system establishes exactly 5 canonical roles ordered by an integer rank (`ROLE_RANKS`):
+
+| Canonical Role | Rank | Description | Invariant & Scope Limits |
+| :--- | :--- | :--- | :--- |
+| **`OWNER`** | `500` | Full administrative control across the entire organization | Sole owner cannot be demoted or removed; must retain at least 1 active owner; exclusive rights to delete organization or transfer ownership |
+| **`ADMIN`** | `400` | Operational management, team roster, project settings, integrations | Cannot assign `OWNER` role; cannot demote/remove owners; cannot delete organization; cannot remove other Admins |
+| **`QA_LEAD`** | `300` | Full execution and configuration across campaigns, tests, engines, fixes | Can trigger campaigns, run security/perf/a11y audits, approve and apply Fix Agent remediations, create PRs; read-only member roster |
+| **`DEVELOPER`** | `200` | Day-to-day engineering, issue triage, and remediation planning | Can update/resolve issues, request fix plans; cannot run campaigns, mutate project settings, or invite members |
+| **`VIEWER`** | `100` | Read-only audit access across all projects, reports, and observations | Zero mutation rights; safe default for unrecognized or legacy role strings |
+
+### 26.3 Granular Typed Permission Domain Catalog
+Permissions are strictly typed string literals grouped into 20 functional domains:
+- **Organization**: `organization.read`, `organization.update`, `organization.delete`
+- **Members**: `members.read`, `members.invite`, `members.change_role`, `members.remove`, `members.transfer_ownership`
+- **Projects**: `projects.read`, `projects.create`, `projects.update`, `projects.archive`, `projects.delete`
+- **Sources**: `sources.read`, `sources.create`, `sources.update`, `sources.delete`, `sources.validate`
+- **Campaigns**: `campaigns.read`, `campaigns.create`, `campaigns.start`, `campaigns.cancel`, `campaigns.configure`
+- **Tests**: `test_runs.read`, `test_runs.trigger`, `test_runs.cancel`, `test_runs.delete`
+- **Issues**: `issues.read`, `issues.update`, `issues.resolve`
+- **Reports**: `reports.read`, `reports.create`, `reports.export`
+- **Release Readiness**: `release.read`, `release.evaluate`
+- **Strategy Engine**: `strategy.read`, `strategy.configure`
+- **Security QA**: `security.read`, `security.run`, `security.configure`
+- **Performance QA**: `performance.read`, `performance.run`, `performance.configure`
+- **Accessibility QA**: `accessibility.read`, `accessibility.run`, `accessibility.configure`
+- **CI/CD**: `cicd.read`, `cicd.trigger`, `cicd.configure`
+- **Remediation**: `remediation.read`, `remediation.request`, `remediation.apply`
+- **Safe Fix Agent**: `fix_agent.read`, `fix_agent.plan`, `fix_agent.apply`, `fix_agent.create_pr`, `fix_agent.configure`
+- **Approvals**: `approvals.read`, `approvals.approve`, `approvals.reject`
+- **Observability**: `observability.read`, `observability.admin`
+- **Integrations**: `integrations.read`, `integrations.configure`
+- **Settings**: `settings.read`, `settings.update`
+
+### 26.4 Sensitive Action Policies & Owner Safety Invariants
+1. **Sole Owner Protection**: An organization must always retain at least 1 active owner. The sole active owner cannot demote themselves or be removed from the organization.
+2. **Anti-Lockout Invariant**: Any operation that would leave the organization with 0 active owners is atomically rejected by `PolicyManager.evaluateRoleChange()` and `PolicyManager.evaluateMemberRemoval()`.
+3. **Privilege Escalation Wall**: No user can assign a role higher than their own rank (`ROLE_RANKS[target] <= ROLE_RANKS[caller]`).
+4. **Admin Boundaries**: Admins cannot assign or manage the `OWNER` role and cannot remove peer Admins.
+5. **Fix Agent Policy Gate**:
+   - `PolicyManager.evaluateFixAgentApply`: Enforces `fixAgentEnabled`, target branch in `allowedBranches`, SHA verification (rejects source SHA drift against HEAD), and cryptographic human approval check (24h validity window).
+   - `PolicyManager.evaluateCreatePr`: Enforces verified passing status (`verificationStatus === 'PASSED'`) and branch protection rules before generating GitHub pull requests.
+
+### 26.5 Multi-Tenant Resource Isolation & IDOR Defense
+Every API route handling project-scoped resources executes `requireProjectAccess(authContext, projectId)`:
+- In organization mode: validates that `project.organization_id === authContext.orgId`.
+- In personal workspace mode: validates that `project.created_by === authContext.userId` and `project.organization_id === null`.
+- **404 Not Found Masking**: If a resource belongs to another tenant or does not exist, the API returns HTTP 404 (via `ResourceAccessDeniedError`) rather than 403 Forbidden, preventing malicious enumeration or existence probing of external resources.
+
+### 26.6 Worker Service Identity Isolation
+Background test workers and automation daemons do not impersonate arbitrary user sessions. They operate under a dedicated `WorkerServiceIdentity`:
+- Worker requests validate a cryptographically secure service token (`SUPABASE_SERVICE_ROLE_KEY`).
+- Each worker task execution is strictly scoped to the claimed job's tenant organization ID (`jobOrganizationId`).
+- `ServiceIdentityManager` in the worker validates that cross-tenant operations are rejected immediately.
+
+### 26.7 Database Row-Level Security & Migration
+Database migration `20260917000000_enterprise_roles_permissions.sql`:
+```sql
+-- Updated role constraint supporting all 5 canonical roles
+ALTER TABLE public.organization_memberships
+  DROP CONSTRAINT IF EXISTS organization_memberships_role_check;
+ALTER TABLE public.organization_memberships
+  ADD CONSTRAINT organization_memberships_role_check
+  CHECK (role IN ('owner', 'admin', 'qa_lead', 'developer', 'viewer'));
+
+-- Membership status constraint
+ALTER TABLE public.organization_memberships
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'
+  CHECK (status IN ('active', 'invited', 'suspended', 'removed'));
+
+-- Security Definer helper functions
+CREATE OR REPLACE FUNCTION public.is_org_member(org_id UUID)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.organization_memberships
+    WHERE organization_id = org_id
+      AND user_id = auth.uid()
+      AND status = 'active'
+  );
+END;
+$$;
+```
+
+### 26.8 Truthful Enterprise Administration UI
+- `/settings/team`: Team member roster, invite modal with explicit role selection, in-place role mutation, and member removal with confirmation dialogs.
+- `/settings/permissions`: Interactive Permission Explorer matrix across all 5 roles and 20 functional categories.
+- `/settings/security`: Admin Security Dashboard showing factual workspace enforcement status, anti-lockout protection, and zero synthetic metrics (`--` rendered when data is not yet observed).
+- `/settings/integrations`: Integration management console.

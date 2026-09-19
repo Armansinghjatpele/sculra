@@ -154,6 +154,9 @@ export type {
   IngestSourceResult,
 } from './sources';
 
+export * as authz from './authz';
+export * from './authz';
+
 // CLI Support:
 // 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`
 // 2. Single Run mode: `pnpm worker <testRunId>` or `tsx src/index.ts <testRunId>`

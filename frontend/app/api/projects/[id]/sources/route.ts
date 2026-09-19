@@ -4,9 +4,8 @@
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { requireProjectPermission, PERMISSIONS } from '@/lib/authz';
 import {
-  getProject,
   getProjectSources,
   createProjectSource,
   validateProjectSource,
@@ -17,33 +16,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, getToken } = await auth();
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. Sign in required.' },
-        { status: 401 }
-      );
-    }
-
-    const token = await getToken();
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Session token expired or missing.' },
-        { status: 401 }
-      );
-    }
-
     const { id } = await params;
-    const project = await getProject(token, id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found or access denied.' },
-        { status: 404 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.SOURCES_READ);
 
-    const sources = await getProjectSources(token, id);
+    const sources = await getProjectSources(authContext.clerkToken, id);
 
     return NextResponse.json({
       success: true,
@@ -52,10 +28,10 @@ export async function GET(
       count: sources.length,
     });
   } catch (err: any) {
-    console.error('[API Project Sources GET Error]:', err);
+    const status = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching project sources.' },
-      { status: 500 }
+      { success: false, error: err.message || 'Failed fetching project sources.', code: err.code },
+      { status }
     );
   }
 }
@@ -65,31 +41,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, getToken } = await auth();
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. Sign in required.' },
-        { status: 401 }
-      );
-    }
-
-    const token = await getToken();
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Session token expired or missing.' },
-        { status: 401 }
-      );
-    }
-
     const { id } = await params;
-    const project = await getProject(token, id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found or access denied.' },
-        { status: 404 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.SOURCES_CREATE);
 
     const body = await req.json();
     const { type, locator, branch, environment, configuration } = body;
@@ -102,7 +55,7 @@ export async function POST(
     }
 
     // Preflight validate source
-    const validation = await validateProjectSource(token, type, locator, configuration);
+    const validation = await validateProjectSource(authContext.clerkToken, type, locator, configuration);
     if (!validation.valid) {
       return NextResponse.json(
         {
@@ -114,7 +67,7 @@ export async function POST(
       );
     }
 
-    const created = await createProjectSource(token, {
+    const created = await createProjectSource(authContext.clerkToken, {
       projectId: id,
       type,
       locator: locator.trim(),
@@ -131,10 +84,10 @@ export async function POST(
       validation,
     });
   } catch (err: any) {
-    console.error('[API Project Sources POST Error]:', err);
+    const status = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed creating project source.' },
-      { status: 500 }
+      { success: false, error: err.message || 'Failed creating project source.', code: err.code },
+      { status }
     );
   }
 }

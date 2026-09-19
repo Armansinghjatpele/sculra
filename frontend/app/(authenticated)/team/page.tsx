@@ -2,9 +2,13 @@
 
 import * as React from 'react';
 import { useOrganization, useUser } from '@clerk/nextjs';
-import { AppShell } from '@/components/AppShell';
-import { Stack } from '@/components/LayoutPrimitives';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
+import { Stack, Flex } from '@/components/LayoutPrimitives';
+import { Card } from '@/components/Card';
+import { Button } from '@/components/Button';
+import { RoleBadge } from '@/components/authz/RoleBadge';
+import { mapClerkRoleToSculra } from '@/lib/authz/roles';
+import { Shield, Settings, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function TeamPage() {
   const { organization, memberships, isLoaded } = useOrganization({
@@ -15,57 +19,78 @@ export default function TeamPage() {
   const { user } = useUser();
 
   return (
-    <>
-      <Stack spacing={24}>
+    <Stack spacing={24}>
+      <Flex className="justify-between items-center flex-wrap gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Organization Team</h1>
-          <p className="text-xs text-muted-foreground">Manage organization members and workspace access permissions.</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            Organization Team
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Manage organization members, workspace access, and role permissions.
+          </p>
         </div>
 
-        {!isLoaded ? (
-          <div className="py-12 text-center text-xs text-muted-foreground font-mono">
-            Loading team members...
-          </div>
-        ) : !organization ? (
-          /* PERSONAL WORKSPACE DISPLAY */
-          <Card className="glass-panel p-8 text-center max-w-md mx-auto space-y-4 my-8">
-            <div className="text-xs font-bold text-foreground">Personal Workspace</div>
-            <p className="text-3xs text-muted-foreground leading-relaxed">
-              You are currently in your personal sandbox workspace. Create or select a Clerk Organization via the workspace switcher in the sidebar to invite team members.
-            </p>
-            {user && (
-              <div className="pt-4 border-t border-white/5 flex items-center justify-between text-left font-mono text-[10px]">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-accent">
-                    {user.firstName?.charAt(0)}
-                  </div>
-                  <div>
-                    <span className="text-foreground font-semibold block">{user.fullName}</span>
-                    <span className="text-muted-foreground block text-[9px]">{user.primaryEmailAddress?.emailAddress}</span>
-                  </div>
+        <Flex className="gap-2">
+          <Link href="/settings/permissions">
+            <Button variant="outline" size="sm" className="text-xs font-semibold">
+              <Shield className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              Permissions Matrix
+            </Button>
+          </Link>
+          <Link href="/settings/team">
+            <Button size="sm" className="text-xs font-semibold">
+              <Settings className="w-3.5 h-3.5 mr-1" />
+              Manage Members & Roles
+              <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          </Link>
+        </Flex>
+      </Flex>
+
+      {!isLoaded ? (
+        <div className="py-12 text-center text-xs text-muted-foreground font-mono">
+          Loading team members...
+        </div>
+      ) : !organization ? (
+        /* PERSONAL WORKSPACE DISPLAY */
+        <Card className="glass-panel p-8 text-center max-w-md mx-auto space-y-4 my-8">
+          <div className="text-xs font-bold text-foreground">Personal Workspace</div>
+          <p className="text-3xs text-muted-foreground leading-relaxed">
+            You are currently in your personal sandbox workspace. Create or select a Clerk Organization via the workspace switcher in the sidebar to invite team members.
+          </p>
+          {user && (
+            <div className="pt-4 border-t border-white/5 flex items-center justify-between text-left font-mono text-[10px]">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-accent">
+                  {user.firstName?.charAt(0)}
                 </div>
-                <span className="px-1.5 py-0.5 bg-accent/15 text-accent border border-accent/20 rounded font-bold uppercase text-[8px]">
-                  Owner
-                </span>
+                <div>
+                  <span className="text-foreground font-semibold block">{user.fullName}</span>
+                  <span className="text-muted-foreground block text-[9px]">{user.primaryEmailAddress?.emailAddress}</span>
+                </div>
               </div>
-            )}
-          </Card>
-        ) : (
-          /* ORGANIZATION DISPLAY */
-          <div className="overflow-x-auto border border-white/5 rounded-xl bg-zinc-950/40">
-            <table className="w-full text-left border-collapse text-xs font-mono">
-              <thead>
-                <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase text-muted-foreground">
-                  <th className="p-4">Name</th>
-                  <th className="p-4">Email</th>
-                  <th className="p-4">Role</th>
-                  <th className="p-4">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 text-[11px]">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {memberships?.data?.map((m: any) => (
-                  <tr key={m.id} className="hover:bg-white/5">
+              <RoleBadge role="OWNER" size="sm" />
+            </div>
+          )}
+        </Card>
+      ) : (
+        /* ORGANIZATION DISPLAY */
+        <div className="overflow-x-auto border border-white/5 rounded-xl bg-zinc-950/40">
+          <table className="w-full text-left border-collapse text-xs font-mono">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase text-muted-foreground">
+                <th className="p-4">Name</th>
+                <th className="p-4">Email</th>
+                <th className="p-4">Role</th>
+                <th className="p-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-[11px]">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {memberships?.data?.map((m: any) => {
+                const mappedRole = mapClerkRoleToSculra(m.role);
+                return (
+                  <tr key={m.id} className="hover:bg-white/5 transition-colors">
                     <td className="p-4 text-foreground font-semibold flex items-center gap-2">
                       {m.publicUserData.imageUrl ? (
                         <img src={m.publicUserData.imageUrl} className="h-5 w-5 rounded-full border border-white/10" alt="Avatar" />
@@ -79,8 +104,8 @@ export default function TeamPage() {
                     <td className="p-4 text-muted-foreground">
                       {m.publicUserData.identifier || 'No verified email'}
                     </td>
-                    <td className="p-4 uppercase text-accent font-bold">
-                      {m.role === 'org:admin' ? 'Admin' : m.role === 'org:member' ? 'Member' : m.role}
+                    <td className="p-4">
+                      <RoleBadge role={mappedRole} size="sm" />
                     </td>
                     <td className="p-4">
                       <span className="px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded text-[8px] font-bold uppercase tracking-wider">
@@ -88,12 +113,12 @@ export default function TeamPage() {
                       </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Stack>
-    </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Stack>
   );
 }

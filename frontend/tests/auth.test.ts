@@ -53,10 +53,10 @@ describe('Sculra Clerk Authentication Layer', () => {
   });
 
   describe('mapClerkRoleToSculra()', () => {
-    it('should map Clerk admin role to ADMIN', () => {
+    it('should map Clerk admin role to ADMIN and owner to OWNER', () => {
       expect(mapClerkRoleToSculra('org:admin')).toBe('ADMIN');
       expect(mapClerkRoleToSculra('admin')).toBe('ADMIN');
-      expect(mapClerkRoleToSculra('owner')).toBe('ADMIN');
+      expect(mapClerkRoleToSculra('owner')).toBe('OWNER');
     });
 
     it('should map Clerk member role to DEVELOPER', () => {
@@ -64,8 +64,8 @@ describe('Sculra Clerk Authentication Layer', () => {
       expect(mapClerkRoleToSculra('member')).toBe('DEVELOPER');
     });
 
-    it('should map custom roles to QA and VIEWER', () => {
-      expect(mapClerkRoleToSculra('qa_engineer')).toBe('QA');
+    it('should map custom roles to QA_LEAD and VIEWER', () => {
+      expect(mapClerkRoleToSculra('qa_engineer')).toBe('QA_LEAD');
       expect(mapClerkRoleToSculra('viewer')).toBe('VIEWER');
     });
 
