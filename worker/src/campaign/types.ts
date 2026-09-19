@@ -14,6 +14,7 @@ import { ApiEndpoint, ApiTestResult, ApiCoverageSummary } from '../api-qa/types'
 import { JourneyResult } from '../journeys/types';
 import { BugObservation } from '../issues/types';
 import { RoleContext, AuthenticatedSession, AuthorizationCheckResult } from '../auth/types';
+import { SourceCapability } from '../sources/types';
 
 export type QACampaignStatus =
   | 'QUEUED'
@@ -96,6 +97,8 @@ export interface CampaignConfig {
   pullRequestNumber?: number;
   gitChanges?: any;
   changeIntelligence?: any;
+  sourceId?: string;
+  capabilities?: SourceCapability[];
 }
 
 export interface CampaignBudget {
@@ -145,6 +148,7 @@ export interface CampaignTask {
   requiredRole?: string;
   requiredViewport?: string;
   status: CampaignTaskStatus;
+  skipReason?: string;
   retryCount: number;
   startedAt?: string;
   completedAt?: string;

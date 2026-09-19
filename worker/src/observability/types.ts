@@ -3,9 +3,9 @@
 // (worker/src/observability/types.ts)
 // ==============================================================================
 
-export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI';
+export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI' | 'SOURCE_INGESTOR';
 
-export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL';
+export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL' | 'SOURCE';
 
 export type FactCategory =
   | 'OBSERVED_FACT'
@@ -87,7 +87,18 @@ export type AutonomousEventType =
   // Human Approval Governance
   | 'HUMAN_APPROVAL_REQUESTED'
   | 'HUMAN_APPROVED'
-  | 'HUMAN_REJECTED';
+  | 'HUMAN_REJECTED'
+  // Multi-Source Ingestion & Connection Intelligence
+  | 'SOURCE_VALIDATION_STARTED'
+  | 'SOURCE_VALIDATED'
+  | 'SOURCE_VALIDATION_FAILED'
+  | 'SOURCE_CONNECTED'
+  | 'SOURCE_CHANGED'
+  | 'SOURCE_UNCHANGED'
+  | 'SOURCE_UNAVAILABLE'
+  | 'SOURCE_HEALTH_CHANGED'
+  | 'SOURCE_SNAPSHOT_CREATED'
+  | 'SOURCE_CAPABILITIES_RESOLVED';
 
 export type SkipReason =
   | 'AUTH_REQUIRED'
@@ -100,7 +111,10 @@ export type SkipReason =
   | 'UNSUPPORTED_SURFACE'
   | 'INSUFFICIENT_CONTEXT'
   | 'SECURITY_RESTRICTION'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'ENVIRONMENT_UNAVAILABLE'
+  | 'NO_CHANGES_DETECTED'
+  | 'FLAKY_QUARANTINED';
 
 export interface AutonomousEvent {
   id: string;

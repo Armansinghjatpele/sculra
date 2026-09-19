@@ -1607,3 +1607,389 @@ export const mockEvidenceGraph: EvidenceGraph = {
   ],
 };
 
+// ==============================================================================
+// Multi-Source Project Ingestion & Unified Connection Intelligence
+// ==============================================================================
+
+export type SourceType = 'WEBSITE' | 'GITHUB' | 'ZIP' | 'DESKTOP' | 'API';
+
+export type SourceStatus =
+  | 'CONFIGURED'
+  | 'AVAILABLE'
+  | 'UNAVAILABLE'
+  | 'UNSUPPORTED'
+  | 'NOT_READY'
+  | 'DEGRADED';
+
+export type SourceHealthState =
+  | 'HEALTHY'
+  | 'DEGRADED'
+  | 'UNREACHABLE'
+  | 'AUTH_REQUIRED'
+  | 'FORBIDDEN'
+  | 'MISCONFIGURED'
+  | 'UNSUPPORTED'
+  | 'NOT_READY'
+  | 'UNKNOWN';
+
+export type CapabilityState =
+  | 'AVAILABLE'
+  | 'PARTIAL'
+  | 'UNAVAILABLE'
+  | 'RESTRICTED';
+
+export type SourceCapabilityKey =
+  | 'BROWSER_NAVIGATION'
+  | 'DOM_DISCOVERY'
+  | 'FUNCTIONAL_TESTING'
+  | 'VISUAL_TESTING'
+  | 'RESPONSIVE_TESTING'
+  | 'ACCESSIBILITY_TESTING'
+  | 'PERFORMANCE_TESTING'
+  | 'BROWSER_NETWORK_OBSERVATION'
+  | 'REPOSITORY_ANALYSIS'
+  | 'CHANGE_DETECTION'
+  | 'SOURCE_MAPPING'
+  | 'RCA_CONTEXT'
+  | 'REMEDIATION_CONTEXT'
+  | 'CI_CONTEXT'
+  | 'API_TESTING'
+  | 'DESKTOP_TESTING'
+  | 'SOURCE_ANALYSIS';
+
+export interface SourceCapability {
+  key: SourceCapabilityKey;
+  state: CapabilityState;
+  reason?: string;
+}
+
+export interface ProjectSource {
+  id: string;
+  projectId: string;
+  organizationId?: string;
+  type: SourceType;
+  locator: string;
+  branch?: string;
+  environment: string;
+  status: SourceStatus;
+  configuration: Record<string, any>;
+  capabilities: SourceCapability[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceSnapshot {
+  id: string;
+  projectSourceId: string;
+  projectId: string;
+  organizationId?: string;
+  fingerprint: string;
+  revision?: string;
+  environment?: string;
+  capabilities: SourceCapability[];
+  metadata: Record<string, any>;
+  status: SourceStatus;
+  observedAt: string;
+}
+
+export interface SourceHealthObservation {
+  id: string;
+  projectSourceId: string;
+  status: SourceHealthState;
+  latencyMs?: number;
+  errorCode?: string;
+  metadata: Record<string, any>;
+  observedAt: string;
+}
+
+export interface SourceChange {
+  type: string;
+  sourceId: string;
+  previousFingerprint?: string;
+  currentFingerprint: string;
+  details: string;
+  timestamp: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SourceValidationResult {
+  valid: boolean;
+  status: SourceStatus;
+  sourceType: SourceType;
+  capabilities: SourceCapability[];
+  health: SourceHealthState;
+  snapshotId?: string;
+  fingerprint?: string;
+  revision?: string;
+  latencyMs?: number;
+  errors: Array<{ code: string; message: string; fatal: boolean; field?: string }>;
+  warnings: string[];
+  metadata?: Record<string, any>;
+}
+
+export const mockProjectSources: ProjectSource[] = [
+  {
+    id: 'src-web-1',
+    projectId: 'proj-1',
+    organizationId: 'org-1',
+    type: 'WEBSITE',
+    locator: 'https://demo.sculra.com',
+    environment: 'PRODUCTION',
+    status: 'AVAILABLE',
+    configuration: {},
+    capabilities: [
+      { key: 'BROWSER_NAVIGATION', state: 'AVAILABLE' },
+      { key: 'DOM_DISCOVERY', state: 'AVAILABLE' },
+      { key: 'FUNCTIONAL_TESTING', state: 'AVAILABLE' },
+      { key: 'VISUAL_TESTING', state: 'AVAILABLE' },
+      { key: 'RESPONSIVE_TESTING', state: 'AVAILABLE' },
+      { key: 'ACCESSIBILITY_TESTING', state: 'AVAILABLE' },
+      { key: 'PERFORMANCE_TESTING', state: 'AVAILABLE' },
+      { key: 'BROWSER_NETWORK_OBSERVATION', state: 'AVAILABLE' },
+      { key: 'REPOSITORY_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires GITHUB source connection' },
+      { key: 'CHANGE_DETECTION', state: 'UNAVAILABLE', reason: 'Requires GITHUB source connection' },
+      { key: 'SOURCE_MAPPING', state: 'UNAVAILABLE', reason: 'Requires repository access' },
+      { key: 'RCA_CONTEXT', state: 'UNAVAILABLE', reason: 'Code RCA requires GITHUB source' },
+      { key: 'REMEDIATION_CONTEXT', state: 'UNAVAILABLE', reason: 'Patch generation requires GITHUB source' },
+      { key: 'CI_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires repository connection' },
+      { key: 'API_TESTING', state: 'UNAVAILABLE', reason: 'Requires API source connection' },
+      { key: 'DESKTOP_TESTING', state: 'UNAVAILABLE', reason: 'Requires DESKTOP source connection' },
+      { key: 'SOURCE_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires code repository source' },
+    ],
+    createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 10 * 60000).toISOString(),
+  },
+  {
+    id: 'src-gh-1',
+    projectId: 'proj-1',
+    organizationId: 'org-1',
+    type: 'GITHUB',
+    locator: 'Armansinghjatpele/sculra',
+    branch: 'main',
+    environment: 'PRODUCTION',
+    status: 'AVAILABLE',
+    configuration: { defaultBranch: 'main' },
+    capabilities: [
+      { key: 'REPOSITORY_ANALYSIS', state: 'AVAILABLE' },
+      { key: 'CHANGE_DETECTION', state: 'AVAILABLE' },
+      { key: 'SOURCE_MAPPING', state: 'AVAILABLE' },
+      { key: 'RCA_CONTEXT', state: 'AVAILABLE' },
+      { key: 'REMEDIATION_CONTEXT', state: 'AVAILABLE' },
+      { key: 'CI_CONTEXT', state: 'AVAILABLE' },
+      { key: 'SOURCE_ANALYSIS', state: 'AVAILABLE' },
+      { key: 'BROWSER_NAVIGATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'DOM_DISCOVERY', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'FUNCTIONAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'VISUAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'RESPONSIVE_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'ACCESSIBILITY_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'PERFORMANCE_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'BROWSER_NETWORK_OBSERVATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for GITHUB source' },
+      { key: 'API_TESTING', state: 'UNAVAILABLE', reason: 'Requires API source connection' },
+      { key: 'DESKTOP_TESTING', state: 'UNAVAILABLE', reason: 'Requires DESKTOP source connection' },
+    ],
+    createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 15 * 60000).toISOString(),
+  },
+  {
+    id: 'src-api-1',
+    projectId: 'proj-1',
+    organizationId: 'org-1',
+    type: 'API',
+    locator: 'https://demo.sculra.com/api',
+    environment: 'PRODUCTION',
+    status: 'AVAILABLE',
+    configuration: { openApiUrl: 'https://demo.sculra.com/api/openapi.json' },
+    capabilities: [
+      { key: 'API_TESTING', state: 'AVAILABLE' },
+      { key: 'PERFORMANCE_TESTING', state: 'PARTIAL', reason: 'Response latency benchmark available' },
+      { key: 'BROWSER_NAVIGATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'DOM_DISCOVERY', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'FUNCTIONAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'VISUAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'RESPONSIVE_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'ACCESSIBILITY_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'BROWSER_NETWORK_OBSERVATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for API source' },
+      { key: 'REPOSITORY_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CHANGE_DETECTION', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'SOURCE_MAPPING', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'RCA_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'REMEDIATION_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CI_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'DESKTOP_TESTING', state: 'UNAVAILABLE', reason: 'Requires DESKTOP source' },
+      { key: 'SOURCE_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires GITHUB or ZIP source' },
+    ],
+    createdAt: new Date(Date.now() - 20 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 12 * 60000).toISOString(),
+  },
+  {
+    id: 'src-zip-1',
+    projectId: 'proj-2',
+    organizationId: 'org-1',
+    type: 'ZIP',
+    locator: 'archive-v1.zip',
+    environment: 'STAGING',
+    status: 'NOT_READY',
+    configuration: {},
+    capabilities: [
+      { key: 'SOURCE_ANALYSIS', state: 'UNAVAILABLE', reason: 'ZIP archive upload storage not provisioned. Source is not ready for testing.' },
+      { key: 'BROWSER_NAVIGATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'DOM_DISCOVERY', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'FUNCTIONAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'VISUAL_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'RESPONSIVE_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'ACCESSIBILITY_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'PERFORMANCE_TESTING', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'BROWSER_NETWORK_OBSERVATION', state: 'UNAVAILABLE', reason: 'Live browser execution unavailable for ZIP source' },
+      { key: 'REPOSITORY_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CHANGE_DETECTION', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'SOURCE_MAPPING', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'RCA_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'REMEDIATION_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CI_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'API_TESTING', state: 'UNAVAILABLE', reason: 'Requires API source' },
+      { key: 'DESKTOP_TESTING', state: 'UNAVAILABLE', reason: 'Requires DESKTOP source' },
+    ],
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+  },
+  {
+    id: 'src-desk-1',
+    projectId: 'proj-2',
+    organizationId: 'org-1',
+    type: 'DESKTOP',
+    locator: 'sculra-app.exe',
+    environment: 'LOCAL',
+    status: 'NOT_READY',
+    configuration: {},
+    capabilities: [
+      { key: 'DESKTOP_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker infrastructure not provisioned. Execution blocked by safety policy.' },
+      { key: 'BROWSER_NAVIGATION', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'DOM_DISCOVERY', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'FUNCTIONAL_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'VISUAL_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'RESPONSIVE_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'ACCESSIBILITY_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'PERFORMANCE_TESTING', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'BROWSER_NETWORK_OBSERVATION', state: 'UNAVAILABLE', reason: 'Desktop agent worker not provisioned' },
+      { key: 'REPOSITORY_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CHANGE_DETECTION', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'SOURCE_MAPPING', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'RCA_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'REMEDIATION_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'CI_CONTEXT', state: 'UNAVAILABLE', reason: 'Requires GITHUB source' },
+      { key: 'API_TESTING', state: 'UNAVAILABLE', reason: 'Requires API source' },
+      { key: 'SOURCE_ANALYSIS', state: 'UNAVAILABLE', reason: 'Requires code repository source' },
+    ],
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+];
+
+export const mockSourceSnapshots: SourceSnapshot[] = [
+  {
+    id: 'snap-web-001',
+    projectSourceId: 'src-web-1',
+    projectId: 'proj-1',
+    organizationId: 'org-1',
+    fingerprint: '3b092f6da8673a554a938c0f59074be88bdfa73229bbf78921e9389e134ad987',
+    revision: 'v1.4.0',
+    environment: 'PRODUCTION',
+    capabilities: mockProjectSources[0].capabilities,
+    metadata: {
+      canonicalOrigin: 'https://demo.sculra.com',
+      statusCode: 200,
+      tlsValid: true,
+      title: 'Sculra — Autonomous QA Platform',
+    },
+    status: 'AVAILABLE',
+    observedAt: new Date(Date.now() - 10 * 60000).toISOString(),
+  },
+  {
+    id: 'snap-gh-001',
+    projectSourceId: 'src-gh-1',
+    projectId: 'proj-1',
+    organizationId: 'org-1',
+    fingerprint: '7e2c918a3857b29e06180a09e0787bb7c2da4a87265c029671bc98fa103ef890',
+    revision: 'main@a8f12c4',
+    environment: 'PRODUCTION',
+    capabilities: mockProjectSources[1].capabilities,
+    metadata: {
+      owner: 'Armansinghjatpele',
+      repo: 'sculra',
+      defaultBranch: 'main',
+      latestCommitSha: 'a8f12c4b90123ef',
+      commitMessage: 'feat: add multi-source project ingestion',
+      commitAuthor: 'Sculra Agent',
+    },
+    status: 'AVAILABLE',
+    observedAt: new Date(Date.now() - 15 * 60000).toISOString(),
+  },
+];
+
+export const mockSourceHealthObservations: SourceHealthObservation[] = [
+  {
+    id: 'hobs-web-1',
+    projectSourceId: 'src-web-1',
+    status: 'HEALTHY',
+    latencyMs: 142,
+    metadata: {
+      statusCode: 200,
+      protocol: 'https',
+      resolvedIp: '104.21.72.18',
+    },
+    observedAt: new Date(Date.now() - 5 * 60000).toISOString(),
+  },
+  {
+    id: 'hobs-web-2',
+    projectSourceId: 'src-web-1',
+    status: 'HEALTHY',
+    latencyMs: 128,
+    metadata: {
+      statusCode: 200,
+      protocol: 'https',
+    },
+    observedAt: new Date(Date.now() - 65 * 60000).toISOString(),
+  },
+  {
+    id: 'hobs-gh-1',
+    projectSourceId: 'src-gh-1',
+    status: 'HEALTHY',
+    latencyMs: 230,
+    metadata: {
+      provider: 'GitHub REST API',
+      rateLimitRemaining: 4980,
+    },
+    observedAt: new Date(Date.now() - 15 * 60000).toISOString(),
+  },
+  {
+    id: 'hobs-api-1',
+    projectSourceId: 'src-api-1',
+    status: 'HEALTHY',
+    latencyMs: 95,
+    metadata: {
+      statusCode: 200,
+      endpointsCount: 24,
+    },
+    observedAt: new Date(Date.now() - 12 * 60000).toISOString(),
+  },
+  {
+    id: 'hobs-zip-1',
+    projectSourceId: 'src-zip-1',
+    status: 'NOT_READY',
+    metadata: {
+      reason: 'ZIP archive storage backend unprovisioned.',
+    },
+    observedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+  },
+  {
+    id: 'hobs-desk-1',
+    projectSourceId: 'src-desk-1',
+    status: 'UNSUPPORTED',
+    metadata: {
+      reason: 'Desktop test agent worker infrastructure not provisioned.',
+    },
+    observedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+];
+

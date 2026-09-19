@@ -21,6 +21,7 @@ export * from './issues';
 export * from './visual';
 export * from './ai-qa';
 export * from './strategy';
+export * from './campaign';
 export * from './product';
 export * from './auth';
 export * from './api-qa';
@@ -113,6 +114,45 @@ export type {
   TimelineFilter,
   TimelineItem,
 } from './observability';
+
+export * as sources from './sources';
+export {
+  SourceOrchestrator,
+  SourceAdapterRegistry,
+  SourceSnapshotManager,
+  SourceHealthTracker,
+  SourceFingerprinter,
+  SourceCapabilityResolver,
+  SourceRedactor,
+  SourceCache,
+  SourceEventEmitter,
+  BoundedHttpClient,
+  SOURCE_POLICY,
+  WebsiteSourceAdapter,
+  GitHubSourceAdapter,
+  ApiSourceAdapter,
+  ZipSourceAdapter,
+  DesktopSourceAdapter,
+} from './sources';
+export type {
+  SourceType,
+  SourceStatus,
+  SourceHealthState,
+  CapabilityState,
+  SourceCapabilityKey,
+  SourceCapability,
+  ProjectSource,
+  SourceSnapshot,
+  SourceHealthObservation,
+  SourceFingerprint,
+  SourceChangeType,
+  SourceChange,
+  SourceValidationError,
+  SourceValidationResult,
+  SourceValidationOptions,
+  IngestSourceInput,
+  IngestSourceResult,
+} from './sources';
 
 // CLI Support:
 // 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`

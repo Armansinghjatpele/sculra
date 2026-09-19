@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
-import { createProject } from '@/services/db';
+import { createProject, createProjectSource } from '@/services/db';
 
 type SourceType = 'website' | 'github' | 'zip' | 'desktop' | 'api';
 
@@ -77,12 +77,12 @@ export default function NewProjectPage() {
         </svg>
       ),
       active: false,
-      status: 'Coming Soon',
+      status: 'Unprovisioned (Safe)',
     },
     {
       id: 'desktop' as SourceType,
       title: 'Desktop Executable',
-      description: 'Verify desktop apps by uploading compiled installer targets.',
+      description: 'Desktop application testing requires isolated secure VM execution. Safety policy guarded.',
       icon: (
         <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
@@ -91,20 +91,20 @@ export default function NewProjectPage() {
         </svg>
       ),
       active: false,
-      status: 'Coming Soon',
+      status: 'Unprovisioned (Safe)',
     },
     {
       id: 'api' as SourceType,
       title: 'API Testing Endpoint',
-      description: 'Execute API conformance and compliance checks against routes.',
+      description: 'Execute API conformance, contract audit, and latency checks against REST endpoints.',
       icon: (
-        <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <polyline points="16 18 22 12 16 6" />
           <polyline points="8 6 2 12 8 18" />
         </svg>
       ),
-      active: false,
-      status: 'Coming Soon',
+      active: true,
+      status: 'Active',
     },
   ];
 
@@ -134,7 +134,7 @@ export default function NewProjectPage() {
     if (currentStep === 1) {
       const sourceConfig = sourcesList.find((s) => s.id === selectedSource);
       if (!sourceConfig?.active) {
-        setErrorMsg('The selected source option is coming soon. Please choose Website URL or GitHub Repository.');
+        setErrorMsg('The selected source is not provisioned in this environment for safety. Please select Website URL, GitHub Repository, or API Endpoint.');
         return;
       }
       setCurrentStep(2);
@@ -143,7 +143,7 @@ export default function NewProjectPage() {
         setErrorMsg('Project Name is required.');
         return;
       }
-      if (selectedSource === 'website') {
+      if (selectedSource === 'website' || selectedSource === 'api') {
         const error = validateWebsiteUrl(targetUrl);
         if (error) {
           setErrorMsg(error);
@@ -170,13 +170,27 @@ export default function NewProjectPage() {
         const project = await createProject(token, {
           name: projectName,
           type: selectedSource,
-          url: selectedSource === 'website' ? targetUrl : undefined,
+          url: selectedSource === 'website' || selectedSource === 'api' ? targetUrl : undefined,
           repoUrl: selectedSource === 'github' ? targetUrl : undefined,
           clerkOrgId: orgId,
           clerkUserId: userId,
           environment,
           branch: selectedSource === 'github' ? branchName : undefined,
         });
+
+        // Also register project source
+        try {
+          await createProjectSource(token, {
+            projectId: project.id,
+            type: selectedSource.toUpperCase() as any,
+            locator: targetUrl,
+            branch: selectedSource === 'github' ? branchName : undefined,
+            environment,
+            status: 'AVAILABLE',
+          });
+        } catch (srcErr) {
+          console.warn('[ProjectSource creation notice]:', srcErr);
+        }
 
         setCreatedProjectId(project.id);
         setCurrentStep(4);
@@ -465,7 +479,10 @@ export default function NewProjectPage() {
                   </div>
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-4 flex items-center justify-center gap-3">
+                  <Button variant="outline" onClick={() => router.push(`/projects/${createdProjectId}/sources`)}>
+                    Manage Sources
+                  </Button>
                   <Button variant="accent" onClick={() => router.push(`/projects/${createdProjectId}`)}>
                     Open Project details
                   </Button>

@@ -9,6 +9,7 @@ import {
   CampaignDomain,
 } from './types';
 import { TargetSelector } from './target-selector';
+import { SourceCapability } from '../sources/types';
 
 export class AutonomousCampaignPlanner {
   /**
@@ -18,10 +19,18 @@ export class AutonomousCampaignPlanner {
     campaignId: string,
     targetUrl: string,
     config: CampaignConfig,
-    initialTargets: CampaignTarget[]
+    initialTargets: CampaignTarget[],
+    customCapabilities?: SourceCapability[]
   ): CampaignTask[] {
     const tasks: CampaignTask[] = [];
     const activeDomains = new Set(config.domains || []);
+    const capabilities = customCapabilities || config.capabilities;
+
+    const isCapUnavailable = (key: string) => {
+      if (!capabilities) return false;
+      const cap = capabilities.find((c) => c.key === key);
+      return cap?.state === 'UNAVAILABLE';
+    };
 
     let taskIndex = 0;
     const createTaskId = (domain: string, targetSlug: string) =>
@@ -31,6 +40,7 @@ export class AutonomousCampaignPlanner {
     let discoveryTaskId: string | undefined;
     if (activeDomains.has('DISCOVERY')) {
       discoveryTaskId = createTaskId('discovery', 'root');
+      const browserUnavailable = isCapUnavailable('DOM_DISCOVERY') || isCapUnavailable('BROWSER_NAVIGATION');
       tasks.push({
         id: discoveryTaskId,
         campaignId,
@@ -45,9 +55,12 @@ export class AutonomousCampaignPlanner {
           strategyScore: 100,
         },
         priority: 100,
-        reason: 'Initial surface discovery to map application pages, forms, and routes',
+        reason: browserUnavailable
+          ? 'Application discovery skipped: DOM/browser navigation capability unavailable on source surface'
+          : 'Initial surface discovery to map application pages, forms, and routes',
         dependencies: [],
-        status: 'QUEUED',
+        status: browserUnavailable ? 'SKIPPED' : 'QUEUED',
+        skipReason: browserUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
         retryCount: 0,
       });
     }
@@ -111,6 +124,7 @@ export class AutonomousCampaignPlanner {
     if (activeDomains.has('FUNCTIONAL') || activeDomains.has('JOURNEY')) {
       // Create task for root / primary flows
       const domain: CampaignDomain = activeDomains.has('FUNCTIONAL') ? 'FUNCTIONAL' : 'JOURNEY';
+      const funcUnavailable = isCapUnavailable('FUNCTIONAL_TESTING') || isCapUnavailable('BROWSER_NAVIGATION');
       
       // Workflows from targets
       const workflowTargets = initialTargets.filter((t) => t.type === 'WORKFLOW');
@@ -123,9 +137,12 @@ export class AutonomousCampaignPlanner {
             domain,
             target: wfTarget,
             priority: TargetSelector.computeTargetPriority(wfTarget),
-            reason: `Execute deterministic user journey for workflow "${wfTarget.identifier}" (${wfTarget.businessCriticality || 'STANDARD'} priority)`,
+            reason: funcUnavailable
+              ? `User journey skipped: functional testing capability unavailable on source surface`
+              : `Execute deterministic user journey for workflow "${wfTarget.identifier}" (${wfTarget.businessCriticality || 'STANDARD'} priority)`,
             dependencies: [...basePrereqs],
-            status: 'QUEUED',
+            status: funcUnavailable ? 'SKIPPED' : 'QUEUED',
+            skipReason: funcUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
             retryCount: 0,
           });
         }
@@ -145,9 +162,12 @@ export class AutonomousCampaignPlanner {
             strategyScore: 85,
           },
           priority: 85,
-          reason: 'Exercise primary navigation, interactive controls, and form usability flows',
+          reason: funcUnavailable
+            ? 'Core user journeys skipped: functional testing capability unavailable on source surface'
+            : 'Exercise primary navigation, interactive controls, and form usability flows',
           dependencies: [...basePrereqs],
-          status: 'QUEUED',
+          status: funcUnavailable ? 'SKIPPED' : 'QUEUED',
+          skipReason: funcUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
           retryCount: 0,
         });
       }
@@ -155,6 +175,7 @@ export class AutonomousCampaignPlanner {
 
     // 5. Stage 5: API QA Tasks
     if (activeDomains.has('API')) {
+      const apiUnavailable = isCapUnavailable('API_TESTING');
       const apiTargets = initialTargets.filter((t) => t.type === 'API');
       if (apiTargets.length > 0) {
         for (const apiTarget of apiTargets) {
@@ -165,9 +186,12 @@ export class AutonomousCampaignPlanner {
             domain: 'API',
             target: apiTarget,
             priority: TargetSelector.computeTargetPriority(apiTarget),
-            reason: `Audit API endpoint contract, status, and payload on "${apiTarget.identifier}"`,
+            reason: apiUnavailable
+              ? `API audit skipped: API testing capability unavailable on source surface`
+              : `Audit API endpoint contract, status, and payload on "${apiTarget.identifier}"`,
             dependencies: discoveryTaskId ? [discoveryTaskId] : [],
-            status: 'QUEUED',
+            status: apiUnavailable ? 'SKIPPED' : 'QUEUED',
+            skipReason: apiUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
             retryCount: 0,
           });
         }
@@ -187,9 +211,12 @@ export class AutonomousCampaignPlanner {
             strategyScore: 75,
           },
           priority: 75,
-          reason: 'Audit discovered backend REST API endpoints and contract responses',
+          reason: apiUnavailable
+            ? 'API testing skipped: API testing capability unavailable on source surface'
+            : 'Audit discovered backend REST API endpoints and contract responses',
           dependencies: discoveryTaskId ? [discoveryTaskId] : [],
-          status: 'QUEUED',
+          status: apiUnavailable ? 'SKIPPED' : 'QUEUED',
+          skipReason: apiUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
           retryCount: 0,
         });
       }
@@ -220,6 +247,7 @@ export class AutonomousCampaignPlanner {
 
     // 7. Stage 7: Accessibility & Inclusive UX Task
     if (activeDomains.has('ACCESSIBILITY')) {
+      const a11yUnavailable = isCapUnavailable('ACCESSIBILITY_TESTING') || isCapUnavailable('BROWSER_NAVIGATION');
       tasks.push({
         id: createTaskId('a11y', 'wcag'),
         campaignId,
@@ -234,9 +262,12 @@ export class AutonomousCampaignPlanner {
           strategyScore: 80,
         },
         priority: 80,
-        reason: 'Audit keyboard focus navigation, color contrast ratios, form labels, ARIA landmarks, and touch target scaling',
+        reason: a11yUnavailable
+          ? 'Accessibility audit skipped: accessibility testing capability unavailable on source surface'
+          : 'Audit keyboard focus navigation, color contrast ratios, form labels, ARIA landmarks, and touch target scaling',
         dependencies: [...basePrereqs],
-        status: 'QUEUED',
+        status: a11yUnavailable ? 'SKIPPED' : 'QUEUED',
+        skipReason: a11yUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
         retryCount: 0,
       });
     }
@@ -244,6 +275,10 @@ export class AutonomousCampaignPlanner {
     // 8. Stage 8: Visual & Responsive QA Task
     if (activeDomains.has('VISUAL') || activeDomains.has('RESPONSIVE')) {
       const domain: CampaignDomain = activeDomains.has('VISUAL') ? 'VISUAL' : 'RESPONSIVE';
+      const visualUnavailable =
+        isCapUnavailable('VISUAL_TESTING') ||
+        isCapUnavailable('RESPONSIVE_TESTING') ||
+        isCapUnavailable('BROWSER_NAVIGATION');
       tasks.push({
         id: createTaskId('visual', 'responsive'),
         campaignId,
@@ -258,9 +293,12 @@ export class AutonomousCampaignPlanner {
           strategyScore: 70,
         },
         priority: 70,
-        reason: 'Audit responsive layout stability, visual clipping, overflow, and component alignment across viewports',
+        reason: visualUnavailable
+          ? 'Visual/responsive audit skipped: visual/responsive testing capability unavailable on source surface'
+          : 'Audit responsive layout stability, visual clipping, overflow, and component alignment across viewports',
         dependencies: discoveryTaskId ? [discoveryTaskId] : [],
-        status: 'QUEUED',
+        status: visualUnavailable ? 'SKIPPED' : 'QUEUED',
+        skipReason: visualUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
         retryCount: 0,
       });
     }
@@ -268,6 +306,8 @@ export class AutonomousCampaignPlanner {
     // 9. Stage 9: Performance & Reliability QA Task
     if (activeDomains.has('PERFORMANCE') || activeDomains.has('RELIABILITY')) {
       const domain: CampaignDomain = activeDomains.has('PERFORMANCE') ? 'PERFORMANCE' : 'RELIABILITY';
+      const perfUnavailable =
+        isCapUnavailable('PERFORMANCE_TESTING') || isCapUnavailable('BROWSER_NAVIGATION');
       tasks.push({
         id: createTaskId('perf', 'vitals'),
         campaignId,
@@ -282,9 +322,12 @@ export class AutonomousCampaignPlanner {
           strategyScore: 75,
         },
         priority: 75,
-        reason: 'Benchmark Core Web Vitals (LCP, CLS, INP, FCP, TTFB), asset payloads, and load reliability',
+        reason: perfUnavailable
+          ? 'Performance audit skipped: performance testing capability unavailable on source surface'
+          : 'Benchmark Core Web Vitals (LCP, CLS, INP, FCP, TTFB), asset payloads, and load reliability',
         dependencies: [...basePrereqs],
-        status: 'QUEUED',
+        status: perfUnavailable ? 'SKIPPED' : 'QUEUED',
+        skipReason: perfUnavailable ? 'UNSUPPORTED_SURFACE' : undefined,
         retryCount: 0,
       });
     }

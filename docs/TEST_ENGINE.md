@@ -1981,4 +1981,194 @@ CREATE TABLE IF NOT EXISTS public.human_approvals (
 3. **Dedicated Explainable Decisions Explorer (`/projects/[projectId]/autonomous/decisions`)**:
    - Deep search through all historical prioritization, skip, quarantine, and remediation decisions.
 
+---
 
+## 25. Multi-Source Project Ingestion & Unified Connection Intelligence
+
+### 25.1 System Architecture & Mission
+Sculra's autonomous QA platform requires a hardened, unified ingestion and connection layer capable of ingesting diverse project surfaces prior to launching discovery, test execution, remediation, or campaign planning. 
+
+```mermaid
+flowchart TD
+    subgraph Ingress["Source Ingress Surfaces"]
+        W[WEBSITE]
+        G[GITHUB]
+        A[API]
+        Z[ZIP Archive]
+        D[DESKTOP Binary]
+    end
+
+    subgraph Security["SSRF & Safety Guard"]
+        SSRF[SSRF Shield & IP Filter]
+        Hop[Hop-by-Hop Redirect Evaluator <= 5 hops]
+        Redact[Secret & Prompt Injection Redactor]
+    end
+
+    subgraph Adapters["Provider-Independent Adapters"]
+        WA[WebsiteSourceAdapter]
+        GA[GitHubSourceAdapter]
+        AA[ApiSourceAdapter]
+        ZA[ZipSourceAdapter - NOT_READY]
+        DA[DesktopSourceAdapter - UNSUPPORTED]
+    end
+
+    subgraph Intelligence["Unified Connection Intelligence"]
+        CapRes[SourceCapabilityResolver 16 Dimensions]
+        FP[SourceFingerprinter SHA-256]
+        Snap[SourceSnapshotManager]
+        Health[SourceHealthTracker <= 100 obs]
+        Cache[SourceCache Bounded LRU]
+    end
+
+    subgraph Storage["Persistent Storage & RLS"]
+        PS[(public.project_sources)]
+        SS[(public.source_snapshots)]
+        HO[(public.source_health_observations)]
+    end
+
+    subgraph Downstream["Downstream Consumers"]
+        ControlPlane[Autonomous Campaign Control Plane]
+        Discovery[Application Discovery]
+        RCA[Code-Aware Root Cause Analysis]
+        Remediation[Safe Fix Agent]
+        UI[Sources Center UI]
+    end
+
+    W --> SSRF
+    G --> Redact
+    A --> SSRF
+    Z --> Redact
+    D --> Redact
+    SSRF --> Hop
+    Hop --> WA
+    Hop --> AA
+    Redact --> GA
+    Redact --> ZA
+    Redact --> DA
+
+    WA --> CapRes
+    GA --> CapRes
+    AA --> CapRes
+    ZA --> CapRes
+    DA --> CapRes
+
+    CapRes --> FP
+    FP --> Snap
+    Snap --> Health
+    Health --> Cache
+
+    Cache --> PS
+    Cache --> SS
+    Cache --> HO
+
+    PS --> Downstream
+    SS --> Downstream
+    HO --> Downstream
+```
+
+### 25.2 Supported Source Types & Truthful Capabilities
+Sculra supports 5 canonical source types, normalized into a unified schema:
+
+1. **`WEBSITE`**:
+   - **Target**: Live HTTP/HTTPS deployed web applications.
+   - **Active Capabilities**: `BROWSER_NAVIGATION`, `DOM_DISCOVERY`, `FUNCTIONAL_TESTING`, `VISUAL_TESTING`, `RESPONSIVE_TESTING`, `ACCESSIBILITY_TESTING`, `PERFORMANCE_TESTING`, `BROWSER_NETWORK_OBSERVATION`.
+   - **Unavailable Capabilities**: `REPOSITORY_ANALYSIS`, `SOURCE_MAPPING`, `RCA_CONTEXT`, `REMEDIATION_CONTEXT` (requires GITHUB connection).
+2. **`GITHUB`**:
+   - **Target**: Public or authenticated Git repositories (`owner/repo`).
+   - **Active Capabilities**: `REPOSITORY_ANALYSIS`, `CHANGE_DETECTION`, `SOURCE_MAPPING`, `RCA_CONTEXT`, `REMEDIATION_CONTEXT`, `CI_CONTEXT`, `SOURCE_ANALYSIS`.
+   - **Unavailable Capabilities**: UI/Browser navigation (requires live WEBSITE deployment).
+3. **`API`**:
+   - **Target**: RESTful backend base URLs with optional OpenAPI/Swagger contracts.
+   - **Active Capabilities**: `API_TESTING` (AVAILABLE with OpenAPI, PARTIAL when probed), `PERFORMANCE_TESTING` (latency profiling).
+4. **`ZIP`**:
+   - **Target**: Compressed archive upload bundles.
+   - **Truthful Status**: Reports `NOT_READY` / `UNAVAILABLE` when storage backends are unprovisioned. Never fabricates active execution.
+5. **`DESKTOP`**:
+   - **Target**: Desktop application binaries/installers.
+   - **Truthful Status**: Reports `NOT_READY` / `UNSUPPORTED`. Strictly refuses arbitrary local binary execution for system safety.
+
+### 25.3 Strict SSRF Defense Architecture
+Every locator (URL, API host, redirect destination) passes through multi-layer SSRF defenses:
+- **Private IP Blocking**: RFC 1918 address spaces (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) and loopback (`127.0.0.0/8`, `localhost`) are unconditionally blocked.
+- **Cloud Metadata Defense**: Link-local addresses (`169.254.169.254`, `metadata.google.internal`) are blocked.
+- **Hop-by-Hop Redirect Interception**: Redirects are inspected manually via `redirect: 'manual'`. Sculra re-runs complete SSRF verification on every hop up to 5 hops maximum before following.
+- **Scheme Enforcement**: Only `http:` and `https:` schemes are allowed. Schemes like `file:`, `ftp:`, `gopher:`, `javascript:` are rejected.
+
+### 25.4 Deterministic Fingerprints & Bounded Policy Limits
+- **Fingerprinting**: SHA-256 hash computed deterministically across sorted key-value pairs (origin, status, revision, headers) rather than volatile timestamps.
+- **Change Detection**: Categorizes changes into `SOURCE_CONNECTED`, `SOURCE_UNCHANGED`, `SOURCE_REVISION_CHANGED`, `SOURCE_CHANGED`, or `SOURCE_UNAVAILABLE`.
+- **Policy Ceilings**:
+  - `MAX_SOURCE_VALIDATION_SECONDS = 30`
+  - `MAX_REDIRECT_HOPS = 5`
+  - `MAX_RESPONSE_BYTES = 1MB`
+  - `MAX_SNAPSHOT_METADATA_BYTES = 128KB` (enforces automatic truncation)
+  - `MAX_HEALTH_HISTORY = 100` (bounded FIFO ring)
+  - `MAX_SOURCES_PER_PROJECT = 10` (tenant ceiling)
+
+### 25.5 Database Architecture
+```sql
+-- public.project_sources
+CREATE TABLE IF NOT EXISTS public.project_sources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  organization_id UUID,
+  source_type TEXT NOT NULL,
+  locator TEXT NOT NULL,
+  branch TEXT,
+  environment TEXT NOT NULL DEFAULT 'PRODUCTION',
+  status TEXT NOT NULL DEFAULT 'CONFIGURED',
+  configuration JSONB DEFAULT '{}'::jsonb,
+  capabilities JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- public.source_snapshots
+CREATE TABLE IF NOT EXISTS public.source_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_source_id UUID NOT NULL REFERENCES public.project_sources(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  organization_id UUID,
+  fingerprint TEXT NOT NULL,
+  revision TEXT,
+  environment TEXT,
+  capabilities JSONB DEFAULT '[]'::jsonb,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL,
+  observed_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- public.source_health_observations
+CREATE TABLE IF NOT EXISTS public.source_health_observations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_source_id UUID NOT NULL REFERENCES public.project_sources(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  latency_ms INTEGER,
+  error_code TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  observed_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+```
+
+### 25.6 Downstream Control Plane Integration
+In `AutonomousCampaignPlanner`, tasks evaluate source capabilities:
+- If a source lacks `BROWSER_NAVIGATION` or `DOM_DISCOVERY`, browser tasks (`APPLICATION_DISCOVERY`, `USER_JOURNEY_EXECUTION`, `ACCESSIBILITY_AUDIT`, `VISUAL_RESPONSIVE_AUDIT`, `PERFORMANCE_AUDIT`) are scheduled with `status: 'SKIPPED'` and `skipReason: 'UNSUPPORTED_SURFACE'`.
+- If a source lacks `API_TESTING`, API audits are scheduled with `status: 'SKIPPED'` and `skipReason: 'UNSUPPORTED_SURFACE'`.
+- Eliminates hard crashes or blind execution against headless repositories or unprovisioned archives.
+
+### 25.7 Frontend Sources Center & REST APIs
+- **Sources Center (`/projects/[projectId]/sources`)**:
+  - Unified source matrix across 5 types.
+  - 16-dimension cross-source capabilities matrix with truthful pills.
+  - Immutable snapshots audit log with SHA-256 fingerprint display.
+  - Real-time preflight health probes with numeric latencies.
+  - Continuous differential change stream.
+  - SSRF Shield status display.
+- **REST Endpoints**:
+  - `GET /api/projects/[id]/sources`: List sources.
+  - `POST /api/projects/[id]/sources`: Validate and connect source.
+  - `GET /api/projects/[id]/sources/[sourceId]`: Get single source.
+  - `POST /api/projects/[id]/sources/[sourceId]/validate`: Preflight check.
+  - `GET / POST /api/projects/[id]/sources/[sourceId]/health`: Health history and live probe.
+  - `GET /api/projects/[id]/sources/[sourceId]/snapshots`: Snapshot audit trail.
+  - `GET /api/projects/[id]/sources/[sourceId]/capabilities`: Capability matrix.

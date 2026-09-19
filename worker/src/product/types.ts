@@ -120,6 +120,7 @@ export interface ProductFeature {
   status: ProductEntityStatus;
   isCoreCapability: boolean;
   availableRoles?: string[];
+  sourceProvenance?: Array<'WEBSITE' | 'GITHUB' | 'API' | 'ZIP' | 'DESKTOP'>;
 }
 
 export interface ProductRole {
@@ -173,6 +174,7 @@ export interface ProductWorkflow {
   executionStatus: WorkflowExecutionStatus;
   testedIterations?: number[];
   relatedIssueIds?: string[];
+  sourceProvenance?: Array<'WEBSITE' | 'GITHUB' | 'API' | 'ZIP' | 'DESKTOP'>;
 }
 
 export type ProductRelationshipType =
