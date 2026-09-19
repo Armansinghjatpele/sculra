@@ -1082,3 +1082,528 @@ export const mockFixRemediations: FixRemediation[] = [
   },
 ];
 
+// ==============================================================================
+// Autonomous Observability, Explainability & Control Center Types & Demo Data
+// ==============================================================================
+
+export type ActorType =
+  | 'CAMPAIGN_ENGINE'
+  | 'STRATEGY_ENGINE'
+  | 'DISCOVERY_AGENT'
+  | 'EXECUTION_WORKER'
+  | 'RCA_ENGINE'
+  | 'REMEDIATION_AGENT'
+  | 'VERIFICATION_RUNNER'
+  | 'CI_CD_GATE'
+  | 'HUMAN_OPERATOR'
+  | 'SYSTEM';
+
+export type EventSource =
+  | 'CAMPAIGN'
+  | 'WORKER'
+  | 'SCHEDULER'
+  | 'REMEDIATION'
+  | 'GATE'
+  | 'UI';
+
+export type FactCategory =
+  | 'OBSERVED_FACT'
+  | 'INFERRED_CONCLUSION'
+  | 'AI_HYPOTHESIS'
+  | 'RECOMMENDATION'
+  | 'ACTION'
+  | 'ACTION_RESULT'
+  | 'HUMAN_DECISION';
+
+export type ConfidenceLevel =
+  | 'HIGH'
+  | 'MEDIUM'
+  | 'LOW'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export type AutonomousEventType =
+  | 'CAMPAIGN_STARTED'
+  | 'CAMPAIGN_COMPLETED'
+  | 'CAMPAIGN_FAILED'
+  | 'TASK_SCHEDULED'
+  | 'TASK_STARTED'
+  | 'TASK_COMPLETED'
+  | 'TASK_FAILED'
+  | 'TASK_SKIPPED'
+  | 'DISCOVERY_STARTED'
+  | 'DISCOVERY_COMPLETED'
+  | 'EXECUTION_STARTED'
+  | 'EXECUTION_COMPLETED'
+  | 'OBSERVATION_CAPTURED'
+  | 'EVIDENCE_RECORDED'
+  | 'ISSUE_DETECTED'
+  | 'STRATEGY_DECIDED'
+  | 'TARGET_SELECTED'
+  | 'TARGET_SKIPPED'
+  | 'RCA_STARTED'
+  | 'RCA_DIAGNOSED'
+  | 'FIX_PLAN_GENERATED'
+  | 'FIX_APPLIED'
+  | 'FIX_VERIFIED'
+  | 'PR_CREATED'
+  | 'APPROVAL_REQUESTED'
+  | 'APPROVAL_GRANTED'
+  | 'APPROVAL_REJECTED'
+  | 'POLICY_BLOCKED'
+  | 'HEALTH_HEARTBEAT';
+
+export type SkipReason =
+  | 'NO_CHANGES_DETECTED'
+  | 'BUDGET_EXHAUSTED'
+  | 'ENVIRONMENT_UNAVAILABLE'
+  | 'PREREQUISITE_FAILED'
+  | 'FLAKY_QUARANTINED'
+  | 'LOW_RISK_PATH'
+  | 'RATE_LIMIT_BACKOFF'
+  | 'UNAUTHORIZED_BRANCH'
+  | 'POLICY_VIOLATION'
+  | 'DUPLICATE_EXECUTION'
+  | 'USER_PAUSED';
+
+export type DecisionType =
+  | 'TARGET_SELECTION'
+  | 'TARGET_SKIP'
+  | 'PRIORITIZATION'
+  | 'FLAKY_QUARANTINE'
+  | 'REMEDIATION_TRIGGER'
+  | 'PR_GENERATION'
+  | 'GATE_VERDICT'
+  | 'CIRCUIT_BREAKER_TRIGGER';
+
+export interface AutonomousEvent {
+  id: string;
+  projectId: string;
+  campaignId?: string;
+  taskId?: string;
+  testRunId?: string;
+  issueId?: string;
+  remediationId?: string;
+  approvalId?: string;
+  actorType: ActorType;
+  actorId?: string;
+  eventSource: EventSource;
+  eventType: AutonomousEventType;
+  factCategory: FactCategory;
+  headline: string;
+  reason?: string;
+  confidence?: ConfidenceLevel;
+  confidenceScore?: number;
+  evidenceIds?: string[];
+  metadata?: Record<string, any>;
+  skipReason?: SkipReason;
+  createdAt: string;
+}
+
+export interface DecisionRecord {
+  id: string;
+  projectId: string;
+  campaignId?: string;
+  decisionType: DecisionType;
+  factCategory: FactCategory;
+  headline: string;
+  why: string;
+  whyNow?: string;
+  target?: string;
+  actionTaken?: string;
+  nextAction?: string;
+  alternativesConsidered?: string[];
+  skipReason?: SkipReason;
+  confidence: ConfidenceLevel;
+  confidenceScore?: number;
+  evidenceIds: string[];
+  policyChecks?: Array<{ rule: string; passed: boolean; details?: string }>;
+  actorType: ActorType;
+  actorId?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export type HumanApprovalStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED'
+  | 'SUPERSEDED';
+
+export interface HumanApprovalRecord {
+  id: string;
+  projectId: string;
+  remediationId: string;
+  sourceSha: string;
+  fixPlanVersion: number;
+  status: HumanApprovalStatus;
+  requestedBy: string;
+  requestedAt: string;
+  expiresAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  decisionReason?: string;
+  diffSummary?: {
+    filesChanged: number;
+    additions: number;
+    deletions: number;
+    files: string[];
+  };
+  patchUnified?: string;
+  issueId?: string;
+  issueTitle?: string;
+  verificationPassed?: boolean;
+  securityChecksPassed?: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvidenceNode {
+  id: string;
+  type: 'CAMPAIGN' | 'TASK' | 'TEST_RUN' | 'OBSERVATION' | 'EVIDENCE' | 'ISSUE' | 'RCA' | 'FIX_PLAN' | 'PATCH' | 'VERIFICATION' | 'PR' | 'APPROVAL';
+  factCategory: FactCategory;
+  label: string;
+  description?: string;
+  status?: string;
+  confidence?: ConfidenceLevel;
+  timestamp: string;
+  url?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface EvidenceEdge {
+  from: string;
+  to: string;
+  relationship: 'TRIGGERED' | 'PRODUCED' | 'DETECTED' | 'DIAGNOSED' | 'GENERATED' | 'VERIFIED' | 'REQUIRED_BY' | 'EXPLAINS';
+}
+
+export interface EvidenceGraph {
+  nodes: EvidenceNode[];
+  edges: EvidenceEdge[];
+}
+
+export interface AutonomousHealthMetrics {
+  activeCampaignsCount: number;
+  queuedTasksCount: number;
+  runningTasksCount: number;
+  completedTasksLast24h: number;
+  failedTasksLast24h: number;
+  skippedTasksLast24h: number;
+  pendingApprovalsCount: number;
+  avgTaskDurationMs: number;
+  lastEventTimestamp: string | null;
+  healthy: boolean;
+}
+
+export const mockAutonomousEvents: AutonomousEvent[] = [
+  {
+    id: 'evt-101',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    taskId: 'task-1',
+    actorType: 'CAMPAIGN_ENGINE',
+    actorId: 'engine-orchestrator',
+    eventSource: 'CAMPAIGN',
+    eventType: 'CAMPAIGN_STARTED',
+    factCategory: 'ACTION',
+    headline: 'Campaign camp-1 initialized for target https://sculra-demo.vercel.app',
+    reason: 'Triggered by scheduled interval across responsive and security suites',
+    confidence: 'HIGH',
+    confidenceScore: 0.98,
+    createdAt: new Date(Date.now() - 30 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-102',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    actorType: 'STRATEGY_ENGINE',
+    actorId: 'strat-prioritizer',
+    eventSource: 'CAMPAIGN',
+    eventType: 'STRATEGY_DECIDED',
+    factCategory: 'INFERRED_CONCLUSION',
+    headline: 'Prioritized /checkout over /blog based on historical failure rate (80% vs 0%)',
+    reason: 'Checkout route experienced recent regressions and contains revenue-critical checkout journey',
+    confidence: 'HIGH',
+    confidenceScore: 0.94,
+    evidenceIds: ['obs-cart-1'],
+    createdAt: new Date(Date.now() - 28 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-103',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    taskId: 'task-2',
+    actorType: 'STRATEGY_ENGINE',
+    actorId: 'strat-prioritizer',
+    eventSource: 'CAMPAIGN',
+    eventType: 'TARGET_SKIPPED',
+    factCategory: 'INFERRED_CONCLUSION',
+    headline: 'Skipped legacy analytics journey due to quarantine policy',
+    reason: 'Target has 4 consecutive non-reproducible timeouts across recent runs',
+    confidence: 'HIGH',
+    confidenceScore: 0.9,
+    skipReason: 'FLAKY_QUARANTINED',
+    evidenceIds: ['ev-flaky-9'],
+    createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-104',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    taskId: 'task-1',
+    testRunId: 'run-1',
+    actorType: 'EXECUTION_WORKER',
+    actorId: 'worker-node-1',
+    eventSource: 'WORKER',
+    eventType: 'OBSERVATION_CAPTURED',
+    factCategory: 'OBSERVED_FACT',
+    headline: 'Uncaught TypeError: Cannot read properties of undefined (reading "price")',
+    reason: 'Observed runtime exception thrown during item count recalculation',
+    confidence: 'HIGH',
+    confidenceScore: 1.0,
+    evidenceIds: ['ev-1', 'ev-2'],
+    metadata: { route: '/cart', domElement: '#cart-total' },
+    createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-105',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    issueId: 'iss-1',
+    actorType: 'RCA_ENGINE',
+    actorId: 'rca-diagnoser',
+    eventSource: 'WORKER',
+    eventType: 'RCA_DIAGNOSED',
+    factCategory: 'AI_HYPOTHESIS',
+    headline: 'Probable cause: empty cart item payload missing price property in calculate.ts',
+    reason: 'Model mapped stack trace in calculate.ts:12 to recent commit a1b2c3d',
+    confidence: 'MEDIUM',
+    confidenceScore: 0.85,
+    evidenceIds: ['ev-1', 'ev-2'],
+    metadata: { sourceFile: 'src/cart/calculate.ts', line: 12 },
+    createdAt: new Date(Date.now() - 16 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-106',
+    projectId: 'proj-1',
+    remediationId: 'fix-1',
+    issueId: 'iss-1',
+    actorType: 'REMEDIATION_AGENT',
+    actorId: 'coder-agent',
+    eventSource: 'REMEDIATION',
+    eventType: 'FIX_VERIFIED',
+    factCategory: 'ACTION_RESULT',
+    headline: 'Deterministic patch verified clean with zero test regressions',
+    reason: '6 unit tests passed against isolated git worktree with 0 lint violations',
+    confidence: 'HIGH',
+    confidenceScore: 0.99,
+    evidenceIds: ['ev-test-pass'],
+    createdAt: new Date(Date.now() - 12 * 60000).toISOString(),
+  },
+  {
+    id: 'evt-107',
+    projectId: 'proj-1',
+    remediationId: 'fix-1',
+    approvalId: 'appr-1',
+    actorType: 'REMEDIATION_AGENT',
+    actorId: 'coder-agent',
+    eventSource: 'REMEDIATION',
+    eventType: 'APPROVAL_REQUESTED',
+    factCategory: 'RECOMMENDATION',
+    headline: 'Human approval requested for automated Pull Request generation',
+    reason: 'Project policy mandates human operator review prior to opening PR',
+    confidence: 'HIGH',
+    confidenceScore: 1.0,
+    metadata: { branch: 'sculra/fix/iss-1/null-pointer-cart', filesChanged: 1 },
+    createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
+  },
+];
+
+export const mockDecisions: DecisionRecord[] = [
+  {
+    id: 'dec-1',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    decisionType: 'PRIORITIZATION',
+    factCategory: 'INFERRED_CONCLUSION',
+    headline: 'Prioritize /checkout and /auth flows over informational routes',
+    why: 'Checkout and authentication workflows have direct business impact and 2 open regressions in prior runs.',
+    whyNow: 'Campaign schedule allocation is 15 minutes; high-severity paths must run before budget exhaustion.',
+    target: '/checkout',
+    actionTaken: 'Enqueued checkout journey at priority rank 1',
+    nextAction: 'Launch mobile and desktop visual regression checks',
+    alternativesConsidered: ['Execute full breadth-first site crawl', 'Run security port scan first'],
+    confidence: 'HIGH',
+    confidenceScore: 0.94,
+    evidenceIds: ['obs-cart-1'],
+    policyChecks: [
+      { rule: 'EXECUTION_BUDGET_RESPECTED', passed: true, details: 'Estimated duration 4m within 15m window' },
+      { rule: 'RISK_SCORE_THRESHOLD', passed: true, details: 'Target risk score 88 >= 50' },
+    ],
+    actorType: 'STRATEGY_ENGINE',
+    actorId: 'strat-prioritizer',
+    createdAt: new Date(Date.now() - 28 * 60000).toISOString(),
+  },
+  {
+    id: 'dec-2',
+    projectId: 'proj-1',
+    campaignId: 'camp-1',
+    decisionType: 'TARGET_SKIP',
+    factCategory: 'INFERRED_CONCLUSION',
+    headline: 'Skip legacy analytics journey',
+    why: 'Analytics endpoint has shown intermittent socket timeouts without code changes in the last 5 builds.',
+    whyNow: 'Quarantine policy requires 3 clean baseline passes before re-admitting quarantined targets.',
+    target: '/analytics/tracking',
+    actionTaken: 'Marked journey as SKIPPED with reason FLAKY_QUARANTINED',
+    nextAction: 'Schedule off-peak diagnostic probe to verify endpoint stability',
+    alternativesConsidered: ['Run with 3 retries', 'Run in background thread'],
+    skipReason: 'FLAKY_QUARANTINED',
+    confidence: 'HIGH',
+    confidenceScore: 0.9,
+    evidenceIds: ['ev-flaky-9'],
+    policyChecks: [
+      { rule: 'FLAKY_QUARANTINE_ENABLED', passed: true, details: 'Project has flaky quarantine policy active' },
+    ],
+    actorType: 'STRATEGY_ENGINE',
+    actorId: 'strat-prioritizer',
+    createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
+  },
+  {
+    id: 'dec-3',
+    projectId: 'proj-1',
+    decisionType: 'REMEDIATION_TRIGGER',
+    factCategory: 'INFERRED_CONCLUSION',
+    headline: 'Trigger Autonomous Remediation for Null Pointer in cart calculation',
+    why: 'Crash is deterministic with 100% reproduction rate and isolated single-file stack trace.',
+    whyNow: 'Bug severity is HIGH and affects user checkout completion.',
+    target: 'src/cart/calculate.ts',
+    actionTaken: 'Dispatched remediation agent with plan-and-verify workflow',
+    nextAction: 'Await local verification test results in isolated worktree',
+    alternativesConsidered: ['File manual issue without code generation', 'Quarantine checkout flow'],
+    confidence: 'HIGH',
+    confidenceScore: 0.96,
+    evidenceIds: ['ev-1', 'ev-2'],
+    policyChecks: [
+      { rule: 'AUTO_FIX_ALLOWED', passed: true, details: 'Policy allows automated fix for high-reproduction crashes' },
+      { rule: 'ALLOWED_PATHS_MATCH', passed: true, details: 'File src/cart/calculate.ts is inside permitted paths' },
+    ],
+    actorType: 'RCA_ENGINE',
+    actorId: 'rca-diagnoser',
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+  },
+];
+
+export const mockApprovals: HumanApprovalRecord[] = [
+  {
+    id: 'appr-1',
+    projectId: 'proj-1',
+    remediationId: 'fix-1',
+    sourceSha: 'a1b2c3d4e5f678901234567890abcdef12345678',
+    fixPlanVersion: 1,
+    status: 'PENDING',
+    requestedBy: 'Sculra Remediation Agent',
+    requestedAt: new Date(Date.now() - 10 * 60000).toISOString(),
+    expiresAt: new Date(Date.now() + 23 * 3600000).toISOString(), // 23h remaining
+    issueId: 'iss-1',
+    issueTitle: 'Uncaught TypeError in calculate.ts on empty cart items',
+    diffSummary: {
+      filesChanged: 1,
+      additions: 4,
+      deletions: 1,
+      files: ['src/cart/calculate.ts'],
+    },
+    patchUnified: `--- a/src/cart/calculate.ts\n+++ b/src/cart/calculate.ts\n@@ -12,4 +12,7 @@\n-  return items.reduce((sum, item) => sum + item.price, 0);\n+  if (!items || !Array.isArray(items)) {\n+    return 0;\n+  }\n+  return items.reduce((sum, item) => sum + (item.price || 0), 0);`,
+    verificationPassed: true,
+    securityChecksPassed: true,
+    createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
+    updatedAt: new Date(Date.now() - 10 * 60000).toISOString(),
+  },
+];
+
+export const mockEvidenceGraph: EvidenceGraph = {
+  nodes: [
+    {
+      id: 'node-camp-1',
+      type: 'CAMPAIGN',
+      factCategory: 'ACTION',
+      label: 'Campaign camp-1',
+      description: 'Scheduled Autonomous Campaign',
+      status: 'RUNNING',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
+    },
+    {
+      id: 'node-task-1',
+      type: 'TASK',
+      factCategory: 'ACTION',
+      label: 'Task task-1 (Functional)',
+      description: 'Run checkout verification journey',
+      status: 'COMPLETED',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 25 * 60000).toISOString(),
+    },
+    {
+      id: 'node-ev-1',
+      type: 'OBSERVATION',
+      factCategory: 'OBSERVED_FACT',
+      label: 'Console Error: TypeError',
+      description: 'Cannot read properties of undefined (reading "price")',
+      status: 'CAPTURED',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 20 * 60000).toISOString(),
+    },
+    {
+      id: 'node-iss-1',
+      type: 'ISSUE',
+      factCategory: 'OBSERVED_FACT',
+      label: 'Issue #1: Cart Crash',
+      description: 'High-severity crash during price calculation',
+      status: 'OPEN',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 18 * 60000).toISOString(),
+    },
+    {
+      id: 'node-rca-1',
+      type: 'RCA',
+      factCategory: 'AI_HYPOTHESIS',
+      label: 'Root Cause Hypothesis',
+      description: 'Missing null guard in calculate.ts:12',
+      status: 'DIAGNOSED',
+      confidence: 'MEDIUM',
+      timestamp: new Date(Date.now() - 16 * 60000).toISOString(),
+    },
+    {
+      id: 'node-fix-1',
+      type: 'PATCH',
+      factCategory: 'ACTION_RESULT',
+      label: 'Candidate Patch',
+      description: 'Array guard + fallback price reduction',
+      status: 'VERIFIED',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 12 * 60000).toISOString(),
+    },
+    {
+      id: 'node-appr-1',
+      type: 'APPROVAL',
+      factCategory: 'RECOMMENDATION',
+      label: 'Human Approval Request',
+      description: 'Awaiting operator review to submit PR',
+      status: 'PENDING',
+      confidence: 'HIGH',
+      timestamp: new Date(Date.now() - 10 * 60000).toISOString(),
+    },
+  ],
+  edges: [
+    { from: 'node-camp-1', to: 'node-task-1', relationship: 'TRIGGERED' },
+    { from: 'node-task-1', to: 'node-ev-1', relationship: 'PRODUCED' },
+    { from: 'node-ev-1', to: 'node-iss-1', relationship: 'DETECTED' },
+    { from: 'node-iss-1', to: 'node-rca-1', relationship: 'DIAGNOSED' },
+    { from: 'node-rca-1', to: 'node-fix-1', relationship: 'GENERATED' },
+    { from: 'node-fix-1', to: 'node-appr-1', relationship: 'REQUIRED_BY' },
+  ],
+};
+

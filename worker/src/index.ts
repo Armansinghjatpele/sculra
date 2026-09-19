@@ -76,6 +76,43 @@ export type {
   FixEvidenceRecord,
   FixTelemetry,
 } from './fix-agent';
+export * as observability from './observability';
+export {
+  AutonomousEventBuilder,
+  AutonomousEventStore,
+  DecisionManager,
+  ExplanationGenerator,
+  TimelineAssembler,
+  EvidenceMapBuilder,
+  ApprovalSecurityManager,
+  ActionStateInspector,
+  ConfidenceEvaluator,
+  ObservabilityTelemetry,
+  ObservabilityQueries,
+  ObservabilityRedactor,
+  OBSERVABILITY_POLICY,
+} from './observability';
+export type {
+  ActorType,
+  EventSource,
+  FactCategory,
+  ConfidenceLevel,
+  AutonomousEventType,
+  SkipReason,
+  AutonomousEvent,
+  DecisionType,
+  DecisionRecord,
+  HumanApprovalStatus,
+  ApprovalActionType,
+  HumanApprovalRecord,
+  EvidenceNodeType,
+  EvidenceNode,
+  EvidenceEdge,
+  EvidenceGraph,
+  AutonomousHealthMetrics,
+  TimelineFilter,
+  TimelineItem,
+} from './observability';
 
 // CLI Support:
 // 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`

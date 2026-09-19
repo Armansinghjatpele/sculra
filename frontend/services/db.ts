@@ -23,6 +23,12 @@ import {
   FixRemediation,
   FixEvidence,
   FixAgentMode,
+  AutonomousEvent,
+  DecisionRecord,
+  HumanApprovalRecord,
+  HumanApprovalStatus,
+  EvidenceGraph,
+  AutonomousHealthMetrics,
   mockProjects,
   mockTestRuns,
   mockIssues,
@@ -32,6 +38,10 @@ import {
   mockCampaigns,
   mockCampaignTasks,
   mockFixRemediations,
+  mockAutonomousEvents,
+  mockDecisions,
+  mockApprovals,
+  mockEvidenceGraph,
 } from '../lib/demoData';
 
 function useFallback(error: any) {
@@ -1717,6 +1727,428 @@ export async function approveFixRemediation(
   }
 
   return mapFixRemediationRecord(data);
+}
+
+// ==============================================================================
+// Autonomous Observability, Explainability & Control Center Database Mappers
+// ==============================================================================
+
+function mapAutonomousEventRecord(row: any): AutonomousEvent {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    campaignId: row.campaign_id ?? undefined,
+    taskId: row.task_id ?? undefined,
+    testRunId: row.test_run_id ?? undefined,
+    issueId: row.issue_id ?? undefined,
+    remediationId: row.remediation_id ?? undefined,
+    approvalId: row.approval_id ?? undefined,
+    actorType: row.actor_type,
+    actorId: row.actor_id ?? undefined,
+    eventSource: row.event_source,
+    eventType: row.event_type,
+    factCategory: row.fact_category,
+    headline: row.headline,
+    reason: row.reason ?? undefined,
+    confidence: row.confidence ?? undefined,
+    confidenceScore: row.confidence_score != null ? Number(row.confidence_score) : undefined,
+    evidenceIds: row.evidence_ids ?? [],
+    metadata: row.metadata ?? {},
+    skipReason: row.skip_reason ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+function mapDecisionRecord(row: any): DecisionRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    campaignId: row.campaign_id ?? undefined,
+    decisionType: row.decision_type,
+    factCategory: row.fact_category,
+    headline: row.headline,
+    why: row.why,
+    whyNow: row.why_now ?? undefined,
+    target: row.target ?? undefined,
+    actionTaken: row.action_taken ?? undefined,
+    nextAction: row.next_action ?? undefined,
+    alternativesConsidered: row.alternatives_considered ?? [],
+    skipReason: row.skip_reason ?? undefined,
+    confidence: row.confidence,
+    confidenceScore: row.confidence_score != null ? Number(row.confidence_score) : undefined,
+    evidenceIds: row.evidence_ids ?? [],
+    policyChecks: row.policy_checks ?? [],
+    actorType: row.actor_type,
+    actorId: row.actor_id ?? undefined,
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+  };
+}
+
+function mapHumanApprovalRecord(row: any): HumanApprovalRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    remediationId: row.remediation_id,
+    sourceSha: row.source_sha,
+    fixPlanVersion: Number(row.fix_plan_version ?? 1),
+    status: row.status,
+    requestedBy: row.requested_by,
+    requestedAt: row.requested_at,
+    expiresAt: row.expires_at,
+    approvedBy: row.approved_by ?? undefined,
+    approvedAt: row.approved_at ?? undefined,
+    rejectedBy: row.rejected_by ?? undefined,
+    rejectedAt: row.rejected_at ?? undefined,
+    decisionReason: row.decision_reason ?? undefined,
+    diffSummary: row.diff_summary ?? undefined,
+    patchUnified: row.patch_unified ?? undefined,
+    issueId: row.issue_id ?? undefined,
+    issueTitle: row.issue_title ?? undefined,
+    verificationPassed: row.verification_passed ?? undefined,
+    securityChecksPassed: row.security_checks_passed ?? undefined,
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getProjectAutonomousEvents(
+  clerkToken: string,
+  projectId: string,
+  limit = 50
+): Promise<AutonomousEvent[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('autonomous_events')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return mockAutonomousEvents
+      .filter((e) => e.projectId === projectId || projectId === 'proj-1')
+      .slice(0, limit);
+  }
+
+  return data.map(mapAutonomousEventRecord);
+}
+
+export async function getProjectAutonomousTimeline(
+  clerkToken: string,
+  projectId: string,
+  limit = 50
+): Promise<AutonomousEvent[]> {
+  return getProjectAutonomousEvents(clerkToken, projectId, limit);
+}
+
+export async function getProjectAutonomousDecisions(
+  clerkToken: string,
+  projectId: string,
+  limit = 50
+): Promise<DecisionRecord[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('autonomous_decisions')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (useFallback(error) || !data) {
+    return mockDecisions
+      .filter((d) => d.projectId === projectId || projectId === 'proj-1')
+      .slice(0, limit);
+  }
+
+  return data.map(mapDecisionRecord);
+}
+
+export async function getProjectAutonomousHealth(
+  clerkToken: string,
+  projectId: string
+): Promise<AutonomousHealthMetrics> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  const [campaignsRes, tasksRes, approvalsRes, lastEventRes] = await Promise.all([
+    supabase.from('campaigns').select('id, status').eq('project_id', projectId),
+    supabase.from('campaign_tasks').select('id, status, duration_ms, created_at').eq('project_id', projectId),
+    supabase.from('human_approvals').select('id, status').eq('project_id', projectId).eq('status', 'PENDING'),
+    supabase.from('autonomous_events').select('created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+
+  if (useFallback(campaignsRes.error) || useFallback(tasksRes.error)) {
+    const activeC = mockCampaigns.filter((c) => (c.projectId === projectId || projectId === 'proj-1') && (c.status === 'RUNNING' || c.status === 'PENDING')).length;
+    const queuedT = mockCampaignTasks.filter((t) => t.status === 'PENDING' || t.status === 'READY').length;
+    const runningT = mockCampaignTasks.filter((t) => t.status === 'RUNNING').length;
+    const completedT = mockCampaignTasks.filter((t) => t.status === 'COMPLETED').length;
+    const failedT = mockCampaignTasks.filter((t) => t.status === 'FAILED').length;
+    const skippedT = mockCampaignTasks.filter((t) => t.status === 'SKIPPED').length;
+    const pendingA = mockApprovals.filter((a) => (a.projectId === projectId || projectId === 'proj-1') && a.status === 'PENDING').length;
+    const durations = mockCampaignTasks.map((t) => t.durationMs).filter((d): d is number => Boolean(d));
+    const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+    const lastEvent = mockAutonomousEvents[0]?.createdAt ?? null;
+
+    return {
+      activeCampaignsCount: activeC,
+      queuedTasksCount: queuedT,
+      runningTasksCount: runningT,
+      completedTasksLast24h: completedT,
+      failedTasksLast24h: failedT,
+      skippedTasksLast24h: skippedT,
+      pendingApprovalsCount: pendingA,
+      avgTaskDurationMs: avgDuration,
+      lastEventTimestamp: lastEvent,
+      healthy: failedT === 0 || completedT > failedT,
+    };
+  }
+
+  const campaigns = campaignsRes.data ?? [];
+  const tasks = tasksRes.data ?? [];
+  const pendingApprovals = approvalsRes.data ?? [];
+  const lastEvent = lastEventRes.data?.created_at ?? null;
+
+  const activeCampaignsCount = campaigns.filter((c) => c.status === 'RUNNING' || c.status === 'PENDING').length;
+  const queuedTasksCount = tasks.filter((t) => t.status === 'PENDING' || t.status === 'READY').length;
+  const runningTasksCount = tasks.filter((t) => t.status === 'RUNNING').length;
+  const completedTasksLast24h = tasks.filter((t) => t.status === 'COMPLETED').length;
+  const failedTasksLast24h = tasks.filter((t) => t.status === 'FAILED').length;
+  const skippedTasksLast24h = tasks.filter((t) => t.status === 'SKIPPED').length;
+  const pendingApprovalsCount = pendingApprovals.length;
+
+  const validDurations = tasks
+    .map((t) => t.duration_ms)
+    .filter((d): d is number => typeof d === 'number' && d > 0);
+  const avgTaskDurationMs = validDurations.length > 0
+    ? Math.round(validDurations.reduce((sum, val) => sum + val, 0) / validDurations.length)
+    : 0;
+
+  return {
+    activeCampaignsCount,
+    queuedTasksCount,
+    runningTasksCount,
+    completedTasksLast24h,
+    failedTasksLast24h,
+    skippedTasksLast24h,
+    pendingApprovalsCount,
+    avgTaskDurationMs,
+    lastEventTimestamp: lastEvent,
+    healthy: failedTasksLast24h === 0 || completedTasksLast24h >= failedTasksLast24h,
+  };
+}
+
+export async function getProjectHumanApprovals(
+  clerkToken: string,
+  projectId: string,
+  status?: string
+): Promise<HumanApprovalRecord[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase
+    .from('human_approvals')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+
+  if (useFallback(error) || !data) {
+    return mockApprovals
+      .filter((a) => (a.projectId === projectId || projectId === 'proj-1') && (!status || a.status === status));
+  }
+
+  return data.map(mapHumanApprovalRecord);
+}
+
+export async function getHumanApproval(
+  clerkToken: string,
+  approvalId: string
+): Promise<HumanApprovalRecord | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('human_approvals')
+    .select('*')
+    .eq('id', approvalId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    const mock = mockApprovals.find((a) => a.id === approvalId);
+    return mock ?? null;
+  }
+
+  return mapHumanApprovalRecord(data);
+}
+
+export async function decideHumanApproval(
+  clerkToken: string,
+  approvalId: string,
+  decision: 'APPROVED' | 'REJECTED',
+  reason: string,
+  userIdentifier: string
+): Promise<HumanApprovalRecord | null> {
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, any> = {
+    status: decision,
+    decision_reason: reason,
+    updated_at: now,
+  };
+
+  if (decision === 'APPROVED') {
+    updatePayload.approved_by = userIdentifier;
+    updatePayload.approved_at = now;
+  } else {
+    updatePayload.rejected_by = userIdentifier;
+    updatePayload.rejected_at = now;
+  }
+
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('human_approvals')
+    .update(updatePayload)
+    .eq('id', approvalId)
+    .select()
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    const mock = mockApprovals.find((a) => a.id === approvalId);
+    if (mock) {
+      mock.status = decision;
+      mock.decisionReason = reason;
+      mock.updatedAt = now;
+      if (decision === 'APPROVED') {
+        mock.approvedBy = userIdentifier;
+        mock.approvedAt = now;
+      } else {
+        mock.rejectedBy = userIdentifier;
+        mock.rejectedAt = now;
+      }
+      return mock;
+    }
+    return null;
+  }
+
+  return mapHumanApprovalRecord(data);
+}
+
+export async function getCampaignAutonomousTimeline(
+  clerkToken: string,
+  campaignId: string
+): Promise<AutonomousEvent[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('autonomous_events')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return mockAutonomousEvents.filter((e) => e.campaignId === campaignId || campaignId === 'camp-1');
+  }
+
+  return data.map(mapAutonomousEventRecord);
+}
+
+export async function getCampaignAutonomousDecisions(
+  clerkToken: string,
+  campaignId: string
+): Promise<DecisionRecord[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('autonomous_decisions')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return mockDecisions.filter((d) => d.campaignId === campaignId || campaignId === 'camp-1');
+  }
+
+  return data.map(mapDecisionRecord);
+}
+
+export async function getCampaignEvidenceGraph(
+  clerkToken: string,
+  campaignId: string
+): Promise<EvidenceGraph> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const [eventsRes, decisionsRes] = await Promise.all([
+    supabase.from('autonomous_events').select('*').eq('campaign_id', campaignId).limit(50),
+    supabase.from('autonomous_decisions').select('*').eq('campaign_id', campaignId).limit(20),
+  ]);
+
+  if (useFallback(eventsRes.error) || !eventsRes.data || eventsRes.data.length === 0) {
+    return mockEvidenceGraph;
+  }
+
+  const nodes: EvidenceGraph['nodes'] = [];
+  const edges: EvidenceGraph['edges'] = [];
+  const seenNodes = new Set<string>();
+
+  for (const evt of eventsRes.data) {
+    if (!seenNodes.has(evt.id)) {
+      seenNodes.add(evt.id);
+      nodes.push({
+        id: evt.id,
+        type: evt.event_type.startsWith('CAMPAIGN') ? 'CAMPAIGN' : evt.event_type.startsWith('TASK') ? 'TASK' : 'OBSERVATION',
+        factCategory: evt.fact_category,
+        label: evt.headline,
+        description: evt.reason,
+        timestamp: evt.created_at,
+        metadata: evt.metadata,
+      });
+    }
+
+    if (evt.evidence_ids && Array.isArray(evt.evidence_ids)) {
+      for (const evId of evt.evidence_ids) {
+        if (!seenNodes.has(evId)) {
+          seenNodes.add(evId);
+          nodes.push({
+            id: evId,
+            type: 'EVIDENCE',
+            factCategory: 'OBSERVED_FACT',
+            label: `Evidence ${evId}`,
+            timestamp: evt.created_at,
+          });
+        }
+        edges.push({
+          from: evt.id,
+          to: evId,
+          relationship: 'PRODUCED',
+        });
+      }
+    }
+  }
+
+  return { nodes, edges };
+}
+
+export async function getEntityAutonomousTimeline(
+  clerkToken: string,
+  entityType: 'testRun' | 'issue' | 'remediation',
+  entityId: string
+): Promise<AutonomousEvent[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const colName = entityType === 'testRun' ? 'test_run_id' : entityType === 'issue' ? 'issue_id' : 'remediation_id';
+  const { data, error } = await supabase
+    .from('autonomous_events')
+    .select('*')
+    .eq(colName, entityId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error) || !data) {
+    return mockAutonomousEvents.filter((e) => {
+      if (entityType === 'testRun') return e.testRunId === entityId;
+      if (entityType === 'issue') return e.issueId === entityId;
+      if (entityType === 'remediation') return e.remediationId === entityId;
+      return false;
+    });
+  }
+
+  return data.map(mapAutonomousEventRecord);
 }
 
 

@@ -181,8 +181,16 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 </>
               )}
             </Button>
+            <Link href={`/projects/${projectId}/autonomous`}>
+              <Button variant="accent" size="sm" className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Control Center</span>
+              </Button>
+            </Link>
             <Link href={`/projects/${projectId}/campaigns`}>
-              <Button variant="accent" size="sm" className="inline-flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

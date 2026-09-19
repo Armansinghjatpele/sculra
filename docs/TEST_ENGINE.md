@@ -1793,4 +1793,192 @@ CREATE TABLE public.fix_evidence (
 3. **Issue Integration (`IssueRemediationPanel.tsx`)**:
    - Added direct tab switch and "Launch Fix Agent" callout within the diagnosed root cause and fix plan tabs, allowing instant progression from analysis to automated remediation.
 
+---
+
+## 24. Autonomous QA Observability, Explainability & Human-in-the-Loop Control Center
+
+### 24.1 Problem Statement & Architectural Mission
+
+As Sculra orchestrates end-to-end autonomous QA—spanning discovery, model building, adaptive strategy prioritization, distributed test execution, visual/responsive sweeps, security/API audits, cross-run memory, AI root-cause analysis, and safe remediation—operators and engineering teams must never face a "black box".
+
+The Observability, Explainability & Control Center answers critical operational questions in real time:
+- **What is Sculra doing?** (Current live actor, executing journey, target URL, and elapsed duration).
+- **What did it test?** (Complete chronological audit trail of executed actions and observations).
+- **Why did it choose those tests?** (Explicit ranking factors, risk weights, and recent code changes).
+- **Why was a test or target skipped?** (Standardized, machine-readable skip reasons like flaky quarantine or budget limits).
+- **What evidence supports a finding?** (Direct navigation from test run observations to diagnostic stack traces and patches).
+- **What is deterministic vs. AI hypothesis?** (Strict semantic category boundaries preventing probabilistic model guesses from being presented as verified runtime facts).
+- **What is waiting for human approval?** (Cryptographically bound remediation approvals with 24-hour expiration windows).
+
+---
+
+### 24.2 Strict Semantic Fact Categories
+
+Sculra enforces seven mutually exclusive, typed fact categories across all telemetry, event streams, and UI presentations:
+
+| Category | Semantic Meaning | Visual Indicator | Example |
+| :--- | :--- | :--- | :--- |
+| `OBSERVED_FACT` | Direct runtime observation from target environment (DOM, HTTP response, console error, metrics). Absolute ground truth. | Cyan / Blue Badge | `Uncaught TypeError: Cannot read properties of undefined (reading 'price')` |
+| `INFERRED_CONCLUSION` | Rule-based analytical deduction derived deterministically from observed facts. | Indigo / Purple Badge | `Prioritized /checkout over /blog based on historical failure rate (80% vs 0%)` |
+| `AI_HYPOTHESIS` | Probabilistic AI model prediction or root-cause guess. Must never be labeled or treated as verified fact. | Amber / Orange Badge | `Probable cause: empty cart item payload missing price property in calculate.ts` |
+| `RECOMMENDATION` | Suggested course of action awaiting operator confirmation or autonomous scheduler dispatch. | Emerald / Green Badge | `Human approval requested for automated Pull Request generation` |
+| `ACTION` | Executed operation dispatched by orchestrator, campaign engine, or worker node. | Violet Badge | `Campaign camp-1 initialized for target https://sculra-demo.vercel.app` |
+| `ACTION_RESULT` | Direct outcome, exit code, or verification result from an executed action. | Teal Badge | `Deterministic patch verified clean with zero test regressions` |
+| `HUMAN_DECISION` | Explicit operator intervention, approval, rejection, or manual parameter override. | Rose / Pink Badge | `Operator approved remediation PR after reviewing null check guard` |
+
+---
+
+### 24.3 Standardized Autonomous Skip Reasons
+
+Every target, route, journey, or test action that is bypassed by the system must record an explicit reason code:
+
+1. `NO_CHANGES_DETECTED`: Target code, configuration, and dependencies have not changed since the last passing baseline.
+2. `BUDGET_EXHAUSTED`: Run-level or campaign-level execution budget (time limit or token cap) reached.
+3. `ENVIRONMENT_UNAVAILABLE`: Target URL or staging environment returned unreachable network/DNS errors.
+4. `PREREQUISITE_FAILED`: Dependent setup action, authentication journey, or seed fixture failed.
+5. `FLAKY_QUARANTINED`: Target quarantined after exhibiting non-reproducible intermittent failures across consecutive runs.
+6. `LOW_RISK_PATH`: Target deemed low business impact and deprioritized behind higher-risk workflows.
+7. `RATE_LIMIT_BACKOFF`: Action deferred to prevent third-party API or rate-limit saturation.
+8. `UNAUTHORIZED_BRANCH`: Target branch falls outside the permitted CI/CD execution policy.
+9. `POLICY_VIOLATION`: Proposed action or diff exceeds maximum file change or security bounds.
+10. `DUPLICATE_EXECUTION`: Identical task was already completed for this commit hash.
+11. `USER_PAUSED`: Manually paused or cancelled by human operator.
+
+---
+
+### 24.4 Human-in-the-Loop Security & Approval Binding
+
+To eliminate unauthorized PR submissions and prevent stale code merges:
+
+1. **Security Tuple Binding**: Every approval request is cryptographically bound to:
+   $$\text{Approval} = (\text{projectId}, \text{remediationId}, \text{sourceSha}, \text{fixPlanVersion}, \text{approvalId})$$
+2. **24-Hour Expiration Window**: Approval requests automatically transition to `EXPIRED` after 24 hours. Expired requests reject approval attempts with HTTP 400.
+3. **Commit Drift Auto-Invalidation**: If the target repository's HEAD SHA changes between fix generation and review, a drift warning is raised and re-verification is required.
+4. **Replay Defense**: Decisions are idempotent; an already approved or rejected request cannot be re-executed.
+5. **Mandatory Operator Rationale**: Approving or rejecting a candidate fix requires an audit explanation string stored permanently in the database.
+
+---
+
+### 24.5 Worker Observability Domain (`worker/src/observability/`)
+
+| Module | Core Responsibility |
+| :--- | :--- |
+| `types.ts` | Complete domain types: `ActorType`, `FactCategory`, `AutonomousEventType`, `SkipReason`, `DecisionRecord`, `HumanApprovalRecord`, `EvidenceGraph`, `AutonomousHealthMetrics`. |
+| `policy.ts` | 64KB metadata ceiling, 200 timeline item cap, 24h approval expiration, secret redaction patterns. |
+| `redaction.ts` | Multi-regex secret masking (GitHub, OpenAI, AWS, Bearer, JWT) and prompt injection sanitizer. |
+| `confidence.ts` | Four-tier confidence calibrator (`HIGH`, `MEDIUM`, `LOW`, `INSUFFICIENT_EVIDENCE`). |
+| `event-builder.ts` | Strongly typed fluent builder for immutable autonomous event creation. |
+| `event-store.ts` | In-memory append-only buffer and PostgreSQL persistence engine. |
+| `decision.ts` | `DecisionManager` recording explainable decision audits with required "why". |
+| `explanation.ts` | Narrative generator for "Why target", "Why now", "Why action", and fallback explanations. |
+| `timeline.ts` | Chronological grouping, relative time formatting, and fact category badge assignment. |
+| `evidence-map.ts` | Causal evidence graph builder linking campaigns down to individual PRs. |
+| `approval.ts` | `ApprovalSecurityManager` enforcing binding, expiry, and replay defenses. |
+| `action.ts` | `ActionStateInspector` converting raw engine state into factual live headlines. |
+| `telemetry.ts` | Grounded health metrics tracker with zero fake uptimes. |
+| `queries.ts` | Bounded pagination helpers for event streams and decision logs. |
+
+---
+
+### 24.6 Database Migration (`supabase/migrations/20260915000000_autonomous_observability.sql`)
+
+```sql
+-- Append-only event stream
+CREATE TABLE IF NOT EXISTS public.autonomous_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  campaign_id UUID REFERENCES public.campaigns(id) ON DELETE SET NULL,
+  task_id UUID REFERENCES public.campaign_tasks(id) ON DELETE SET NULL,
+  test_run_id UUID REFERENCES public.test_runs(id) ON DELETE SET NULL,
+  issue_id UUID REFERENCES public.issues(id) ON DELETE SET NULL,
+  remediation_id UUID REFERENCES public.fix_remediations(id) ON DELETE SET NULL,
+  approval_id UUID REFERENCES public.human_approvals(id) ON DELETE SET NULL,
+  actor_type TEXT NOT NULL,
+  actor_id TEXT,
+  event_source TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  fact_category TEXT NOT NULL,
+  headline TEXT NOT NULL,
+  reason TEXT,
+  confidence TEXT,
+  confidence_score NUMERIC(3,2),
+  evidence_ids JSONB DEFAULT '[]'::jsonb,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  skip_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Audit log of WHY decisions were made
+CREATE TABLE IF NOT EXISTS public.autonomous_decisions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  campaign_id UUID REFERENCES public.campaigns(id) ON DELETE SET NULL,
+  decision_type TEXT NOT NULL,
+  fact_category TEXT NOT NULL,
+  headline TEXT NOT NULL,
+  why TEXT NOT NULL,
+  why_now TEXT,
+  target TEXT,
+  action_taken TEXT,
+  next_action TEXT,
+  alternatives_considered JSONB DEFAULT '[]'::jsonb,
+  skip_reason TEXT,
+  confidence TEXT NOT NULL,
+  confidence_score NUMERIC(3,2),
+  evidence_ids JSONB DEFAULT '[]'::jsonb,
+  policy_checks JSONB DEFAULT '[]'::jsonb,
+  actor_type TEXT NOT NULL,
+  actor_id TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Cryptographically bound human approvals
+CREATE TABLE IF NOT EXISTS public.human_approvals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  remediation_id UUID NOT NULL REFERENCES public.fix_remediations(id) ON DELETE CASCADE,
+  source_sha TEXT NOT NULL,
+  fix_plan_version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  requested_by TEXT NOT NULL,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  expires_at TIMESTAMPTZ NOT NULL,
+  approved_by TEXT,
+  approved_at TIMESTAMPTZ,
+  rejected_by TEXT,
+  rejected_at TIMESTAMPTZ,
+  decision_reason TEXT,
+  diff_summary JSONB,
+  patch_unified TEXT,
+  issue_id UUID,
+  issue_title TEXT,
+  verification_passed BOOLEAN DEFAULT true,
+  security_checks_passed BOOLEAN DEFAULT true,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+```
+
+---
+
+### 24.7 Frontend Control Center & Interactive Surfaces
+
+1. **Autonomous Control Center (`/projects/[projectId]/autonomous`)**:
+   - **What Sculra Is Doing Card**: Real-time pulsing headline, active target route, and pending approvals alerts.
+   - **Autonomous Health Panel**: Factual system telemetry—active campaigns, queued tasks, completed/failed/skipped task tallies in 24h, average duration, and operational health.
+   - **Auto-Polling Controller**: 5-second live telemetry toggle with manual refresh capability.
+   - **Live Event Stream**: Searchable and filterable timeline with fact category ribbons, actor pills, and expandable metadata drawers.
+   - **Explainable Decision Explorer**: Comprehensive audit of why decisions were made, targets selected, alternatives discarded, and policy checks passed.
+   - **Causal Evidence Graph**: Interactive DAG viewer tracing campaigns to tasks, observations, issues, root causes, patches, and pull requests.
+2. **Dedicated Human Approvals Center (`/projects/[projectId]/autonomous/approvals`)**:
+   - Queue of pending remediation requests.
+   - 24-hour expiration countdown timers.
+   - Commit drift SHA warning banner.
+   - Built-in `DiffViewer` syntax-colored patch inspector with secret masking.
+   - Operator decision rationale input with Approve & Open PR / Reject controls.
+3. **Dedicated Explainable Decisions Explorer (`/projects/[projectId]/autonomous/decisions`)**:
+   - Deep search through all historical prioritization, skip, quarantine, and remediation decisions.
+
 

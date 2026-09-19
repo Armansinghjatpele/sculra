@@ -1,6 +1,11 @@
+// ==============================================================================
+// Sculra Remediation Fix Autonomous Timeline API (GET)
+// (frontend/app/api/fixes/[id]/timeline/route.ts)
+// ==============================================================================
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getCampaignEvidence, getCampaignEvidenceGraph } from '@/services/db';
+import { getEntityAutonomousTimeline } from '@/services/db';
 
 export async function GET(
   req: NextRequest,
@@ -25,16 +30,18 @@ export async function GET(
     }
 
     const { id } = await params;
-    const [evidence, graph] = await Promise.all([
-      getCampaignEvidence(token, id),
-      getCampaignEvidenceGraph(token, id),
-    ]);
+    const timeline = await getEntityAutonomousTimeline(token, 'remediation', id);
 
-    return NextResponse.json({ success: true, evidence, graph });
+    return NextResponse.json({
+      success: true,
+      remediationId: id,
+      count: timeline.length,
+      timeline,
+    });
   } catch (err: any) {
-    console.error('[API Campaigns/[id]/evidence GET Error]:', err);
+    console.error('[API Fixes/[id]/timeline GET Error]:', err);
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching campaign evidence.' },
+      { success: false, error: err.message || 'Failed fetching remediation timeline.' },
       { status: 500 }
     );
   }

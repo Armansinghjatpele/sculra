@@ -1,6 +1,11 @@
+// ==============================================================================
+// Sculra Campaign Autonomous Timeline API (GET)
+// (frontend/app/api/campaigns/[id]/timeline/route.ts)
+// ==============================================================================
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getCampaignEvidence, getCampaignEvidenceGraph } from '@/services/db';
+import { getCampaignAutonomousTimeline } from '@/services/db';
 
 export async function GET(
   req: NextRequest,
@@ -25,16 +30,18 @@ export async function GET(
     }
 
     const { id } = await params;
-    const [evidence, graph] = await Promise.all([
-      getCampaignEvidence(token, id),
-      getCampaignEvidenceGraph(token, id),
-    ]);
+    const timeline = await getCampaignAutonomousTimeline(token, id);
 
-    return NextResponse.json({ success: true, evidence, graph });
+    return NextResponse.json({
+      success: true,
+      campaignId: id,
+      count: timeline.length,
+      timeline,
+    });
   } catch (err: any) {
-    console.error('[API Campaigns/[id]/evidence GET Error]:', err);
+    console.error('[API Campaigns/[id]/timeline GET Error]:', err);
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching campaign evidence.' },
+      { success: false, error: err.message || 'Failed fetching campaign timeline.' },
       { status: 500 }
     );
   }
