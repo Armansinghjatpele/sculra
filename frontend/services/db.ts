@@ -66,9 +66,6 @@ import {
   CredentialRecord,
   CredentialRotation,
   CredentialAccessLog,
-  mockCredentialRecords,
-  mockCredentialRotations,
-  mockCredentialAccessLogs,
 } from '../lib/demoData';
 import { PolicyManager } from '../lib/authz/policy';
 import type { SculraRole } from '../lib/authz/roles';
@@ -3484,9 +3481,15 @@ export function validateEnvironmentUrl(rawUrl: string): { valid: boolean; error?
 // Prompt 39: Secure Integration & Credential Vault Database Services
 // ==============================================================================
 
-const localCredentialRecords = [...mockCredentialRecords];
-const localCredentialRotations = [...mockCredentialRotations];
-const localCredentialAccessLogs = [...mockCredentialAccessLogs];
+const localCredentialRecords: CredentialRecord[] = [];
+const localCredentialRotations: CredentialRotation[] = [];
+const localCredentialAccessLogs: CredentialAccessLog[] = [];
+
+export function resetLocalCredentials(): void {
+  localCredentialRecords.length = 0;
+  localCredentialRotations.length = 0;
+  localCredentialAccessLogs.length = 0;
+}
 
 function generateMaskedPreview(secret: string, type: string): string {
   if (!secret) return '--';

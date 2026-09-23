@@ -17,7 +17,6 @@ import { Button } from '@/components/Button';
 import {
   ShieldCheck,
   Key,
-  Database,
   GitBranch,
   Lock,
   Plus,
@@ -26,7 +25,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Clock,
   Sparkles,
   Webhook,
   Globe,
@@ -38,15 +36,91 @@ import {
   CredentialProvider,
   CredentialType,
   CredentialScope,
-  mockCredentialRecords,
 } from '@/lib/demoData';
 
-export default function IntegrationsAndVaultPage() {
-  const [activeTab, setActiveTab] = React.useState<'credentials' | 'integrations' | 'keys'>('credentials');
+export interface CredentialVaultState {
+  credentials: CredentialRecord[];
+  setCredentials: React.Dispatch<React.SetStateAction<CredentialRecord[]>>;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  loadError: boolean;
+  setLoadError: React.Dispatch<React.SetStateAction<boolean>>;
+  actionMessage: { text: string; type: 'success' | 'error' } | null;
+  setActionMessage: React.Dispatch<React.SetStateAction<{ text: string; type: 'success' | 'error' } | null>>;
+  fetchCredentials: () => Promise<void>;
+}
+
+export function useCredentialVault(options?: {
+  fetchFn?: typeof fetch;
+  autoFetch?: boolean;
+}): CredentialVaultState {
+  const fetchFn = options?.fetchFn;
+  const autoFetch = options?.autoFetch;
+
   const [credentials, setCredentials] = React.useState<CredentialRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [loadError, setLoadError] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const fetchCredentials = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const fetchImpl = fetchFn || fetch;
+      const res = await fetchImpl('/api/credentials');
+      if (res.ok) {
+        const json = await res.json();
+        setCredentials(Array.isArray(json.credentials) ? json.credentials : []);
+      } else {
+        setLoadError(true);
+        setCredentials([]);
+      }
+    } catch {
+      setLoadError(true);
+      setCredentials([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchFn]);
+
+  React.useEffect(() => {
+    if (autoFetch !== false) {
+      fetchCredentials();
+    }
+  }, [fetchCredentials, autoFetch]);
+
+  return {
+    credentials,
+    setCredentials,
+    loading,
+    setLoading,
+    loadError,
+    setLoadError,
+    actionMessage,
+    setActionMessage,
+    fetchCredentials,
+  };
+}
+
+export interface IntegrationsAndVaultPageProps {
+  vaultState?: CredentialVaultState;
+}
+
+export default function IntegrationsAndVaultPage(props: IntegrationsAndVaultPageProps = {}) {
+  const defaultVault = useCredentialVault();
+  const vault = props.vaultState || defaultVault;
+  const {
+    credentials,
+    setCredentials,
+    loading,
+    loadError,
+    actionMessage,
+    setActionMessage,
+    fetchCredentials,
+  } = vault;
+
+  const [activeTab, setActiveTab] = React.useState<'credentials' | 'integrations' | 'keys'>('credentials');
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   // Creation form state
   const [newProvider, setNewProvider] = React.useState<CredentialProvider>('GITHUB');
@@ -60,32 +134,6 @@ export default function IntegrationsAndVaultPage() {
   const [rotateTargetId, setRotateTargetId] = React.useState<string | null>(null);
   const [targetKeyVersion, setTargetKeyVersion] = React.useState('v1');
   const [isRotating, setIsRotating] = React.useState(false);
-
-  // Load credentials on mount
-  React.useEffect(() => {
-    fetchCredentials();
-  }, []);
-
-  const fetchCredentials = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/credentials');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.credentials && json.credentials.length > 0) {
-          setCredentials(json.credentials);
-        } else {
-          setCredentials(mockCredentialRecords);
-        }
-      } else {
-        setCredentials(mockCredentialRecords);
-      }
-    } catch {
-      setCredentials(mockCredentialRecords);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateCredential = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,7 +388,7 @@ export default function IntegrationsAndVaultPage() {
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Key className="w-3.5 h-3.5" /> Stored Credentials ({credentials.length})
+          <Key className="w-3.5 h-3.5" /> Stored Credentials ({loading ? '...' : credentials.length})
         </button>
         <button
           onClick={() => setActiveTab('integrations')}
@@ -382,10 +430,56 @@ export default function IntegrationsAndVaultPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {credentials.length === 0 ? (
+                {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground font-mono">
-                      No credentials configured. Store your first write-only credential above.
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground font-mono">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <RefreshCw className="w-5 h-5 animate-spin text-accent" />
+                        <span className="text-xs">Loading credentials...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : loadError ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="flex items-center gap-2 text-red-400 font-semibold text-xs">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>Unable to load credentials.</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          The credential vault service could not be reached.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchCredentials}
+                          className="text-xs flex items-center gap-1.5 mt-2"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : credentials.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Key className="w-7 h-7 text-muted-foreground/40 mb-1" />
+                        <div className="text-xs font-semibold text-foreground">
+                          No credentials configured
+                        </div>
+                        <p className="text-[11px] text-muted-foreground max-w-sm">
+                          Connect GitHub, OpenAI, CI/CD, or another supported provider to securely store credentials.
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() => setIsModalOpen(true)}
+                          className="text-xs font-semibold flex items-center gap-1.5 mt-2"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Store Credential
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -467,106 +561,195 @@ export default function IntegrationsAndVaultPage() {
 
       {/* Tab 2: Connected Providers */}
       {activeTab === 'integrations' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="glass-panel p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                  <GitBranch className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                    GitHub VCS & Automation
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      CONNECTED
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Repository tree inspection, change intelligence, and safe Pull Request generation.
-                  </p>
-                  <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
-                    <div>Supported Scopes: READ_ONLY, READ_WRITE</div>
-                    <div>Safe PR Policy: Human Approval Gate Enforced</div>
-                  </div>
-                </div>
+        <div className="space-y-4">
+          {loadError && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Unable to load credentials to verify connected providers.</span>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchCredentials}
+                className="text-xs h-7 px-3"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" /> Retry
+              </Button>
             </div>
-          </Card>
+          )}
 
-          <Card className="glass-panel p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                    OpenAI QA Provider
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      CONNECTED
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Root Cause Analysis reasoning, patch formulation, and natural language explanations.
-                  </p>
-                  <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
-                    <div>Token Redaction: Active before context assembly</div>
-                    <div>Budget Ceiling: Strictly bounded per run</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
+          {(() => {
+            const githubCreds = credentials.filter((c) => c.provider === 'GITHUB');
+            const activeGithub = githubCreds.find((c) => c.status === 'ACTIVE');
+            const isGithubConnected = !!activeGithub;
 
-          <Card className="glass-panel p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                  <Webhook className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                    CI/CD Webhook Ingestion
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      CONNECTED
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    HMAC SHA-256 signature verification for automated test triggers on push and pull requests.
-                  </p>
-                  <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
-                    <div>Verification: Constant-time timingSafeEqual</div>
-                    <div>Payload Ceiling: 1MB maximum size limit</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
+            const openaiCreds = credentials.filter((c) => c.provider === 'OPENAI');
+            const activeOpenai = openaiCreds.find((c) => c.status === 'ACTIVE');
+            const isOpenaiConnected = !!activeOpenai;
 
-          <Card className="glass-panel p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                    Target Environment Auth
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      CONNECTED
-                    </span>
+            const webhookCreds = credentials.filter((c) => c.provider === 'CI_WEBHOOK');
+            const activeWebhook = webhookCreds.find((c) => c.status === 'ACTIVE');
+            const isWebhookConnected = !!activeWebhook;
+
+            const envAuthCreds = credentials.filter(
+              (c) => c.provider === 'ENVIRONMENT_AUTH' || c.provider === 'GENERIC_HTTP'
+            );
+            const activeEnvAuth = envAuthCreds.find((c) => c.status === 'ACTIVE');
+            const isEnvAuthConnected = !!activeEnvAuth;
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="glass-panel p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                        <GitBranch className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                          GitHub VCS & Automation
+                          <span
+                            className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
+                              isGithubConnected
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-white/5 text-muted-foreground border-white/10'
+                            }`}
+                          >
+                            {isGithubConnected ? 'CONNECTED' : 'NOT_CONFIGURED'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Repository tree inspection, change intelligence, and safe Pull Request generation.
+                        </p>
+                        <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
+                          <div>Status: {isGithubConnected ? `${githubCreds.length} configured` : '--'}</div>
+                          <div>Scope: {activeGithub ? activeGithub.scope : '--'}</div>
+                          <div>
+                            Last Validated:{' '}
+                            {activeGithub?.lastValidatedAt
+                              ? new Date(activeGithub.lastValidatedAt).toLocaleDateString()
+                              : '--'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    HTTP Basic Auth and Bearer Token injection for staging, QA, and preview test environments.
-                  </p>
-                  <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
-                    <div>SSRF Defense: Private IP & loopback blocking</div>
-                    <div>Redirect Limit: Maximum 3 hops</div>
+                </Card>
+
+                <Card className="glass-panel p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                          OpenAI QA Provider
+                          <span
+                            className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
+                              isOpenaiConnected
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-white/5 text-muted-foreground border-white/10'
+                            }`}
+                          >
+                            {isOpenaiConnected ? 'CONNECTED' : 'NOT_CONFIGURED'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Root Cause Analysis reasoning, patch formulation, and natural language explanations.
+                        </p>
+                        <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
+                          <div>Status: {isOpenaiConnected ? `${openaiCreds.length} configured` : '--'}</div>
+                          <div>Scope: {activeOpenai ? activeOpenai.scope : '--'}</div>
+                          <div>
+                            Last Validated:{' '}
+                            {activeOpenai?.lastValidatedAt
+                              ? new Date(activeOpenai.lastValidatedAt).toLocaleDateString()
+                              : '--'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </Card>
+
+                <Card className="glass-panel p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                        <Webhook className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                          CI/CD Webhook Ingestion
+                          <span
+                            className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
+                              isWebhookConnected
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-white/5 text-muted-foreground border-white/10'
+                            }`}
+                          >
+                            {isWebhookConnected ? 'CONNECTED' : 'NOT_CONFIGURED'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          HMAC SHA-256 signature verification for automated test triggers on push and pull requests.
+                        </p>
+                        <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
+                          <div>Status: {isWebhookConnected ? `${webhookCreds.length} configured` : '--'}</div>
+                          <div>Scope: {activeWebhook ? activeWebhook.scope : '--'}</div>
+                          <div>
+                            Last Validated:{' '}
+                            {activeWebhook?.lastValidatedAt
+                              ? new Date(activeWebhook.lastValidatedAt).toLocaleDateString()
+                              : '--'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="glass-panel p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                          Target Environment Auth
+                          <span
+                            className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
+                              isEnvAuthConnected
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-white/5 text-muted-foreground border-white/10'
+                            }`}
+                          >
+                            {isEnvAuthConnected ? 'CONNECTED' : 'NOT_CONFIGURED'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          HTTP Basic Auth and Bearer Token injection for staging, QA, and preview test environments.
+                        </p>
+                        <div className="mt-3 text-[11px] font-mono text-muted-foreground space-y-1">
+                          <div>Status: {isEnvAuthConnected ? `${envAuthCreds.length} configured` : '--'}</div>
+                          <div>Scope: {activeEnvAuth ? activeEnvAuth.scope : '--'}</div>
+                          <div>
+                            Last Validated:{' '}
+                            {activeEnvAuth?.lastValidatedAt
+                              ? new Date(activeEnvAuth.lastValidatedAt).toLocaleDateString()
+                              : '--'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               </div>
-            </div>
-          </Card>
+            );
+          })()}
         </div>
       )}
 
