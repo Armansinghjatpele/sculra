@@ -172,4 +172,40 @@ export class PolicyManager {
 
     return { allowed: true };
   }
+
+  /**
+   * Enforces role requirements on environment configuration.
+   * Only OWNER or ADMIN can create, modify, or delete PRODUCTION environments.
+   */
+  public static evaluateEnvironmentMutation(params: {
+    callerRole: SculraRole;
+    isProduction: boolean;
+    action: 'CREATE' | 'UPDATE' | 'DELETE';
+  }): void {
+    if (params.isProduction && params.callerRole !== 'OWNER' && params.callerRole !== 'ADMIN') {
+      throw new RoleNotAllowedError(
+        `Only organization Owners and Admins can configure or delete Production environments.`
+      );
+    }
+  }
+
+  /**
+   * Evaluates human release decision requirements.
+   * Ensures caller has adequate rank to approve or block a release.
+   */
+  public static evaluateReleaseDecision(params: {
+    callerRole: SculraRole;
+    decision: 'APPROVE' | 'BLOCK' | 'REQUEST_RETEST';
+    releaseStatus: string;
+  }): void {
+    if (params.callerRole === 'VIEWER') {
+      throw new RoleNotAllowedError('Viewers are not permitted to record release decisions.');
+    }
+    if (params.releaseStatus === 'RELEASED') {
+      throw new RoleNotAllowedError('Cannot alter decision for an already released version.');
+    }
+    if (params.releaseStatus === 'ABANDONED') {
+      throw new RoleNotAllowedError('Cannot alter decision for an abandoned release candidate.');
+    }
+  }
 }

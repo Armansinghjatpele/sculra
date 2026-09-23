@@ -106,7 +106,23 @@ export const PERMISSIONS = {
   // Settings
   SETTINGS_READ: 'settings.read',
   SETTINGS_UPDATE: 'settings.update',
-} as const;
+
+  // Environments
+  ENVIRONMENT_READ: 'environment.read',
+  ENVIRONMENT_CREATE: 'environment.create',
+  ENVIRONMENT_UPDATE: 'environment.update',
+  ENVIRONMENT_DELETE: 'environment.delete',
+
+  // Deployments
+  DEPLOYMENTS_READ: 'deployments.read',
+  DEPLOYMENTS_CREATE: 'deployments.create',
+
+  // Releases
+  RELEASES_READ: 'releases.read',
+  RELEASES_CREATE: 'releases.create',
+  RELEASES_CHECK: 'releases.check',
+  RELEASES_DECIDE: 'releases.decide',
+};
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
@@ -318,6 +334,37 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
     permissions: [
       { key: PERMISSIONS.SETTINGS_READ, label: 'View Settings', description: 'Read security and workspace settings' },
       { key: PERMISSIONS.SETTINGS_UPDATE, label: 'Update Settings', description: 'Modify security and operational policies', isSensitive: true },
+    ],
+  },
+  {
+    id: 'environments',
+    name: 'Environments',
+    description: 'Target deployment environments (Development, Staging, Production)',
+    permissions: [
+      { key: PERMISSIONS.ENVIRONMENT_READ, label: 'View Environments', description: 'Inspect environment URLs, branches, and health' },
+      { key: PERMISSIONS.ENVIRONMENT_CREATE, label: 'Create Environment', description: 'Provision new deployment environments' },
+      { key: PERMISSIONS.ENVIRONMENT_UPDATE, label: 'Update Environment', description: 'Modify environment configuration and base URL', isSensitive: true },
+      { key: PERMISSIONS.ENVIRONMENT_DELETE, label: 'Delete Environment', description: 'Decommission deployment environments', isSensitive: true },
+    ],
+  },
+  {
+    id: 'deployments',
+    name: 'Deployments',
+    description: 'Confirmed deployment tracking and artifact inspection',
+    permissions: [
+      { key: PERMISSIONS.DEPLOYMENTS_READ, label: 'View Deployments', description: 'Inspect deployment timeline and triggers' },
+      { key: PERMISSIONS.DEPLOYMENTS_CREATE, label: 'Trigger Deployment Record', description: 'Record confirmed deployment event' },
+    ],
+  },
+  {
+    id: 'releases',
+    name: 'Release Orchestration',
+    description: 'Release candidates, evaluation checks, and governance decisions',
+    permissions: [
+      { key: PERMISSIONS.RELEASES_READ, label: 'View Releases', description: 'Inspect release candidates and gate evaluations' },
+      { key: PERMISSIONS.RELEASES_CREATE, label: 'Create Release', description: 'Assemble release candidate for testing' },
+      { key: PERMISSIONS.RELEASES_CHECK, label: 'Run Release Check', description: 'Execute bounded QA campaign against release candidate' },
+      { key: PERMISSIONS.RELEASES_DECIDE, label: 'Record Release Decision', description: 'Approve, block, or request retest on release', isSensitive: true },
     ],
   },
 ];

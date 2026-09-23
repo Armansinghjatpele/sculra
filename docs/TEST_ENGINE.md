@@ -2269,3 +2269,62 @@ $$;
 - `/settings/permissions`: Interactive Permission Explorer matrix across all 5 roles and 20 functional categories.
 - `/settings/security`: Admin Security Dashboard showing factual workspace enforcement status, anti-lockout protection, and zero synthetic metrics (`--` rendered when data is not yet observed).
 - `/settings/integrations`: Integration management console.
+
+---
+
+## 27. Release Orchestration, Environment Management & Deployment-Aware QA
+
+### 27.1 Architecture & Core Pipeline
+Sculra evaluates QA readiness within the factual context of software releases:
+```
+SOURCE → ENVIRONMENT → DEPLOYMENT → TEST CAMPAIGN → RESULTS → REGRESSIONS → RELEASE DECISION
+```
+Autonomous QA is triggered and scored against factual deployment evidence rather than speculative git activity.
+
+### 27.2 Core Domain Models & Database Schema
+Persisted state across 5 core entities defined in `supabase/migrations/20260920000000_release_orchestration.sql`:
+1. **`project_environments`**: Target environments (`PRODUCTION`, `STAGING`, `PREVIEW`, `DEVELOPMENT`, `CANARY`, `EPHEMERAL`) with base URL, branch, commit SHA, production protection flag (`is_production`), and health observation (`health_status`).
+2. **`deployments`**: Confirmed deployments linking a commit SHA and environment with status (`QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `UNKNOWN`), provider (`GITHUB`, `VERCEL`, `GENERIC`), and trigger (`GITHUB_PUSH`, `GITHUB_PR`, `MANUAL`, `WEBHOOK`, `SCHEDULED`).
+3. **`releases`**: Release candidates (`DRAFT`, `CANDIDATE`, `TESTING`, `READY`, `BLOCKED`, `RELEASED`, `ABANDONED`) with semantic version, commit SHA, branch, linked deployment, and baseline reference (`previous_release_id`).
+4. **`release_checks`**: Execution records of the 10 deterministic gates with overall score, recommendation verdict (`RELEASE`, `WARN`, `BLOCK`, `INSUFFICIENT_EVIDENCE`), and evidence summary.
+5. **`release_decisions`**: Immutable governance audit trail of human decisions (`APPROVE`, `BLOCK`, `REQUEST_RETEST`) with deciding user, role, and rationale.
+
+### 27.3 SSRF Defense & Production Guard Invariants
+- **SSRF Protection**: Target environment base URLs are strictly inspected. Non-HTTP(S) protocols, loopback addresses (`127.0.0.1`, `localhost`), link-local metadata (`169.254.169.254`), and RFC 1918 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) are blocked before sending probes.
+- **Hop-by-Hop Redirect Inspection**: `BoundedHttpClient.safeFetch()` follows redirects manually, checking each redirect target against the SSRF filter and limiting hops to 3 with a strict response size limit.
+- **Production Protection**: `PolicyManager.evaluateEnvironmentMutation()` restricts creating, editing, or deleting production environments exclusively to `OWNER` and `ADMIN` roles. Developers and QA Leads attempting production mutation are rejected with HTTP 403.
+
+### 27.4 Factual Deployment Detection
+- Code changes detected via git push or pull request webhooks emit `CODE_CHANGE_DETECTED` with deployment status `UNKNOWN`.
+- A release candidate is only considered deployed when a confirmed deployment webhook or health verification succeeds (`DEPLOYMENT_CONFIRMED` with status `SUCCEEDED`).
+- Scully never converts unconfirmed commits into confirmed deployments.
+
+### 27.5 The 10 Deterministic Release Gates
+Release candidates are evaluated against 10 canonical gates:
+1. `CRITICAL_ISSUES`: Zero critical or blocker bugs tolerated.
+2. `REGRESSIONS`: Zero new defects that were not present in the historical baseline.
+3. `SECURITY`: High and critical security scan findings block release.
+4. `ACCESSIBILITY`: WCAG 2.1 AA audit compliance.
+5. `PERFORMANCE`: Core Web Vitals and latency regressions.
+6. `VISUAL`: Visual diff percentage within calibrated pixel tolerance.
+7. `API`: OpenAPI schema and contract conformance.
+8. `FUNCTIONAL`: Critical user journeys succeed without runtime exceptions.
+9. `RELIABILITY`: Zero flaky test patterns or console error spikes.
+10. `EVIDENCE_COMPLETENESS`: Minimum evidence density required before any pass status can be rendered. Missing metrics remain `NOT_MEASURED` and never default to `PASS`.
+
+### 27.6 Authoritative Reuse of DeterministicReleaseScorer
+Sculra avoids conflicting scoring architectures:
+- `worker/src/release/scorer.ts` (`DeterministicReleaseScorer.calculateAssessment`) remains the sole authoritative scoring engine.
+- `ReleaseOrchestrator` delegates category scoring, penalty deductions, and breakdown calculations directly to `DeterministicReleaseScorer`.
+
+### 27.7 Historical Release Correlation & Anti-Causation Safeguards
+- **Compatibility Boundary**: Releases are only compared between compatible environments within the same project. Comparing ephemeral PR preview environments against long-lived production baselines is rejected.
+- **Anti-Causation Safeguard**: Pre-existing issues present in the baseline release are classified as `RECURRING` (`causedByCommit: false`). They cannot be falsely attributed to the candidate commit.
+- **Issue Classifications**: `NEW_REGRESSION`, `RECOVERED`, `RECURRING`, `STABLE`, `NOT_RETESTED`, `INSUFFICIENT_HISTORY`.
+
+### 27.8 Frontend Release Command Center
+- `/projects/[projectId]/environments`: Environment management console with SSRF validation, production guards, and health badges.
+- `/projects/[projectId]/deployments`: Factual deployment timeline distinguishing code changes from confirmed deployments.
+- `/projects/[projectId]/releases`: Release registry tracking candidates, policy levels, and readiness verdicts.
+- `/projects/[projectId]/releases/[releaseId]`: Release Command Center showing the 10-gate scorecard, evidence breakdown, historical regression panel, and human governance audit log.
+

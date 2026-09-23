@@ -106,6 +106,22 @@ export const PERMISSIONS = {
   // Settings
   SETTINGS_READ: 'settings.read',
   SETTINGS_UPDATE: 'settings.update',
+
+  // Environments
+  ENVIRONMENT_READ: 'environment.read',
+  ENVIRONMENT_CREATE: 'environment.create',
+  ENVIRONMENT_UPDATE: 'environment.update',
+  ENVIRONMENT_DELETE: 'environment.delete',
+
+  // Deployments
+  DEPLOYMENTS_READ: 'deployments.read',
+  DEPLOYMENTS_CREATE: 'deployments.create',
+
+  // Releases
+  RELEASES_READ: 'releases.read',
+  RELEASES_CREATE: 'releases.create',
+  RELEASES_CHECK: 'releases.check',
+  RELEASES_DECIDE: 'releases.decide',
 } as const;
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

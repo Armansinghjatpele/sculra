@@ -53,6 +53,16 @@ import {
   mockSourceHealthObservations,
   OrganizationMember,
   mockOrganizationMembers,
+  ProjectEnvironment,
+  Deployment,
+  Release,
+  ReleaseCheck,
+  ReleaseDecision,
+  mockProjectEnvironments,
+  mockDeployments,
+  mockReleases,
+  mockReleaseChecks,
+  mockReleaseDecisions,
 } from '../lib/demoData';
 import { PolicyManager } from '../lib/authz/policy';
 import type { SculraRole } from '../lib/authz/roles';
@@ -2718,6 +2728,752 @@ export async function removeOrganizationMember(
 
   return { success: true, memberId: target.id };
 }
+
+// ==============================================================================
+// Release Orchestration & Environment Management Services (Prompt 38)
+// ==============================================================================
+
+let localEnvironments: ProjectEnvironment[] = [...mockProjectEnvironments];
+let localDeployments: Deployment[] = [...mockDeployments];
+let localReleases: Release[] = [...mockReleases];
+let localReleaseChecks: ReleaseCheck[] = [...mockReleaseChecks];
+let localReleaseDecisions: ReleaseDecision[] = [...mockReleaseDecisions];
+
+// ------------------------------------------------------------------------------
+// Environments
+// ------------------------------------------------------------------------------
+
+export async function getProjectEnvironments(clerkToken: string, projectId: string): Promise<ProjectEnvironment[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('project_environments')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true });
+
+  if (useFallback(error)) {
+    return localEnvironments.filter((e) => e.projectId === projectId);
+  }
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    organizationId: row.organization_id,
+    projectId: row.project_id,
+    name: row.name,
+    slug: row.slug,
+    type: row.type,
+    baseUrl: row.base_url,
+    branch: row.branch,
+    commitSha: row.commit_sha,
+    status: row.status,
+    isProduction: row.is_production,
+    healthStatus: row.health_status,
+    lastHealthCheckAt: row.last_health_check_at,
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function getProjectEnvironment(clerkToken: string, projectId: string, envId: string): Promise<ProjectEnvironment | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('project_environments')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('id', envId)
+    .maybeSingle();
+
+  if (useFallback(error)) {
+    return localEnvironments.find((e) => e.projectId === projectId && e.id === envId) || null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    projectId: data.project_id,
+    name: data.name,
+    slug: data.slug,
+    type: data.type,
+    baseUrl: data.base_url,
+    branch: data.branch,
+    commitSha: data.commit_sha,
+    status: data.status,
+    isProduction: data.is_production,
+    healthStatus: data.health_status,
+    lastHealthCheckAt: data.last_health_check_at,
+    metadata: data.metadata || {},
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function createProjectEnvironment(clerkToken: string, data: Partial<ProjectEnvironment>): Promise<ProjectEnvironment> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const insertPayload = {
+    id: data.id || `env-${Date.now()}`,
+    organization_id: data.organizationId,
+    project_id: data.projectId,
+    name: data.name,
+    slug: data.slug || data.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    type: data.type || 'PREVIEW',
+    base_url: data.baseUrl,
+    branch: data.branch || null,
+    commit_sha: data.commitSha || null,
+    status: data.status || 'ACTIVE',
+    is_production: Boolean(data.isProduction || data.type === 'PRODUCTION'),
+    health_status: data.healthStatus || 'UNKNOWN',
+    last_health_check_at: data.lastHealthCheckAt || null,
+    metadata: data.metadata || {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('project_environments')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const item: ProjectEnvironment = {
+      id: insertPayload.id,
+      organizationId: insertPayload.organization_id || '',
+      projectId: insertPayload.project_id || '',
+      name: insertPayload.name || '',
+      slug: insertPayload.slug || '',
+      type: insertPayload.type as any,
+      baseUrl: insertPayload.base_url || '',
+      branch: insertPayload.branch,
+      commitSha: insertPayload.commit_sha,
+      status: insertPayload.status as any,
+      isProduction: insertPayload.is_production,
+      healthStatus: insertPayload.health_status as any,
+      lastHealthCheckAt: insertPayload.last_health_check_at,
+      metadata: insertPayload.metadata,
+      createdAt: insertPayload.created_at,
+      updatedAt: insertPayload.updated_at,
+    };
+    localEnvironments.push(item);
+    return item;
+  }
+
+  return {
+    id: created.id,
+    organizationId: created.organization_id,
+    projectId: created.project_id,
+    name: created.name,
+    slug: created.slug,
+    type: created.type,
+    baseUrl: created.base_url,
+    branch: created.branch,
+    commitSha: created.commit_sha,
+    status: created.status,
+    isProduction: created.is_production,
+    healthStatus: created.health_status,
+    lastHealthCheckAt: created.last_health_check_at,
+    metadata: created.metadata || {},
+    createdAt: created.created_at,
+    updatedAt: created.updated_at,
+  };
+}
+
+export async function updateProjectEnvironment(clerkToken: string, envId: string, updates: Partial<ProjectEnvironment>): Promise<ProjectEnvironment> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const updatePayload: any = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.name !== undefined) updatePayload.name = updates.name;
+  if (updates.slug !== undefined) updatePayload.slug = updates.slug;
+  if (updates.type !== undefined) {
+    updatePayload.type = updates.type;
+    updatePayload.is_production = updates.type === 'PRODUCTION';
+  }
+  if (updates.baseUrl !== undefined) updatePayload.base_url = updates.baseUrl;
+  if (updates.branch !== undefined) updatePayload.branch = updates.branch;
+  if (updates.commitSha !== undefined) updatePayload.commit_sha = updates.commitSha;
+  if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.isProduction !== undefined) updatePayload.is_production = updates.isProduction;
+  if (updates.healthStatus !== undefined) updatePayload.health_status = updates.healthStatus;
+  if (updates.lastHealthCheckAt !== undefined) updatePayload.last_health_check_at = updates.lastHealthCheckAt;
+  if (updates.metadata !== undefined) updatePayload.metadata = updates.metadata;
+
+  const { data: updated, error } = await supabase
+    .from('project_environments')
+    .update(updatePayload)
+    .eq('id', envId)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const idx = localEnvironments.findIndex((e) => e.id === envId);
+    if (idx === -1) throw new Error('Environment not found');
+    localEnvironments[idx] = { ...localEnvironments[idx], ...updates, updatedAt: updatePayload.updated_at };
+    return localEnvironments[idx];
+  }
+
+  return {
+    id: updated.id,
+    organizationId: updated.organization_id,
+    projectId: updated.project_id,
+    name: updated.name,
+    slug: updated.slug,
+    type: updated.type,
+    baseUrl: updated.base_url,
+    branch: updated.branch,
+    commitSha: updated.commit_sha,
+    status: updated.status,
+    isProduction: updated.is_production,
+    healthStatus: updated.health_status,
+    lastHealthCheckAt: updated.last_health_check_at,
+    metadata: updated.metadata || {},
+    createdAt: updated.created_at,
+    updatedAt: updated.updated_at,
+  };
+}
+
+export async function deleteProjectEnvironment(clerkToken: string, envId: string): Promise<boolean> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('project_environments')
+    .delete()
+    .eq('id', envId);
+
+  if (useFallback(error)) {
+    localEnvironments = localEnvironments.filter((e) => e.id !== envId);
+    return true;
+  }
+  return true;
+}
+
+// ------------------------------------------------------------------------------
+// Deployments
+// ------------------------------------------------------------------------------
+
+export async function getProjectDeployments(clerkToken: string, projectId: string, environmentId?: string): Promise<Deployment[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase
+    .from('deployments')
+    .select('*')
+    .eq('project_id', projectId);
+
+  if (environmentId) {
+    query = query.eq('environment_id', environmentId);
+  }
+  query = query.order('created_at', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (useFallback(error)) {
+    let res = localDeployments.filter((d) => d.projectId === projectId);
+    if (environmentId) res = res.filter((d) => d.environmentId === environmentId);
+    return res;
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    organizationId: row.organization_id,
+    projectId: row.project_id,
+    environmentId: row.environment_id,
+    commitSha: row.commit_sha,
+    branch: row.branch,
+    deploymentUrl: row.deployment_url,
+    provider: row.provider,
+    status: row.status,
+    trigger: row.trigger,
+    idempotencyKey: row.idempotency_key,
+    metadata: row.metadata || {},
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function getProjectDeployment(clerkToken: string, projectId: string, deploymentId: string): Promise<Deployment | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('deployments')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('id', deploymentId)
+    .maybeSingle();
+
+  if (useFallback(error)) {
+    return localDeployments.find((d) => d.projectId === projectId && d.id === deploymentId) || null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    projectId: data.project_id,
+    environmentId: data.environment_id,
+    commitSha: data.commit_sha,
+    branch: data.branch,
+    deploymentUrl: data.deployment_url,
+    provider: data.provider,
+    status: data.status,
+    trigger: data.trigger,
+    idempotencyKey: data.idempotency_key,
+    metadata: data.metadata || {},
+    startedAt: data.started_at,
+    completedAt: data.completed_at,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function createProjectDeployment(clerkToken: string, data: Partial<Deployment>): Promise<Deployment> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const insertPayload = {
+    id: data.id || `dep-${Date.now()}`,
+    organization_id: data.organizationId,
+    project_id: data.projectId,
+    environment_id: data.environmentId,
+    commit_sha: data.commitSha,
+    branch: data.branch || null,
+    deployment_url: data.deploymentUrl || null,
+    provider: data.provider || 'GENERIC',
+    status: data.status || 'PENDING',
+    trigger: data.trigger || 'MANUAL',
+    idempotency_key: data.idempotencyKey || null,
+    metadata: data.metadata || {},
+    started_at: data.startedAt || null,
+    completed_at: data.completedAt || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('deployments')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const item: Deployment = {
+      id: insertPayload.id,
+      organizationId: insertPayload.organization_id || '',
+      projectId: insertPayload.project_id || '',
+      environmentId: insertPayload.environment_id || '',
+      commitSha: insertPayload.commit_sha || '',
+      branch: insertPayload.branch,
+      deploymentUrl: insertPayload.deployment_url,
+      provider: insertPayload.provider as any,
+      status: insertPayload.status as any,
+      trigger: insertPayload.trigger as any,
+      idempotencyKey: insertPayload.idempotency_key,
+      metadata: insertPayload.metadata,
+      startedAt: insertPayload.started_at,
+      completedAt: insertPayload.completed_at,
+      createdAt: insertPayload.created_at,
+      updatedAt: insertPayload.updated_at,
+    };
+    localDeployments.unshift(item);
+    return item;
+  }
+
+  return {
+    id: created.id,
+    organizationId: created.organization_id,
+    projectId: created.project_id,
+    environmentId: created.environment_id,
+    commitSha: created.commit_sha,
+    branch: created.branch,
+    deploymentUrl: created.deployment_url,
+    provider: created.provider,
+    status: created.status,
+    trigger: created.trigger,
+    idempotencyKey: created.idempotency_key,
+    metadata: created.metadata || {},
+    startedAt: created.started_at,
+    completedAt: created.completed_at,
+    createdAt: created.created_at,
+    updatedAt: created.updated_at,
+  };
+}
+
+// ------------------------------------------------------------------------------
+// Releases
+// ------------------------------------------------------------------------------
+
+export async function getProjectReleases(clerkToken: string, projectId: string): Promise<Release[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('releases')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error)) {
+    return localReleases.filter((r) => r.projectId === projectId);
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    organizationId: row.organization_id,
+    projectId: row.project_id,
+    environmentId: row.environment_id,
+    deploymentId: row.deployment_id,
+    version: row.version,
+    commitSha: row.commit_sha,
+    branch: row.branch,
+    status: row.status,
+    targetDate: row.target_date,
+    releasedAt: row.released_at,
+    previousReleaseId: row.previous_release_id,
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function getProjectRelease(clerkToken: string, projectId: string, releaseId: string): Promise<Release | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('releases')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('id', releaseId)
+    .maybeSingle();
+
+  if (useFallback(error)) {
+    return localReleases.find((r) => r.projectId === projectId && r.id === releaseId) || null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    projectId: data.project_id,
+    environmentId: data.environment_id,
+    deploymentId: data.deployment_id,
+    version: data.version,
+    commitSha: data.commit_sha,
+    branch: data.branch,
+    status: data.status,
+    targetDate: data.target_date,
+    releasedAt: data.released_at,
+    previousReleaseId: data.previous_release_id,
+    metadata: data.metadata || {},
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function createProjectRelease(clerkToken: string, data: Partial<Release>): Promise<Release> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const insertPayload = {
+    id: data.id || `rel-${Date.now()}`,
+    organization_id: data.organizationId,
+    project_id: data.projectId,
+    environment_id: data.environmentId,
+    deployment_id: data.deploymentId || null,
+    version: data.version,
+    commit_sha: data.commitSha,
+    branch: data.branch || null,
+    status: data.status || 'PENDING',
+    target_date: data.targetDate || null,
+    released_at: data.releasedAt || null,
+    previous_release_id: data.previousReleaseId || null,
+    metadata: data.metadata || {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('releases')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const item: Release = {
+      id: insertPayload.id,
+      organizationId: insertPayload.organization_id || '',
+      projectId: insertPayload.project_id || '',
+      environmentId: insertPayload.environment_id || '',
+      deploymentId: insertPayload.deployment_id,
+      version: insertPayload.version || '',
+      commitSha: insertPayload.commit_sha || '',
+      branch: insertPayload.branch,
+      status: insertPayload.status as any,
+      targetDate: insertPayload.target_date,
+      releasedAt: insertPayload.released_at,
+      previousReleaseId: insertPayload.previous_release_id,
+      metadata: insertPayload.metadata,
+      createdAt: insertPayload.created_at,
+      updatedAt: insertPayload.updated_at,
+    };
+    localReleases.unshift(item);
+    return item;
+  }
+
+  return {
+    id: created.id,
+    organizationId: created.organization_id,
+    projectId: created.project_id,
+    environmentId: created.environment_id,
+    deploymentId: created.deployment_id,
+    version: created.version,
+    commitSha: created.commit_sha,
+    branch: created.branch,
+    status: created.status,
+    targetDate: created.target_date,
+    releasedAt: created.released_at,
+    previousReleaseId: created.previous_release_id,
+    metadata: created.metadata || {},
+    createdAt: created.created_at,
+    updatedAt: created.updated_at,
+  };
+}
+
+export async function updateProjectRelease(clerkToken: string, releaseId: string, updates: Partial<Release>): Promise<Release> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const updatePayload: any = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.version !== undefined) updatePayload.version = updates.version;
+  if (updates.releasedAt !== undefined) updatePayload.released_at = updates.releasedAt;
+  if (updates.metadata !== undefined) updatePayload.metadata = updates.metadata;
+
+  const { data: updated, error } = await supabase
+    .from('releases')
+    .update(updatePayload)
+    .eq('id', releaseId)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const idx = localReleases.findIndex((r) => r.id === releaseId);
+    if (idx === -1) throw new Error('Release not found');
+    localReleases[idx] = { ...localReleases[idx], ...updates, updatedAt: updatePayload.updated_at };
+    return localReleases[idx];
+  }
+
+  return {
+    id: updated.id,
+    organizationId: updated.organization_id,
+    projectId: updated.project_id,
+    environmentId: updated.environment_id,
+    deploymentId: updated.deployment_id,
+    version: updated.version,
+    commitSha: updated.commit_sha,
+    branch: updated.branch,
+    status: updated.status,
+    targetDate: updated.target_date,
+    releasedAt: updated.released_at,
+    previousReleaseId: updated.previous_release_id,
+    metadata: updated.metadata || {},
+    createdAt: updated.created_at,
+    updatedAt: updated.updated_at,
+  };
+}
+
+// ------------------------------------------------------------------------------
+// Release Checks
+// ------------------------------------------------------------------------------
+
+export async function getReleaseChecks(clerkToken: string, releaseId: string): Promise<ReleaseCheck[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_checks')
+    .select('*')
+    .eq('release_id', releaseId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error)) {
+    return localReleaseChecks.filter((rc) => rc.releaseId === releaseId);
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    organizationId: row.organization_id,
+    projectId: row.project_id,
+    releaseId: row.release_id,
+    policyLevel: row.policy_level,
+    status: row.status,
+    overallScore: row.overall_score !== null ? Number(row.overall_score) : null,
+    releaseDecision: row.release_decision,
+    gates: row.gates || [],
+    evidenceSummary: row.evidence_summary || {},
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createReleaseCheck(clerkToken: string, data: Partial<ReleaseCheck>): Promise<ReleaseCheck> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const insertPayload = {
+    id: data.id || `rc-${Date.now()}`,
+    organization_id: data.organizationId,
+    project_id: data.projectId,
+    release_id: data.releaseId,
+    policy_level: data.policyLevel || 'STANDARD',
+    status: data.status || 'COMPLETED',
+    overall_score: data.overallScore !== undefined ? data.overallScore : null,
+    release_decision: data.releaseDecision || 'INSUFFICIENT_EVIDENCE',
+    gates: data.gates || [],
+    evidence_summary: data.evidenceSummary || {},
+    started_at: data.startedAt || new Date().toISOString(),
+    completed_at: data.completedAt || new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('release_checks')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const item: ReleaseCheck = {
+      id: insertPayload.id,
+      organizationId: insertPayload.organization_id || '',
+      projectId: insertPayload.project_id || '',
+      releaseId: insertPayload.release_id || '',
+      policyLevel: insertPayload.policy_level as any,
+      status: insertPayload.status as any,
+      overallScore: insertPayload.overall_score,
+      releaseDecision: insertPayload.release_decision as any,
+      gates: insertPayload.gates,
+      evidenceSummary: insertPayload.evidence_summary,
+      startedAt: insertPayload.started_at,
+      completedAt: insertPayload.completed_at,
+      createdAt: insertPayload.created_at,
+    };
+    localReleaseChecks.unshift(item);
+    return item;
+  }
+
+  return {
+    id: created.id,
+    organizationId: created.organization_id,
+    projectId: created.project_id,
+    releaseId: created.release_id,
+    policyLevel: created.policy_level,
+    status: created.status,
+    overallScore: created.overall_score !== null ? Number(created.overall_score) : null,
+    releaseDecision: created.release_decision,
+    gates: created.gates || [],
+    evidenceSummary: created.evidence_summary || {},
+    startedAt: created.started_at,
+    completedAt: created.completed_at,
+    createdAt: created.created_at,
+  };
+}
+
+// ------------------------------------------------------------------------------
+// Release Decisions
+// ------------------------------------------------------------------------------
+
+export async function getReleaseDecisions(clerkToken: string, releaseId: string): Promise<ReleaseDecision[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_decisions')
+    .select('*')
+    .eq('release_id', releaseId)
+    .order('created_at', { ascending: false });
+
+  if (useFallback(error)) {
+    return localReleaseDecisions.filter((rd) => rd.releaseId === releaseId);
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    organizationId: row.organization_id,
+    projectId: row.project_id,
+    releaseId: row.release_id,
+    decision: row.decision,
+    decidedBy: row.decided_by,
+    decidedByRole: row.decided_by_role,
+    notes: row.notes,
+    decidedAt: row.decided_at,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function recordReleaseDecision(clerkToken: string, data: Partial<ReleaseDecision>): Promise<ReleaseDecision> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const insertPayload = {
+    id: data.id || `rd-${Date.now()}`,
+    organization_id: data.organizationId,
+    project_id: data.projectId,
+    release_id: data.releaseId,
+    decision: data.decision,
+    decided_by: data.decidedBy,
+    decided_by_role: data.decidedByRole,
+    notes: data.notes || null,
+    decided_at: data.decidedAt || new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('release_decisions')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (useFallback(error)) {
+    const item: ReleaseDecision = {
+      id: insertPayload.id,
+      organizationId: insertPayload.organization_id || '',
+      projectId: insertPayload.project_id || '',
+      releaseId: insertPayload.release_id || '',
+      decision: insertPayload.decision as any,
+      decidedBy: insertPayload.decided_by || '',
+      decidedByRole: insertPayload.decided_by_role || '',
+      notes: insertPayload.notes,
+      decidedAt: insertPayload.decided_at,
+      createdAt: insertPayload.created_at,
+    };
+    localReleaseDecisions.unshift(item);
+    return item;
+  }
+
+  return {
+    id: created.id,
+    organizationId: created.organization_id,
+    projectId: created.project_id,
+    releaseId: created.release_id,
+    decision: created.decision,
+    decidedBy: created.decided_by,
+    decidedByRole: created.decided_by_role,
+    notes: created.notes,
+    decidedAt: created.decided_at,
+    createdAt: created.created_at,
+  };
+}
+
+export function validateEnvironmentUrl(rawUrl: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(rawUrl.trim());
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Only http and https URLs are allowed.' };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal') ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1' ||
+      hostname === '[::1]' ||
+      hostname === '169.254.169.254' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return { valid: false, error: 'Access to private or local network addresses is blocked by SSRF defense policy.' };
+    }
+    return { valid: true };
+  } catch (err: any) {
+    return { valid: false, error: 'Invalid URL format.' };
+  }
+}
+
 
 
 

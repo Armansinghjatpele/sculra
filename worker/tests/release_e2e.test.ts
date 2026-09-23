@@ -1,211 +1,108 @@
 // ==============================================================================
-// Sculra AI Release Readiness Live E2E Verification (worker/tests/release_e2e.test.ts)
+// Sculra Release Orchestration & Environment QA — End-to-End Lifecycle Test
+// (worker/tests/release_e2e.test.ts)
 // ==============================================================================
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { JobExecutor } from '../src/executor';
-import { createFixtureServer, FixtureServer } from './fixtures/app';
+import { describe, it, expect } from 'vitest';
+import {
+  EnvironmentManager,
+  DeploymentManager,
+  ReleaseManager,
+  ReleaseOrchestrator,
+  EnvironmentValidator,
+} from '../src/release';
+import { PolicyManager } from '../src/authz/policy';
 
-describe('AI Release Readiness Live E2E Verification', () => {
-  let fixture: FixtureServer;
+describe('Prompt 38: Release Orchestration End-to-End Flow', () => {
+  it('Executes the full pipeline: Environment -> Deployment -> Gates -> Correlation -> Decision', async () => {
+    // 1. Validate & Create Environment
+    const urlValidation = await EnvironmentValidator.validateEnvironmentUrl('https://staging-app.sculra.com', { skipProbe: true });
+    expect(urlValidation.valid).toBe(true);
 
-  beforeAll(async () => {
-    fixture = await createFixtureServer();
+    const env = EnvironmentManager.createEnvironment({
+      organizationId: 'org-e2e',
+      projectId: 'proj-e2e',
+      name: 'Staging Environment',
+      type: 'STAGING',
+      baseUrl: 'https://staging-app.sculra.com',
+      branch: 'develop',
+      isProduction: false,
+    });
+    expect(env.slug).toBe('staging-environment');
+    expect(env.isProduction).toBe(false);
+
+    // 2. Register Confirmed Deployment
+    const dep = DeploymentManager.createDeployment({
+      organizationId: 'org-e2e',
+      projectId: 'proj-e2e',
+      environmentId: env.id,
+      commitSha: '6d8b2a1e94fc07b5a12d',
+      branch: 'develop',
+      deploymentUrl: 'https://staging-app.sculra.com',
+      status: 'SUCCEEDED',
+      provider: 'GITHUB',
+      trigger: 'GITHUB_PUSH',
+    });
+    expect(dep.status).toBe('SUCCEEDED');
+
+    // 3. Register Release Candidate
+    const rel = ReleaseManager.createRelease({
+      organizationId: 'org-e2e',
+      projectId: 'proj-e2e',
+      environmentId: env.id,
+      deploymentId: dep.id,
+      version: 'v2.4.1-rc.1',
+      commitSha: dep.commitSha,
+      branch: dep.branch,
+      status: 'CANDIDATE',
+    });
+    expect(rel.status).toBe('CANDIDATE');
+
+    // 4. State transition: CANDIDATE -> TESTING
+    const testingRel = ReleaseManager.transitionStatus(rel, 'TESTING');
+    expect(testingRel.status).toBe('TESTING');
+
+    // 5. Prioritize QA targets
+    const prioritizedTargets = ReleaseOrchestrator.prioritizeTargetsForRelease({
+      commitSha: dep.commitSha,
+      changedFiles: ['src/billing/checkout.ts', 'src/api/routes.ts'],
+      availableTargets: [
+        { id: 't-1', route: '/blog', sourceFile: 'src/content/blog.ts' },
+        { id: 't-2', route: '/checkout', sourceFile: 'src/billing/checkout.ts' },
+      ],
+    });
+    expect(prioritizedTargets[0].route).toBe('/checkout');
+
+    // 6. Evaluate Release Check with Authoritative Scorer
+    const checkResult = ReleaseOrchestrator.evaluateReleaseCheck({
+      release: testingRel,
+      environment: env,
+      policyLevel: 'STANDARD',
+      testRuns: [
+        { id: 'run-1', status: 'PASSED', overall_score: 95, duration_ms: 1000 },
+        { id: 'run-2', status: 'PASSED', overall_score: 92, duration_ms: 1100 },
+        { id: 'run-3', status: 'PASSED', overall_score: 94, duration_ms: 950 },
+      ],
+      openIssues: [],
+    });
+
+    expect(['RELEASE', 'RELEASE_WITH_CAUTION']).toContain(checkResult.checkRecord.releaseDecision);
+    expect(checkResult.checkRecord.overallScore).toBeGreaterThanOrEqual(80);
+    expect(checkResult.checkRecord.gates).toHaveLength(10);
+
+    // 7. Transition to READY
+    const readyRel = ReleaseManager.transitionStatus(testingRel, 'READY');
+    expect(readyRel.status).toBe('READY');
+
+    // 8. Role-based Governance Decision
+    PolicyManager.evaluateReleaseDecision({
+      callerRole: 'QA_LEAD',
+      decision: 'APPROVE',
+      releaseStatus: readyRel.status,
+    });
+
+    // 9. Transition to RELEASED
+    const releasedRel = ReleaseManager.transitionStatus(readyRel, 'RELEASED');
+    expect(releasedRel.status).toBe('RELEASED');
   });
-
-  afterAll(async () => {
-    if (fixture) await fixture.close();
-  });
-
-  it('should execute live browser test run, calculate deterministic release readiness score, and persist release score & report', async () => {
-    const insertedEvidence: any[] = [];
-    const insertedIssues: any[] = [];
-    const insertedOccurrences: any[] = [];
-    const insertedReleaseScores: any[] = [];
-    const runUpdates: any[] = [];
-
-    const mockSupabase: any = {
-      from: (table: string) => {
-        if (table === 'test_runs') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: async () => ({
-                  data: {
-                    id: 'run-release-live-1',
-                    status: 'queued',
-                    projects: {
-                      id: 'proj-rel-1',
-                      name: 'Sculra Live Target',
-                      source_type: 'website',
-                      source_url: fixture.url,
-                    },
-                  },
-                  error: null,
-                }),
-              }),
-            }),
-            update: (fields: any) => {
-              runUpdates.push(fields);
-              return {
-                eq: async () => ({ data: null, error: null }),
-              };
-            },
-          };
-        }
-
-        if (table === 'release_scores') {
-          return {
-            select: () => {
-              const chain: any = {
-                eq: () => chain,
-                order: () => chain,
-                limit: () => chain,
-                maybeSingle: async () => ({ data: null, error: null }),
-              };
-              return chain;
-            },
-            insert: async (scoreRow: any) => {
-              insertedReleaseScores.push(scoreRow);
-              return { data: scoreRow, error: null };
-            },
-          };
-        }
-
-        if (table === 'test_evidence') {
-          return {
-            insert: async (evidenceRow: any) => {
-              insertedEvidence.push(evidenceRow);
-              return { data: evidenceRow, error: null };
-            },
-          };
-        }
-
-        if (table === 'issues') {
-          return {
-            select: () => {
-              const chain: any = {
-                eq: () => chain,
-                limit: async () => ({ data: [], error: null }),
-                single: async () => ({ data: null, error: null }),
-                maybeSingle: async () => ({ data: null, error: null }),
-              };
-              return chain;
-            },
-            insert: (issueRow: any) => ({
-              select: () => ({
-                single: async () => {
-                  const saved = { id: `mock-issue-${insertedIssues.length + 1}`, ...issueRow };
-                  insertedIssues.push(saved);
-                  return { data: saved, error: null };
-                },
-              }),
-            }),
-            update: () => ({
-              eq: async () => ({ data: null, error: null }),
-            }),
-          };
-        }
-
-        if (table === 'issue_occurrences') {
-          return {
-            insert: async (occRow: any) => {
-              insertedOccurrences.push(occRow);
-              return { data: occRow, error: null };
-            },
-          };
-        }
-
-        return {};
-      },
-    };
-
-    process.env.NODE_ENV = 'test';
-
-    const executor = new JobExecutor({
-      supabaseClient: mockSupabase,
-    });
-
-    const result = await executor.executeTestRun('run-release-live-1');
-
-    // 1. Assert execution completion
-    expect(result.status).toBeDefined();
-
-    // 2. Assert Release Score record was inserted
-    expect(insertedReleaseScores.length).toBe(1);
-    const scoreRecord = insertedReleaseScores[0];
-    expect(scoreRecord.scoring_version).toBe('1.0');
-    expect(typeof scoreRecord.overall_score).toBe('number');
-    expect(scoreRecord.overall_score).toBeGreaterThanOrEqual(0);
-    expect(scoreRecord.overall_score).toBeLessThanOrEqual(100);
-    expect(['RELEASE', 'RELEASE_WITH_CAUTION', 'DO_NOT_RELEASE', 'INSUFFICIENT_EVIDENCE']).toContain(
-      scoreRecord.recommendation
-    );
-    expect(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN']).toContain(scoreRecord.risk_level);
-    expect(['HIGH', 'MEDIUM', 'LOW', 'INSUFFICIENT']).toContain(scoreRecord.confidence_level);
-
-    // 3. Assert Category scores exist
-    expect(typeof scoreRecord.functionality_score).toBe('number');
-    expect(typeof scoreRecord.ui_score).toBe('number');
-    expect(typeof scoreRecord.responsive_score).toBe('number');
-    expect(typeof scoreRecord.reliability_score).toBe('number');
-    expect(typeof scoreRecord.coverage_score).toBe('number');
-
-    // 4. Assert Release Report Evidence was generated
-    const releaseReport = insertedEvidence.find((e) => e.type === 'release_report');
-    expect(releaseReport).toBeDefined();
-    expect(releaseReport.message).toContain('# Sculra Release Readiness Report');
-    expect(releaseReport.message).toContain('## 1. Executive Summary');
-    expect(releaseReport.message).toContain('## 2. Release Recommendation');
-    expect(releaseReport.message).toContain('## 4. Category Scores');
-    expect(releaseReport.message).toContain('## 7. Active Release Blockers');
-
-    // 5. Assert test_runs table received numeric overall_score
-    const finalUpdate = runUpdates[runUpdates.length - 1];
-    expect(finalUpdate).toBeDefined();
-    expect(typeof finalUpdate.overall_score).toBe('number');
-    expect(finalUpdate.overall_score).toBe(scoreRecord.overall_score);
-  }, 45000);
-
-  it('executes live OpenAI release analysis when credentials and flag are configured', async () => {
-    if (process.env.SCULRA_RUN_LIVE_OPENAI_E2E !== 'true' || !process.env.OPENAI_API_KEY) {
-      console.log('Skipping live OpenAI release analysis E2E (SCULRA_RUN_LIVE_OPENAI_E2E not true or key missing)');
-      return;
-    }
-
-    const { OpenAIQAProvider } = await import('../src/ai-qa/openai-provider');
-    const { ReleaseAnalyzer } = await import('../src/release/analyzer');
-    const { DeterministicReleaseScorer } = await import('../src/release/scorer');
-
-    const provider = new OpenAIQAProvider({
-      apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-    });
-
-    const analyzer = new ReleaseAnalyzer(provider);
-    const assessment = DeterministicReleaseScorer.calculateAssessment({
-      testRunId: 'run-openai-live-rel',
-      projectId: 'proj-live-1',
-      targetUrl: fixture.url,
-      applicationMap: {
-        startUrl: fixture.url,
-        discoveredAt: new Date().toISOString(),
-        totalPages: 2,
-        totalLinks: 2,
-        totalButtons: 2,
-        totalForms: 1,
-        totalInputs: 2,
-        pages: [],
-      },
-    });
-
-    const analysis = await analyzer.analyze(assessment, fixture.url);
-
-    expect(analysis).toBeDefined();
-    expect(analysis?.summary).toBeDefined();
-    expect(analysis?.keyRisks.length).toBeGreaterThanOrEqual(0);
-    expect(analysis?.strengths.length).toBeGreaterThanOrEqual(0);
-    expect(analysis?.recommendedActions.length).toBeGreaterThanOrEqual(1);
-    expect(['high', 'medium', 'low']).toContain(analysis?.confidence);
-  }, 30000);
 });

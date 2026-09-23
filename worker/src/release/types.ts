@@ -161,3 +161,154 @@ export interface ReleaseAssessment {
   aiAnalysis?: AIReleaseAnalysis;
   evaluatedAt: string;
 }
+
+// ==============================================================================
+// Prompt 38: Release Orchestration, Environment Management & Deployment-Aware QA
+// ==============================================================================
+
+export type EnvironmentType = 'DEVELOPMENT' | 'STAGING' | 'PREVIEW' | 'PRODUCTION' | 'CUSTOM';
+
+export type EnvironmentStatus = 'ACTIVE' | 'INACTIVE' | 'UNREACHABLE' | 'MISCONFIGURED' | 'AUTH_REQUIRED';
+
+export type EnvironmentHealthStatus = 'HEALTHY' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_REQUIRED' | 'MISCONFIGURED' | 'UNKNOWN';
+
+export interface ProjectEnvironment {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  sourceId?: string | null;
+  name: string;
+  slug: string;
+  type: EnvironmentType;
+  baseUrl: string;
+  branch?: string | null;
+  commitSha?: string | null;
+  status: EnvironmentStatus;
+  isProduction: boolean;
+  healthStatus: EnvironmentHealthStatus;
+  lastHealthCheckAt?: string | null;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DeploymentStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN';
+
+export type DeploymentTrigger = 'GITHUB_PUSH' | 'GITHUB_PR' | 'MANUAL' | 'WEBHOOK' | 'API' | 'UNKNOWN';
+
+export interface DeploymentRecord {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  environmentId: string;
+  sourceId?: string | null;
+  commitSha: string;
+  branch?: string | null;
+  deploymentUrl?: string | null;
+  provider: string;
+  status: DeploymentStatus;
+  trigger: DeploymentTrigger;
+  idempotencyKey?: string | null;
+  metadata?: Record<string, any>;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export type ReleaseStatus = 'DRAFT' | 'CANDIDATE' | 'TESTING' | 'READY' | 'BLOCKED' | 'RELEASED' | 'ABANDONED';
+
+export interface ReleaseRecord {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  environmentId: string;
+  deploymentId?: string | null;
+  sourceId?: string | null;
+  version: string;
+  commitSha: string;
+  branch?: string | null;
+  status: ReleaseStatus;
+  previousReleaseId?: string | null;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReleasePolicyLevel = 'PERMISSIVE' | 'STANDARD' | 'STRICT' | 'SMOKE_ONLY' | 'FULL' | 'CUSTOM';
+
+export type ReleaseGateKey =
+  | 'CRITICAL_ISSUES'
+  | 'REGRESSIONS'
+  | 'SECURITY'
+  | 'ACCESSIBILITY'
+  | 'PERFORMANCE'
+  | 'VISUAL'
+  | 'API'
+  | 'FUNCTIONAL'
+  | 'RELIABILITY'
+  | 'EVIDENCE_COMPLETENESS';
+
+export type ReleaseGateStatus = 'PASS' | 'FAIL' | 'WARN' | 'NOT_MEASURED' | 'INSUFFICIENT_EVIDENCE';
+
+export interface ReleaseGateEvaluation {
+  gate: ReleaseGateKey;
+  status: ReleaseGateStatus;
+  reason: string;
+  evidenceRefs: string[];
+  metricValue?: number | string;
+}
+
+export type ReleaseCheckStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INSUFFICIENT_EVIDENCE';
+
+export interface ReleaseCheckRecord {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  releaseId: string;
+  campaignId?: string | null;
+  policyLevel: ReleasePolicyLevel;
+  status: ReleaseCheckStatus;
+  overallScore?: number | null;
+  releaseDecision?: ReleaseRecommendation | null;
+  gates: ReleaseGateEvaluation[];
+  evidenceSummary: Record<string, any>;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export type ReleaseDecisionAction = 'APPROVE' | 'BLOCK' | 'REQUEST_RETEST';
+
+export interface ReleaseDecisionRecord {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  releaseId: string;
+  decision: ReleaseDecisionAction;
+  decidedBy: string;
+  decidedByRole: string;
+  notes?: string | null;
+  decidedAt: string;
+  createdAt: string;
+}
+
+export type RegressionClassification =
+  | 'NEW_REGRESSION'
+  | 'RECOVERED'
+  | 'RECURRING'
+  | 'STABLE'
+  | 'NOT_RETESTED'
+  | 'INSUFFICIENT_HISTORY';
+
+export interface ReleaseIssueCorrelation {
+  issueId: string;
+  title: string;
+  severity: string;
+  classification: RegressionClassification;
+  firstObservedCommit?: string;
+  confirmedInDeploymentId?: string;
+  causedByCommit?: boolean;
+  explanation: string;
+}
+

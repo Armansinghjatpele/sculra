@@ -2097,3 +2097,344 @@ export const mockOrganizationMembers: OrganizationMember[] = [
   },
 ];
 
+// ==============================================================================
+// Prompt 38: Release Orchestration & Environment Management Data Structures
+// ==============================================================================
+
+export type EnvironmentType = 'DEVELOPMENT' | 'STAGING' | 'PREVIEW' | 'PRODUCTION' | 'CUSTOM';
+export type EnvironmentStatus = 'ACTIVE' | 'INACTIVE' | 'UNREACHABLE' | 'MISCONFIGURED' | 'AUTH_REQUIRED';
+export type EnvironmentHealthStatus = 'HEALTHY' | 'DEGRADED' | 'UNREACHABLE' | 'AUTH_REQUIRED' | 'MISCONFIGURED' | 'UNKNOWN';
+
+export interface ProjectEnvironment {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  sourceId?: string | null;
+  name: string;
+  slug: string;
+  type: EnvironmentType;
+  baseUrl: string;
+  branch?: string | null;
+  commitSha?: string | null;
+  status: EnvironmentStatus;
+  isProduction: boolean;
+  healthStatus: EnvironmentHealthStatus;
+  lastHealthCheckAt?: string | null;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DeploymentStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN';
+export type DeploymentTrigger = 'GITHUB_PUSH' | 'GITHUB_PR' | 'MANUAL' | 'WEBHOOK' | 'API' | 'UNKNOWN';
+
+export interface Deployment {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  environmentId: string;
+  sourceId?: string | null;
+  commitSha: string;
+  branch?: string | null;
+  deploymentUrl?: string | null;
+  provider: string;
+  status: DeploymentStatus;
+  trigger: DeploymentTrigger;
+  idempotencyKey?: string | null;
+  metadata?: Record<string, any>;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export type ReleaseStatus = 'DRAFT' | 'CANDIDATE' | 'TESTING' | 'READY' | 'BLOCKED' | 'RELEASED' | 'ABANDONED';
+
+export interface Release {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  environmentId: string;
+  deploymentId?: string | null;
+  sourceId?: string | null;
+  version: string;
+  commitSha: string;
+  branch?: string | null;
+  status: ReleaseStatus;
+  targetDate?: string | null;
+  releasedAt?: string | null;
+  previousReleaseId?: string | null;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReleasePolicyLevel = 'PERMISSIVE' | 'STANDARD' | 'STRICT' | 'SMOKE_ONLY' | 'FULL' | 'CUSTOM';
+export type ReleaseGateKey =
+  | 'CRITICAL_ISSUES'
+  | 'REGRESSIONS'
+  | 'SECURITY'
+  | 'ACCESSIBILITY'
+  | 'PERFORMANCE'
+  | 'VISUAL'
+  | 'API'
+  | 'FUNCTIONAL'
+  | 'RELIABILITY'
+  | 'EVIDENCE_COMPLETENESS';
+
+export type ReleaseGateStatus = 'PASS' | 'FAIL' | 'WARN' | 'NOT_MEASURED' | 'INSUFFICIENT_EVIDENCE';
+
+export interface ReleaseGateEvaluation {
+  gate: ReleaseGateKey;
+  status: ReleaseGateStatus;
+  reason: string;
+  evidenceRefs: string[];
+  metricValue?: number | string;
+}
+
+export type ReleaseCheckStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INSUFFICIENT_EVIDENCE';
+
+export interface ReleaseCheck {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  releaseId: string;
+  campaignId?: string | null;
+  policyLevel: ReleasePolicyLevel;
+  status: ReleaseCheckStatus;
+  overallScore?: number | null;
+  releaseDecision?: string | null;
+  gates: ReleaseGateEvaluation[];
+  evidenceSummary: Record<string, any>;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export type ReleaseDecisionAction = 'APPROVE' | 'BLOCK' | 'REQUEST_RETEST';
+
+export interface ReleaseDecision {
+  id: string;
+  organizationId?: string | null;
+  projectId: string;
+  releaseId: string;
+  decision: ReleaseDecisionAction;
+  decidedBy: string;
+  decidedByRole: string;
+  notes?: string | null;
+  decidedAt: string;
+  createdAt: string;
+}
+
+export const mockProjectEnvironments: ProjectEnvironment[] = [
+  {
+    id: 'env-prod-1',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    name: 'Production',
+    slug: 'production',
+    type: 'PRODUCTION',
+    baseUrl: 'https://demo.sculra.com',
+    branch: 'main',
+    commitSha: '6d8b2a1e94fc07b5a12d',
+    status: 'ACTIVE',
+    isProduction: true,
+    healthStatus: 'HEALTHY',
+    lastHealthCheckAt: '2026-09-20T08:00:00Z',
+    metadata: { lastValidationLatencyMs: 142, lastValidationHttpStatus: 200 },
+    createdAt: '2026-01-15T10:00:00Z',
+    updatedAt: '2026-09-20T08:00:00Z',
+  },
+  {
+    id: 'env-staging-1',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    name: 'Staging',
+    slug: 'staging',
+    type: 'STAGING',
+    baseUrl: 'https://staging.demo.sculra.com',
+    branch: 'develop',
+    commitSha: 'a8b3c4d5e6f708192a3b',
+    status: 'ACTIVE',
+    isProduction: false,
+    healthStatus: 'HEALTHY',
+    lastHealthCheckAt: '2026-09-20T08:05:00Z',
+    metadata: { lastValidationLatencyMs: 185, lastValidationHttpStatus: 200 },
+    createdAt: '2026-01-15T10:30:00Z',
+    updatedAt: '2026-09-20T08:05:00Z',
+  },
+  {
+    id: 'env-preview-42',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    name: 'PR-42 Preview',
+    slug: 'pr-42-preview',
+    type: 'PREVIEW',
+    baseUrl: 'https://preview-pr-42.demo.sculra.com',
+    branch: 'feat/auth-sso',
+    commitSha: 'f1e2d3c4b5a697881029',
+    status: 'ACTIVE',
+    isProduction: false,
+    healthStatus: 'DEGRADED',
+    lastHealthCheckAt: '2026-09-20T08:10:00Z',
+    metadata: { lastValidationLatencyMs: 310, lastValidationHttpStatus: 503 },
+    createdAt: '2026-09-19T14:20:00Z',
+    updatedAt: '2026-09-20T08:10:00Z',
+  },
+];
+
+export const mockDeployments: Deployment[] = [
+  {
+    id: 'dep-101',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-prod-1',
+    commitSha: '6d8b2a1e94fc07b5a12d',
+    branch: 'main',
+    deploymentUrl: 'https://demo.sculra.com',
+    provider: 'GITHUB',
+    status: 'SUCCEEDED',
+    trigger: 'GITHUB_PUSH',
+    idempotencyKey: 'gh-dep-90123',
+    metadata: { description: 'Scheduled weekly production deployment' },
+    startedAt: '2026-09-18T10:00:00Z',
+    completedAt: '2026-09-18T10:04:30Z',
+    createdAt: '2026-09-18T10:00:00Z',
+    updatedAt: '2026-09-18T10:04:30Z',
+  },
+  {
+    id: 'dep-102',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-staging-1',
+    commitSha: 'a8b3c4d5e6f708192a3b',
+    branch: 'develop',
+    deploymentUrl: 'https://staging.demo.sculra.com',
+    provider: 'GITHUB',
+    status: 'SUCCEEDED',
+    trigger: 'GITHUB_PUSH',
+    idempotencyKey: 'gh-dep-90145',
+    metadata: { description: 'Automatic staging deployment on push to develop' },
+    startedAt: '2026-09-19T11:15:00Z',
+    completedAt: '2026-09-19T11:18:12Z',
+    createdAt: '2026-09-19T11:15:00Z',
+    updatedAt: '2026-09-19T11:18:12Z',
+  },
+  {
+    id: 'dep-103',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-preview-42',
+    commitSha: 'f1e2d3c4b5a697881029',
+    branch: 'feat/auth-sso',
+    deploymentUrl: 'https://preview-pr-42.demo.sculra.com',
+    provider: 'GENERIC',
+    status: 'FAILED',
+    trigger: 'GITHUB_PR',
+    idempotencyKey: 'pr-42-head',
+    metadata: { error: 'Build timeout during container compilation' },
+    startedAt: '2026-09-19T14:20:00Z',
+    completedAt: '2026-09-19T14:25:00Z',
+    createdAt: '2026-09-19T14:20:00Z',
+    updatedAt: '2026-09-19T14:25:00Z',
+  },
+];
+
+export const mockReleases: Release[] = [
+  {
+    id: 'rel-v240',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-prod-1',
+    deploymentId: 'dep-101',
+    version: 'v2.4.0',
+    commitSha: '6d8b2a1e94fc07b5a12d',
+    branch: 'main',
+    status: 'RELEASED',
+    metadata: { releaseTag: 'v2.4.0' },
+    createdAt: '2026-09-18T10:10:00Z',
+    updatedAt: '2026-09-18T12:00:00Z',
+  },
+  {
+    id: 'rel-v241-rc1',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-staging-1',
+    deploymentId: 'dep-102',
+    version: 'v2.4.1-rc.1',
+    commitSha: 'a8b3c4d5e6f708192a3b',
+    branch: 'develop',
+    status: 'READY',
+    previousReleaseId: 'rel-v240',
+    metadata: { releaseTag: 'v2.4.1-rc.1' },
+    createdAt: '2026-09-19T11:20:00Z',
+    updatedAt: '2026-09-19T14:00:00Z',
+  },
+  {
+    id: 'rel-v250-cand',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    environmentId: 'env-preview-42',
+    deploymentId: 'dep-103',
+    version: 'v2.5.0-preview',
+    commitSha: 'f1e2d3c4b5a697881029',
+    branch: 'feat/auth-sso',
+    status: 'BLOCKED',
+    metadata: {},
+    createdAt: '2026-09-19T14:30:00Z',
+    updatedAt: '2026-09-19T14:35:00Z',
+  },
+];
+
+export const mockReleaseChecks: ReleaseCheck[] = [
+  {
+    id: 'rc-101',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    releaseId: 'rel-v241-rc1',
+    policyLevel: 'STANDARD',
+    status: 'COMPLETED',
+    overallScore: 92.0,
+    releaseDecision: 'RELEASE',
+    gates: [
+      { gate: 'CRITICAL_ISSUES', status: 'PASS', reason: 'Zero critical issues detected.', evidenceRefs: [] },
+      { gate: 'REGRESSIONS', status: 'PASS', reason: 'Zero new regressions detected against v2.4.0.', evidenceRefs: [] },
+      { gate: 'SECURITY', status: 'PASS', reason: 'Security scan passed cleanly.', evidenceRefs: [], metricValue: 95 },
+      { gate: 'ACCESSIBILITY', status: 'PASS', reason: 'WCAG 2.1 AA audit passed.', evidenceRefs: [], metricValue: 90 },
+      { gate: 'PERFORMANCE', status: 'WARN', reason: 'Slight latency increase on dashboard page.', evidenceRefs: [], metricValue: 78 },
+      { gate: 'VISUAL', status: 'PASS', reason: 'Visual diff within tolerance threshold.', evidenceRefs: [], metricValue: 94 },
+      { gate: 'API', status: 'PASS', reason: '100% of tested API contracts valid.', evidenceRefs: [], metricValue: 98 },
+      { gate: 'FUNCTIONAL', status: 'PASS', reason: 'All critical journeys succeeded.', evidenceRefs: [], metricValue: 96 },
+      { gate: 'RELIABILITY', status: 'PASS', reason: 'Zero unhandled exceptions or console errors.', evidenceRefs: [], metricValue: 93 },
+      { gate: 'EVIDENCE_COMPLETENESS', status: 'PASS', reason: 'Evidence complete with 18 test runs.', evidenceRefs: [], metricValue: 18 },
+    ],
+    evidenceSummary: {
+      scoringVersion: '1.0',
+      confidenceLevel: 'HIGH',
+      riskLevel: 'LOW',
+      blockersCount: 0,
+      regressionsCount: 0,
+      recoveredCount: 2,
+    },
+    startedAt: '2026-09-19T11:22:00Z',
+    completedAt: '2026-09-19T11:35:00Z',
+    createdAt: '2026-09-19T11:22:00Z',
+  },
+];
+
+export const mockReleaseDecisions: ReleaseDecision[] = [
+  {
+    id: 'rd-101',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    releaseId: 'rel-v240',
+    decision: 'APPROVE',
+    decidedBy: 'user_owner_1',
+    decidedByRole: 'OWNER',
+    notes: 'Production release approved following verified pass across all 10 release gates.',
+    decidedAt: '2026-09-18T12:00:00Z',
+    createdAt: '2026-09-18T12:00:00Z',
+  },
+];
+
+

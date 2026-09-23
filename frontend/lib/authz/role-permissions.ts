@@ -27,18 +27,24 @@ const BASE_VIEWER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.OBSERVABILITY_READ,
   PERMISSIONS.INTEGRATIONS_READ,
   PERMISSIONS.SETTINGS_READ,
+  // Environments & Release read permissions
+  PERMISSIONS.ENVIRONMENT_READ,
+  PERMISSIONS.DEPLOYMENTS_READ,
+  PERMISSIONS.RELEASES_READ,
 ] as const;
 
-// Developer: Viewer permissions + Issue triage + Fix planning & requests
+// Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation
 const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   ...BASE_VIEWER_PERMISSIONS,
   PERMISSIONS.ISSUES_UPDATE,
   PERMISSIONS.ISSUES_RESOLVE,
   PERMISSIONS.REMEDIATION_REQUEST,
   PERMISSIONS.FIX_AGENT_PLAN,
+  PERMISSIONS.DEPLOYMENTS_CREATE,
+  PERMISSIONS.RELEASES_CREATE,
 ] as const;
 
-// QA Lead: Developer permissions + Campaign, Test, Source, Strategy & QA Engine executions
+// QA Lead: Developer permissions + Campaign, Test, Source, Strategy & QA Engine executions + Environments/Release Checks
 const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   ...DEVELOPER_PERMISSIONS,
   // Projects configuration for QA
@@ -47,6 +53,9 @@ const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.SOURCES_CREATE,
   PERMISSIONS.SOURCES_UPDATE,
   PERMISSIONS.SOURCES_VALIDATE,
+  // Environments management (non-production)
+  PERMISSIONS.ENVIRONMENT_CREATE,
+  PERMISSIONS.ENVIRONMENT_UPDATE,
   // Campaigns full control
   PERMISSIONS.CAMPAIGNS_CREATE,
   PERMISSIONS.CAMPAIGNS_START,
@@ -57,8 +66,10 @@ const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.TESTS_CANCEL,
   // Reports generation
   PERMISSIONS.REPORTS_CREATE,
-  // Release readiness evaluation
+  // Release readiness evaluation & release orchestration
   PERMISSIONS.RELEASE_EVALUATE,
+  PERMISSIONS.RELEASES_CHECK,
+  PERMISSIONS.RELEASES_DECIDE,
   // Strategy configuration
   PERMISSIONS.STRATEGY_CONFIGURE,
   // QA engines execution & configuration
@@ -95,8 +106,9 @@ const ADMIN_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.PROJECTS_CREATE,
   PERMISSIONS.PROJECTS_ARCHIVE,
   PERMISSIONS.PROJECTS_DELETE,
-  // Sources deletion
+  // Sources deletion & Environment deletion
   PERMISSIONS.SOURCES_DELETE,
+  PERMISSIONS.ENVIRONMENT_DELETE,
   // Fix agent policy configuration
   PERMISSIONS.FIX_AGENT_CONFIGURE,
   // Integrations & settings management

@@ -229,6 +229,30 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 <span>Fix Agent</span>
               </Button>
             </Link>
+            <Link href={`/projects/${projectId}/environments`}>
+              <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5 border-white/10 hover:border-emerald-500/40">
+                <svg className="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+                <span>Environments</span>
+              </Button>
+            </Link>
+            <Link href={`/projects/${projectId}/deployments`}>
+              <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5 border-white/10 hover:border-cyan-500/40">
+                <svg className="h-3.5 w-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Deployments</span>
+              </Button>
+            </Link>
+            <Link href={`/projects/${projectId}/releases`}>
+              <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5 border-white/10 hover:border-purple-500/40">
+                <svg className="h-3.5 w-3.5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Releases</span>
+              </Button>
+            </Link>
             <Link href="/projects">
               <Button variant="outline" size="sm">Back</Button>
             </Link>

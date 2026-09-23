@@ -70,4 +70,41 @@ export class WorkerPolicyManager {
       throw new WorkerAuthorizationError(`Cannot remove member with higher role (${targetRole}).`);
     }
   }
+
+  /**
+   * Evaluates environment configuration constraints.
+   */
+  public static evaluateEnvironmentMutation(params: {
+    callerRole: SculraRole;
+    isProduction: boolean;
+    action: 'CREATE' | 'UPDATE' | 'DELETE';
+  }): void {
+    if (params.isProduction && params.callerRole !== 'OWNER' && params.callerRole !== 'ADMIN') {
+      throw new WorkerAuthorizationError(
+        'Only organization Owners and Admins can configure or delete Production environments.'
+      );
+    }
+  }
+
+  /**
+   * Evaluates release decision constraints.
+   */
+  public static evaluateReleaseDecision(params: {
+    callerRole: SculraRole;
+    decision: 'APPROVE' | 'BLOCK' | 'REQUEST_RETEST';
+    releaseStatus: string;
+  }): void {
+    if (params.callerRole === 'VIEWER') {
+      throw new WorkerAuthorizationError('Viewers are not permitted to record release decisions.');
+    }
+    if (params.releaseStatus === 'RELEASED') {
+      throw new WorkerAuthorizationError('Cannot alter decision for an already released version.');
+    }
+    if (params.releaseStatus === 'ABANDONED') {
+      throw new WorkerAuthorizationError('Cannot alter decision for an abandoned release candidate.');
+    }
+  }
 }
+
+export const PolicyManager = WorkerPolicyManager;
+export const RoleNotAllowedError = WorkerAuthorizationError;
