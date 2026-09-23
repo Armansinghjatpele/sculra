@@ -132,10 +132,13 @@ describe('Prompt 40: Frontend Notification, Alert & Incident Engine Services', (
   });
 
   it('retrieves project incidents with truthful non-causal structure', async () => {
+    expect(getProjectIncidentById.length).toBe(3);
+    expect(getProjectIncidents.length).toBe(3);
+
     const incidents = await getProjectIncidents('token-123', projectId);
     expect(Array.isArray(incidents)).toBe(true);
 
-    const incident = await getProjectIncidentById('token-123', 'inc-100');
+    const incident = await getProjectIncidentById('token-123', projectId, 'inc-100');
     expect(incident).toBeDefined();
   });
 
