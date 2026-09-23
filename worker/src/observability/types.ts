@@ -3,9 +3,9 @@
 // (worker/src/observability/types.ts)
 // ==============================================================================
 
-export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI' | 'SOURCE_INGESTOR' | 'VAULT';
+export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI' | 'SOURCE_INGESTOR' | 'VAULT' | 'NOTIFICATION_ENGINE';
 
-export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL' | 'SOURCE' | 'VAULT';
+export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL' | 'SOURCE' | 'VAULT' | 'NOTIFICATION';
 
 export type FactCategory =
   | 'OBSERVED_FACT'
@@ -124,7 +124,18 @@ export type AutonomousEventType =
   | 'CREDENTIAL_ROTATED'
   | 'CREDENTIAL_REVOKED'
   | 'CREDENTIAL_DELETED'
-  | 'CREDENTIAL_ACCESS_DENIED';
+  | 'CREDENTIAL_ACCESS_DENIED'
+  // Enterprise Notifications & Incident Communication
+  | 'NOTIFICATION_CREATED'
+  | 'NOTIFICATION_SUPPRESSED'
+  | 'NOTIFICATION_DELIVERY_STARTED'
+  | 'NOTIFICATION_DELIVERY_SUCCEEDED'
+  | 'NOTIFICATION_DELIVERY_FAILED'
+  | 'NOTIFICATION_RETRY_SCHEDULED'
+  | 'INCIDENT_CREATED'
+  | 'INCIDENT_UPDATED'
+  | 'INCIDENT_RESOLVED'
+  | 'INCIDENT_SUPPRESSED';
 
 export type SkipReason =
   | 'AUTH_REQUIRED'

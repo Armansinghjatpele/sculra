@@ -2371,4 +2371,59 @@ Sculra establishes a strict, canonical credential boundary guarding all third-pa
 - **Zero-Secret Events**: Observability payloads contain metadata only (`credentialId`, `provider`, `scope`, `actor`, `durationMs`). They never contain plaintext, ciphertext, auth headers, or tokens.
 - **Multi-Layer Redactor**: Redacts GitHub tokens (`ghp_`, `github_pat_`), OpenAI keys (`sk-`), AWS keys (`AKIA`), JWTs, Bearer headers, Basic auth, and webhook secrets across all system logs and telemetry.
 
+---
+
+## 29. Enterprise Notifications, Alerts & Incident Communication Engine
+
+### 29.1 Architecture & Design Principles
+Sculra introduces an enterprise-grade notification, alerting, and incident communication engine designed for real-time awareness and automated operational stability:
+- **Secondary Infrastructure Guarantee**: The notification engine is strictly secondary infrastructure. A failure in notification dispatch (e.g. webhook timeout, email transport error, external API failure) **MUST NEVER** crash, abort, or fail primary QA runs, autonomous campaigns, release evaluations, or fix agents. All dispatches are executed behind fault-isolated error barriers.
+- **Strict Anti-Fabrication & Zero Fake Data**: Notifications, delivery statuses, incident records, recipient rosters, and delivery health metrics are 100% grounded in real database rows and physical delivery events. Empty states display honest empty indicators (*"No notifications yet."*); delivery health reports `INSUFFICIENT_DATA` and `successRate: null` when no delivery attempts exist, rather than fabricating 100% success rates.
+- **Four Conceptual Categories**:
+  1. `FACT`: An immutable observation of what occurred (e.g. test failed, response timed out).
+  2. `DECISION`: An autonomous or human operational choice (e.g. release blocked, patch approved).
+  3. `DELIVERY`: The factual attempt or completion of message dispatch across a channel.
+  4. `RECOMMENDATION`: Suggested follow-up actions (e.g. "Review failing test"). Recommendations are never presented as delivered notifications.
+
+### 29.2 Canonical Event Taxonomy & Normalization
+Incoming system events are normalized into a unified `NotificationEvent` model with SHA-256 deterministic fingerprinting:
+- **Campaign & Test Events**: `CAMPAIGN_FAILED`, `CAMPAIGN_COMPLETED`, `CAMPAIGN_CANCELLED`, `TEST_RUN_FAILED`, `TEST_RUN_PASSED`.
+- **Issue & Regression Events**: `ISSUE_CREATED`, `ISSUE_ESCALATED`, `ISSUE_RESOLVED`, `ISSUE_RECURRED`, `REGRESSION_DETECTED`, `REGRESSION_RECOVERED`.
+- **Release Lifecycle Events**: `RELEASE_BLOCKED`, `RELEASE_READY`, `RELEASE_RELEASED`, `RELEASE_ABANDONED`, `RELEASE_DECISION_RECORDED`.
+- **Deployment & Environment Events**: `DEPLOYMENT_STARTED`, `DEPLOYMENT_COMPLETED`, `DEPLOYMENT_FAILED`, `DEPLOYMENT_HEALTH_DEGRADED`, `ENVIRONMENT_DEGRADED`, `ENVIRONMENT_UNREACHABLE`, `ENVIRONMENT_RECOVERED`.
+- **CI/CD & Security Gates**: `CI_GATE_FAILED`, `CI_GATE_PASSED`, `SECURITY_BLOCKER_CREATED`, `SECURITY_VULNERABILITY_DETECTED`, `CREDENTIAL_EXPIRED`, `CREDENTIAL_VALIDATION_FAILED`.
+- **Fix Agent & Approvals**: `FIX_APPROVAL_REQUIRED`, `FIX_VERIFICATION_FAILED`, `FIX_PR_CREATED`, `HUMAN_APPROVAL_REQUIRED`.
+- **Autonomous & Worker Operations**: `AUTONOMOUS_DECISION_RECORDED`, `WORKER_FAILURE_THRESHOLD_REACHED`, `WORKER_FAILED`.
+
+### 29.3 Bounded Deduplication & Rate Throttling
+- **Windowed Hash Deduplication**: Events with identical fingerprints (`eventType + entityType + entityId + severity`) are deduplicated within a bounded time window (15 minutes for `CRITICAL`, 30 minutes for `HIGH`, 60 minutes for `MEDIUM`, 120 minutes for `LOW`/`INFO`). Suppressed duplicates increment a suppression counter and emit audited suppression events.
+- **Rate Throttling with Critical Bypass**: Limits dispatches to a maximum of 30 notifications per user per minute and 100 notifications per project per minute. Rapid state fluctuations (flapping environments) are boundedly throttled, while `CRITICAL` severity alerts explicitly bypass throttling to prevent silent loss of life-safety or production security signals.
+
+### 29.4 Secure Outbound Webhooks & SSRF Defenses
+- **SSRF Validation**: All outbound webhook target URLs are validated using `validateTargetUrl` and `isPrivateOrBlockedHost`. Loopback (`127.0.0.1`, `localhost`), RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and cloud metadata endpoints (`169.254.169.254`) are rejected immediately with `SSRF_BLOCKED`.
+- **Hop-by-Hop Redirect Revalidation**: Webhooks enforce manual redirect handling up to `MAX_REDIRECTS = 3`. Every intermediate hop and target URL is strictly re-validated against the SSRF filter before continuing. Any redirect to a private address is blocked with `SSRF_BLOCKED_ON_REDIRECT`.
+- **Cryptographic Signatures**: Payloads are signed with HMAC SHA-256 using secrets retrieved from the Credential Vault. Outbound requests include `X-Sculra-Signature: sha256=<hex>` and `X-Sculra-Timestamp: <ISO>` for replay protection.
+- **Payload & Response Bounds**: Webhook responses are capped at `MAX_WEBHOOK_RESPONSE_BYTES = 1MB` and timeouts at `10000ms`. Event metadata is capped at 64KB.
+
+### 29.5 Factual Incident Lifecycle & Anti-Causation Correlation
+- **Incident Correlator**: Related failure events are correlated into `NotificationIncident` records (`OPEN`, `ACKNOWLEDGED`, `RESOLVED`, `SUPPRESSED`). Subsequent failures within the 1-hour correlation window merge into the active incident timeline rather than spamming duplicate open incidents.
+- **Anti-Causation Safeguard**: Incident timelines record factual temporal relationships (e.g. *"Occurred after deployment dep-501"*). The engine strictly prohibits asserting unsupported causality (e.g. *"Deployment dep-501 caused the failure"*).
+- **Lifecycle Transitions**: Human operators can transition incidents from `OPEN` to `ACKNOWLEDGED` and `RESOLVED`, tracking timestamped actor IDs and resolution notes. Resolution events (`ENVIRONMENT_RECOVERED`, `REGRESSION_RECOVERED`) automatically transition active incidents to `RESOLVED`.
+
+### 29.6 Multi-Tenant Recipient Resolution & RBAC
+- **Tenant Boundaries**: Recipients are strictly scoped to the originating organization. Cross-organization message delivery is impossible.
+- **Role Enforcement**:
+  - `OWNER` / `ADMIN`: Full access to notifications, incident triage, channel configuration, and webhook endpoints.
+  - `QA_LEAD`: Incident management, test run / release / campaign alerts, approval notifications, and preference management.
+  - `DEVELOPER`: In-app notification read, issue / fix agent alerts, personal preference updates, and incident reading.
+  - `VIEWER`: In-app read-only access to authorized notifications and personal preferences. Forbidden from creating webhook subscriptions or managing incidents.
+- **Status Guards**: Users with status `suspended` or `removed` are immediately excluded from recipient resolution.
+
+### 29.7 Frontend Command Center & Notification Settings
+- `/notifications`: Real-time notification center with unread count badge, severity filtering (`ALL`, `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`), read status toggling, and direct deep links to affected entities.
+- `/settings/notifications`: Channel overview reflecting truthful configuration states (`CONFIGURED` vs `NOT_CONFIGURED`), severity threshold controls, delivery frequency preferences, and active subscription management.
+- `/projects/[projectId]/incidents`: Project incident dashboard detailing open and resolved incidents with severity badges.
+- `/projects/[projectId]/incidents/[incidentId]`: Incident Command Console with factual non-causal event timeline, timeline markers, and manual acknowledge / resolve controls.
+
+
 

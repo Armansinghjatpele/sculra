@@ -50,7 +50,7 @@ import {
 } from '../services/db';
 import { PolicyManager } from '../lib/authz/policy';
 import { RoleNotAllowedError } from '../lib/authz/authorization-errors';
-import IntegrationsAndVaultPage, { IntegrationsAndVaultPageProps } from '../app/(authenticated)/settings/integrations/page';
+import IntegrationsAndVaultPage, { IntegrationsAndVaultPageProps } from '../app/(authenticated)/settings/integrations/IntegrationsAndVaultConsole';
 import { mockCredentialRecords, CredentialRecord } from '../lib/demoData';
 
 const VaultPage = IntegrationsAndVaultPage as React.ComponentType<IntegrationsAndVaultPageProps>;

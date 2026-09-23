@@ -131,6 +131,15 @@ export const PERMISSIONS = {
   CREDENTIALS_ROTATE: 'credentials.rotate',
   CREDENTIALS_VALIDATE: 'credentials.validate',
   CREDENTIALS_USE: 'credentials.use',
+
+  // Notifications
+  NOTIFICATIONS_READ: 'notifications.read',
+  NOTIFICATIONS_MANAGE: 'notifications.manage',
+  NOTIFICATIONS_PREFERENCES_UPDATE: 'notifications.preferences_update',
+
+  // Incidents
+  INCIDENTS_READ: 'incidents.read',
+  INCIDENTS_MANAGE: 'incidents.manage',
 } as const;
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

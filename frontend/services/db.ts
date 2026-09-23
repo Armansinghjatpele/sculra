@@ -29,11 +29,14 @@ import {
   HumanApprovalStatus,
   EvidenceGraph,
   AutonomousHealthMetrics,
+  NotificationPreference,
+  NotificationSubscription,
+  NotificationIncident,
+  NotificationIncidentEvent,
   mockProjects,
   mockTestRuns,
   mockIssues,
   mockAIInsights,
-  mockNotifications,
   mockTestEvidence,
   mockCampaigns,
   mockCampaignTasks,
@@ -469,24 +472,350 @@ export async function getAIInsights(clerkToken: string, clerkOrgId?: string | nu
   })) as AIInsight[];
 }
 
-export async function getNotifications(clerkToken: string) {
+export async function getNotifications(
+  clerkToken: string,
+  options?: {
+    orgId?: string;
+    projectId?: string;
+    severity?: string;
+    read?: boolean;
+  }
+): Promise<Notification[]> {
   const supabase = getSupabaseUserClient(clerkToken);
-  const { data, error } = await supabase
+  let query = supabase
     .from('notifications')
-    .select('*');
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  if (useFallback(error)) {
-    return mockNotifications;
+  if (options?.orgId) {
+    query = query.eq('organization_id', options.orgId);
+  }
+  if (options?.projectId) {
+    query = query.eq('project_id', options.projectId);
+  }
+  if (options?.severity) {
+    query = query.eq('severity', options.severity);
+  }
+  if (options?.read !== undefined) {
+    if (options.read) {
+      query = query.not('read_at', 'is', null);
+    } else {
+      query = query.is('read_at', null);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn('[Notifications] Query error:', error.message);
+    return [];
   }
 
   return (data || []).map((n: any) => ({
     id: n.id,
     title: n.title,
-    description: n.message,
+    description: n.summary || n.message || '',
     read: n.read_at !== null,
-    createdAt: 'Synced',
-    type: n.type as any,
+    readAt: n.read_at,
+    createdAt: n.created_at,
+    type: n.type || 'alert',
+    severity: n.severity || 'INFO',
+    projectId: n.project_id,
+    organizationId: n.organization_id,
+    entityType: n.entity_type,
+    entityId: n.entity_id,
+    metadata: n.metadata || {},
   })) as Notification[];
+}
+
+export async function markNotificationRead(clerkToken: string, id: string): Promise<boolean> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    console.warn('[Notifications] Failed marking read:', error.message);
+    return false;
+  }
+  return true;
+}
+
+export async function markAllNotificationsRead(clerkToken: string): Promise<boolean> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
+
+  if (error) {
+    console.warn('[Notifications] Failed marking all read:', error.message);
+    return false;
+  }
+  return true;
+}
+
+export async function getNotificationPreferences(
+  clerkToken: string,
+  orgId?: string,
+  projectId?: string
+): Promise<NotificationPreference[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase.from('notification_preferences').select('*');
+
+  if (orgId) query = query.eq('organization_id', orgId);
+  if (projectId) query = query.eq('project_id', projectId);
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn('[NotificationPreferences] Query error:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+export async function updateNotificationPreference(
+  clerkToken: string,
+  preference: Partial<NotificationPreference> & { clerk_user_id: string }
+): Promise<NotificationPreference | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .upsert({
+      ...preference,
+      updated_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.warn('[NotificationPreferences] Upsert error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getNotificationSubscriptions(
+  clerkToken: string,
+  orgId?: string,
+  projectId?: string
+): Promise<NotificationSubscription[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase.from('notification_subscriptions').select('*');
+
+  if (orgId) query = query.eq('organization_id', orgId);
+  if (projectId) query = query.eq('project_id', projectId);
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn('[NotificationSubscriptions] Query error:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createNotificationSubscription(
+  clerkToken: string,
+  subscription: {
+    organization_id?: string | null;
+    project_id?: string | null;
+    clerk_user_id: string;
+    target_type: 'PROJECT' | 'RELEASE' | 'ISSUE' | 'CAMPAIGN' | 'ENVIRONMENT';
+    target_id: string;
+    channel?: 'IN_APP' | 'EMAIL' | 'WEBHOOK';
+    event_types?: string[];
+  }
+): Promise<NotificationSubscription | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('notification_subscriptions')
+    .insert({
+      organization_id: subscription.organization_id || null,
+      project_id: subscription.project_id || null,
+      clerk_user_id: subscription.clerk_user_id,
+      target_type: subscription.target_type,
+      target_id: subscription.target_id,
+      channel: subscription.channel || 'IN_APP',
+      event_types: subscription.event_types || [],
+      created_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.warn('[NotificationSubscriptions] Insert error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteNotificationSubscription(
+  clerkToken: string,
+  id: string
+): Promise<boolean> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { error } = await supabase
+    .from('notification_subscriptions')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.warn('[NotificationSubscriptions] Delete error:', error.message);
+    return false;
+  }
+  return true;
+}
+
+export async function getProjectIncidents(
+  clerkToken: string,
+  projectId: string,
+  filters?: { status?: string; severity?: string }
+): Promise<NotificationIncident[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase
+    .from('notification_incidents')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('last_updated_at', { ascending: false });
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+  if (filters?.severity) {
+    query = query.eq('severity', filters.severity);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn('[Incidents] Query error:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getProjectIncidentById(
+  clerkToken: string,
+  projectId: string,
+  incidentId: string
+): Promise<NotificationIncident | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data: incident, error: incError } = await supabase
+    .from('notification_incidents')
+    .select('*')
+    .eq('id', incidentId)
+    .eq('project_id', projectId)
+    .maybeSingle();
+
+  if (incError || !incident) {
+    return null;
+  }
+
+  const { data: events } = await supabase
+    .from('notification_incident_events')
+    .select('*')
+    .eq('incident_id', incidentId)
+    .order('occurred_at', { ascending: true });
+
+  return {
+    ...incident,
+    events: events || [],
+  };
+}
+
+export async function updateIncidentStatus(
+  clerkToken: string,
+  incidentId: string,
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'SUPPRESSED',
+  notes?: string,
+  actor?: string
+): Promise<NotificationIncident | null> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const now = new Date().toISOString();
+
+  const updates: Record<string, any> = {
+    status,
+    last_updated_at: now,
+  };
+
+  if (status === 'ACKNOWLEDGED') {
+    updates.acknowledged_at = now;
+    updates.acknowledged_by = actor || 'user';
+  } else if (status === 'RESOLVED') {
+    updates.resolved_at = now;
+    updates.resolved_by = actor || 'user';
+    if (notes) updates.resolution_notes = notes;
+  }
+
+  const { data, error } = await supabase
+    .from('notification_incidents')
+    .update(updates)
+    .eq('id', incidentId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.warn('[Incidents] Status update error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getDeliveryHealth(
+  clerkToken: string,
+  orgId?: string
+): Promise<{
+  status: string;
+  totalDeliveries: number;
+  successfulCount: number;
+  failedCount: number;
+  retryingCount: number;
+  suppressedCount: number;
+  successRate: number | null;
+}> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let query = supabase.from('notification_deliveries').select('status');
+
+  if (orgId) {
+    query = query.eq('organization_id', orgId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) {
+    return {
+      status: 'INSUFFICIENT_DATA',
+      totalDeliveries: 0,
+      successfulCount: 0,
+      failedCount: 0,
+      retryingCount: 0,
+      suppressedCount: 0,
+      successRate: null,
+    };
+  }
+
+  let successfulCount = 0;
+  let failedCount = 0;
+  let retryingCount = 0;
+  let suppressedCount = 0;
+
+  for (const item of data) {
+    if (item.status === 'DELIVERED' || item.status === 'SENT') successfulCount++;
+    else if (item.status === 'FAILED') failedCount++;
+    else if (item.status === 'RETRYING') retryingCount++;
+    else if (item.status === 'SUPPRESSED') suppressedCount++;
+  }
+
+  const nonSuppressed = successfulCount + failedCount + retryingCount;
+  const successRate = nonSuppressed > 0 ? Math.round((successfulCount / nonSuppressed) * 100) : null;
+
+  return {
+    status: successRate !== null && successRate >= 95 ? 'HEALTHY' : successRate !== null ? 'DEGRADED' : 'INSUFFICIENT_DATA',
+    totalDeliveries: data.length,
+    successfulCount,
+    failedCount,
+    retryingCount,
+    suppressedCount,
+    successRate,
+  };
 }
 
 export async function getTestRun(clerkToken: string, id: string): Promise<TestRun | null> {

@@ -33,6 +33,10 @@ const BASE_VIEWER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.RELEASES_READ,
   // Credentials safe metadata read
   PERMISSIONS.CREDENTIALS_READ,
+  // Notifications & Incidents read
+  PERMISSIONS.NOTIFICATIONS_READ,
+  PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE,
+  PERMISSIONS.INCIDENTS_READ,
 ] as const;
 
 // Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation + Credential usage
@@ -45,6 +49,7 @@ const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.DEPLOYMENTS_CREATE,
   PERMISSIONS.RELEASES_CREATE,
   PERMISSIONS.CREDENTIALS_USE,
+  PERMISSIONS.INCIDENTS_MANAGE,
 ] as const;
 
 // QA Lead: Developer permissions + Campaign, Test, Source, Strategy & QA Engine executions + Environments/Release Checks
@@ -95,6 +100,8 @@ const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.APPROVALS_REJECT,
   // Observability admin
   PERMISSIONS.OBSERVABILITY_ADMIN,
+  // Notifications management
+  PERMISSIONS.NOTIFICATIONS_MANAGE,
 ] as const;
 
 // Admin: QA Lead permissions + Full project lifecycle, member management, and integrations

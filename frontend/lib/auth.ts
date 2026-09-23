@@ -9,6 +9,7 @@ import { AuthError, PermissionError } from '../../shared/utils/errors';
 import {
   SculraRole as CanonicalSculraRole,
   mapClerkRoleToSculra as canonicalMapRole,
+  hasPermission as canonicalHasPermission,
   PERMISSIONS,
   SculraPermission,
 } from './authz';
@@ -80,7 +81,6 @@ export function hasPermission(
   }
 
   // Permission string check
-  const { hasPermission: canonicalHasPermission } = require('./authz');
   return canonicalHasPermission(mapped, allowedRolesOrPermission);
 }
 

@@ -87,6 +87,30 @@ export class ApprovalSecurityManager {
       }
     }
 
+    // Secondary notification dispatch (fault-isolated)
+    try {
+      const { NotificationEngine } = await import('../notifications');
+      const engine = new NotificationEngine(supabaseClient);
+      engine.dispatch({
+        eventType: record.remediationId ? 'FIX_APPROVAL_REQUIRED' : 'HUMAN_APPROVAL_REQUIRED',
+        entityType: 'HUMAN_APPROVAL',
+        entityId: record.id,
+        title: `Approval Required: ${record.actionType}`,
+        summary: record.reason,
+        organizationId: record.organizationId,
+        projectId: record.projectId,
+        severity: record.riskLevel,
+        deepLink: `/projects/${record.projectId}/fixes`,
+        metadata: {
+          actionType: record.actionType,
+          remediationId: record.remediationId,
+          expiresAt: record.expiresAt,
+        },
+      }).catch(() => {});
+    } catch {
+      // Non-blocking notification dispatch
+    }
+
     return record;
   }
 

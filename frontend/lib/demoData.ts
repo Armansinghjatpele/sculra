@@ -780,7 +780,77 @@ export interface Notification {
   description: string;
   read: boolean;
   createdAt: string;
-  type: 'alert' | 'system' | 'report';
+  type: 'alert' | 'system' | 'report' | string;
+  severity?: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  projectId?: string | null;
+  organizationId?: string | null;
+  entityType?: string;
+  entityId?: string;
+  readAt?: string | null;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationPreference {
+  id: string;
+  organization_id?: string | null;
+  clerk_user_id: string;
+  project_id?: string | null;
+  event_type?: string | null;
+  min_severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  channel: 'IN_APP' | 'EMAIL' | 'WEBHOOK';
+  frequency: 'IMMEDIATE' | 'HOURLY_DIGEST' | 'DAILY_DIGEST' | 'NEVER';
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationSubscription {
+  id: string;
+  organization_id?: string | null;
+  clerk_user_id: string;
+  project_id?: string | null;
+  target_type: 'PROJECT' | 'RELEASE' | 'ISSUE' | 'CAMPAIGN' | 'ENVIRONMENT';
+  target_id: string;
+  channel: 'IN_APP' | 'EMAIL' | 'WEBHOOK';
+  event_types: string[];
+  created_at: string;
+}
+
+export interface NotificationIncident {
+  id: string;
+  organization_id?: string | null;
+  project_id: string;
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'SUPPRESSED';
+  severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  title: string;
+  summary: string;
+  fingerprint: string;
+  primary_entity_type: string;
+  primary_entity_id: string;
+  started_at: string;
+  last_updated_at: string;
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  resolution_notes?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+  events?: NotificationIncidentEvent[];
+}
+
+export interface NotificationIncidentEvent {
+  id: string;
+  incident_id: string;
+  event_id: string;
+  event_type: string;
+  relationship: 'CORRELATED' | 'POSSIBLY_RELATED' | 'OBSERVED_FACT';
+  entity_type?: string;
+  entity_id?: string;
+  occurred_at: string;
+  summary: string;
+  metadata?: Record<string, any>;
+  created_at: string;
 }
 
 // ------------------------------------------------------------------------------

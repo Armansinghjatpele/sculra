@@ -131,6 +131,15 @@ export const PERMISSIONS = {
   CREDENTIALS_ROTATE: 'credentials.rotate',
   CREDENTIALS_VALIDATE: 'credentials.validate',
   CREDENTIALS_USE: 'credentials.use',
+
+  // Notifications
+  NOTIFICATIONS_READ: 'notifications.read',
+  NOTIFICATIONS_MANAGE: 'notifications.manage',
+  NOTIFICATIONS_PREFERENCES_UPDATE: 'notifications.preferences_update',
+
+  // Incidents
+  INCIDENTS_READ: 'incidents.read',
+  INCIDENTS_MANAGE: 'incidents.manage',
 };
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -388,6 +397,25 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { key: PERMISSIONS.CREDENTIALS_ROTATE, label: 'Rotate Encryption Keys', description: 'Rotate encryption key versions for secrets', isSensitive: true },
       { key: PERMISSIONS.CREDENTIALS_VALIDATE, label: 'Validate Credentials', description: 'Perform bounded validation against providers' },
       { key: PERMISSIONS.CREDENTIALS_USE, label: 'Use Credentials', description: 'Authorize worker execution to resolve secrets' },
+    ],
+  },
+  {
+    id: 'notifications',
+    name: 'Notifications & Alerts',
+    description: 'Alerting preferences, channels, and delivery configuration',
+    permissions: [
+      { key: PERMISSIONS.NOTIFICATIONS_READ, label: 'View Notifications', description: 'Access notification center and alerts' },
+      { key: PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE, label: 'Update Preferences', description: 'Customize notification channels and severity' },
+      { key: PERMISSIONS.NOTIFICATIONS_MANAGE, label: 'Manage Notifications', description: 'Configure organization webhooks and delivery policies', isSensitive: true },
+    ],
+  },
+  {
+    id: 'incidents',
+    name: 'Incident Management',
+    description: 'Incident tracking, triage, correlation timelines, and resolution',
+    permissions: [
+      { key: PERMISSIONS.INCIDENTS_READ, label: 'View Incidents', description: 'Inspect open and resolved incident timelines' },
+      { key: PERMISSIONS.INCIDENTS_MANAGE, label: 'Manage Incidents', description: 'Acknowledge or resolve active incidents' },
     ],
   },
 ];

@@ -294,7 +294,7 @@ export default function ProjectFixesPage() {
                     />
                   </div>
                   <p className="text-4xs text-zinc-400 font-sans">
-                    Requires a human developer to click "Approve" after diff review before any PR is opened.
+                    Requires a human developer to click &quot;Approve&quot; after diff review before any PR is opened.
                   </p>
                 </div>
               </div>

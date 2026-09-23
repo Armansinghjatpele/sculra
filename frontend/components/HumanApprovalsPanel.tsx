@@ -39,6 +39,7 @@ export function HumanApprovalsPanel({
   const [decisionReason, setDecisionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
+  const [now] = useState(() => Date.now());
 
   const pendingApprovals = approvals.filter((a) => a.status === 'PENDING');
   const historyApprovals = approvals.filter((a) => a.status !== 'PENDING');
@@ -47,7 +48,7 @@ export function HumanApprovalsPanel({
   const selectedApproval = approvals.find((a) => a.id === selectedApprovalId) || (currentList[0] ?? null);
 
   const isExpired = selectedApproval
-    ? new Date(selectedApproval.expiresAt).getTime() < Date.now()
+    ? new Date(selectedApproval.expiresAt).getTime() < now
     : false;
 
   const isShaDrifted = selectedApproval && currentHeadSha
@@ -120,7 +121,7 @@ export function HumanApprovalsPanel({
           <div className="space-y-2.5">
             {currentList.map((appr) => {
               const isSelected = selectedApproval?.id === appr.id;
-              const expired = new Date(appr.expiresAt).getTime() < Date.now();
+              const expired = new Date(appr.expiresAt).getTime() < now;
 
               return (
                 <button
