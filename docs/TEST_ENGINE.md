@@ -2328,3 +2328,47 @@ Sculra avoids conflicting scoring architectures:
 - `/projects/[projectId]/releases`: Release registry tracking candidates, policy levels, and readiness verdicts.
 - `/projects/[projectId]/releases/[releaseId]`: Release Command Center showing the 10-gate scorecard, evidence breakdown, historical regression panel, and human governance audit log.
 
+---
+
+## 28. Secure Integration & Credential Management
+
+### 28.1 Architecture & Security Invariants
+Sculra establishes a strict, canonical credential boundary guarding all third-party secrets, API keys, tokens, and cryptographic keys:
+- **Write-Only Browser Invariant**: Secrets are strictly write-only from client browsers. Once submitted, secrets are encrypted immediately server-side and **are never returned by Sculra APIs after storage**.
+- **No Plaintext Secrets in Persistence**: Raw secrets are never stored in plaintext in Supabase database rows, logs, UI responses, test evidence, Sentry payloads, AI prompts, or Git commits.
+- **Envelope Storage Separation**: Safe metadata (`credential_records`) is physically separated from encrypted payloads (`credential_secrets`). Public client sessions can only query safe metadata.
+
+### 28.2 Cryptographic Key Management & Encryption
+- **Cipher**: AES-256-GCM authenticated symmetric encryption with 16-byte cryptographically random IVs and 16-byte authentication tags.
+- **Key Storage**: Symmetric master keys are loaded exclusively from server environment variables (`SCULRA_VAULT_KEY_V1`, `SCULRA_VAULT_KEYS`). Keys are **NEVER stored in Supabase and NEVER returned to the client**.
+- **Key Versioning & Rotation**: Cryptographic key versions (`v1`, `v2`, etc.) are tracked per envelope. Rotation decrypts the envelope with the old key and re-encrypts with the new key in a single atomic transaction without ever writing plaintext to storage.
+
+### 28.3 Provider Registry & Validation
+- **Extensible Providers**: `GITHUB`, `OPENAI`, `GENERIC_HTTP`, `CI_WEBHOOK`, `PROJECT_SOURCE`, `ENVIRONMENT_AUTH`.
+- **Bounded Validation**:
+  - `GITHUB`: Strictly read-only validation. Never pushes commits or modifies repositories during validation.
+  - `OPENAI`: Bounded format check and model inspection without running expensive text completions.
+  - `GENERIC_HTTP`: Strictly protected by `BoundedHttpClient` and `validateTargetUrl` SSRF defenses (blocking private RFC 1918 subnets, loopback, and cloud metadata endpoints).
+  - `CI_WEBHOOK`: Validates format and entropy (minimum 16 characters) for HMAC-SHA256 signature verification.
+
+### 28.4 Credential Scopes & Authorization
+- **Scopes**: `READ_ONLY`, `READ_WRITE`, `ADMIN`, `EXECUTION_ONLY`, `WEBHOOK_VERIFY`.
+- **Role Enforcement**:
+  - `OWNER` / `ADMIN`: Create, update metadata, delete, rotate keys, and validate credentials.
+  - `QA_LEAD`: Read safe metadata, validate credentials, and use authorized credentials.
+  - `DEVELOPER`: Read safe metadata and use explicitly authorized project credentials.
+  - `VIEWER`: Read-only metadata where permitted.
+- **Write Guard**: A `READ_ONLY` credential can never perform mutating actions (e.g. creating PRs in Safe Fix Agent).
+
+### 28.5 Worker Resolution & Execution Context
+- `CredentialResolver.resolve(reference, context)`:
+  - Resolves short-lived in-memory secret objects bound to trusted execution contexts.
+  - Returns `CredentialResolution` with explicit `.dispose()` semantics to immediately clear secret strings from memory.
+  - Verifies tenant isolation: Organization and Project IDs must match the record. Cross-tenant access is rejected with `CREDENTIAL_ACCESS_DENIED`.
+
+### 28.6 Observability & Secret Redaction
+- **Autonomous Events**: Emits `CREDENTIAL_CREATED`, `CREDENTIAL_VALIDATED`, `CREDENTIAL_VALIDATION_FAILED`, `CREDENTIAL_USED`, `CREDENTIAL_ROTATION_STARTED`, `CREDENTIAL_ROTATED`, `CREDENTIAL_REVOKED`, `CREDENTIAL_DELETED`, `CREDENTIAL_ACCESS_DENIED`.
+- **Zero-Secret Events**: Observability payloads contain metadata only (`credentialId`, `provider`, `scope`, `actor`, `durationMs`). They never contain plaintext, ciphertext, auth headers, or tokens.
+- **Multi-Layer Redactor**: Redacts GitHub tokens (`ghp_`, `github_pat_`), OpenAI keys (`sk-`), AWS keys (`AKIA`), JWTs, Bearer headers, Basic auth, and webhook secrets across all system logs and telemetry.
+
+

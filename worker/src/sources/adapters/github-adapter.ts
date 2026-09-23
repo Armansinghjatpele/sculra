@@ -16,6 +16,7 @@ import {
 import { SourceFingerprinter } from '../source-fingerprint';
 import { SourceCapabilityResolver } from '../source-capabilities';
 import { SourceRedactor } from '../source-redaction';
+import { CredentialResolver } from '../../credentials/resolver';
 
 export class GitHubSourceAdapter implements ISourceAdapter {
   readonly sourceType = 'GITHUB' as const;
@@ -72,7 +73,20 @@ export class GitHubSourceAdapter implements ISourceAdapter {
 
     const { owner, repo } = parsed;
     const branch = config?.branch || 'main';
-    const githubToken = config?.githubToken || process.env.GITHUB_TOKEN;
+    let githubToken = config?.githubToken || process.env.GITHUB_TOKEN;
+
+    if (config?.credentialId || (typeof githubToken === 'string' && githubToken.startsWith('vault:'))) {
+      const credId = config?.credentialId || (githubToken as string).slice(6);
+      try {
+        const resolution = await CredentialResolver.resolve(
+          { credentialId: credId, provider: 'GITHUB', scope: 'READ_ONLY' },
+          { actor: 'GitHubSourceAdapter', actorType: 'WORKER', purpose: 'SourceInspection' }
+        );
+        githubToken = resolution.secret;
+      } catch {
+        // Fall back gracefully to existing token
+      }
+    }
 
     if (options.skipNetworkChecks) {
       const fingerprint = SourceFingerprinter.compute('GITHUB', {

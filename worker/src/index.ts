@@ -35,6 +35,8 @@ export * from './execution';
 export * from './cicd';
 export * from './change-intelligence';
 export * from './remediation';
+export * as credentials from './credentials';
+export * from './credentials';
 export * as fixAgent from './fix-agent';
 export {
   FixAgentOrchestrator,

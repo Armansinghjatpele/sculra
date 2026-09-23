@@ -4,8 +4,40 @@
 
 import crypto from 'crypto';
 import { PayloadTooLargeError, SignatureVerificationError } from './errors';
+import { CredentialResolver } from '../credentials/resolver';
 
 export const MAX_WEBHOOK_PAYLOAD_BYTES = 1048576; // 1 MB
+
+/**
+ * Verifies GitHub's HMAC SHA-256 signature using vault credential resolution or raw secret.
+ */
+export async function verifyGitHubSignatureWithVault(
+  rawBody: string | Buffer,
+  signatureHeader: string | null | undefined,
+  secretOrCredentialRef: string | null | undefined,
+  context?: { organizationId?: string; projectId?: string }
+): Promise<boolean> {
+  if (!secretOrCredentialRef) return false;
+  if (secretOrCredentialRef.startsWith('vault:')) {
+    const credId = secretOrCredentialRef.slice(6);
+    const resolution = await CredentialResolver.resolve(
+      { credentialId: credId, provider: 'CI_WEBHOOK', scope: 'WEBHOOK_VERIFY' },
+      {
+        actor: 'CICDWebhookEngine',
+        actorType: 'WORKER',
+        purpose: 'WebhookVerification',
+        organizationId: context?.organizationId,
+        projectId: context?.projectId,
+      }
+    );
+    try {
+      return verifyGitHubSignature(rawBody, signatureHeader, resolution.secret);
+    } finally {
+      resolution.dispose();
+    }
+  }
+  return verifyGitHubSignature(rawBody, signatureHeader, secretOrCredentialRef);
+}
 
 /**
  * Verifies GitHub's HMAC SHA-256 signature with constant-time equality check.

@@ -31,9 +31,11 @@ const BASE_VIEWER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.ENVIRONMENT_READ,
   PERMISSIONS.DEPLOYMENTS_READ,
   PERMISSIONS.RELEASES_READ,
+  // Credentials safe metadata read
+  PERMISSIONS.CREDENTIALS_READ,
 ] as const;
 
-// Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation
+// Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation + Credential usage
 const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   ...BASE_VIEWER_PERMISSIONS,
   PERMISSIONS.ISSUES_UPDATE,
@@ -42,6 +44,7 @@ const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.FIX_AGENT_PLAN,
   PERMISSIONS.DEPLOYMENTS_CREATE,
   PERMISSIONS.RELEASES_CREATE,
+  PERMISSIONS.CREDENTIALS_USE,
 ] as const;
 
 // QA Lead: Developer permissions + Campaign, Test, Source, Strategy & QA Engine executions + Environments/Release Checks
@@ -70,6 +73,8 @@ const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.RELEASE_EVALUATE,
   PERMISSIONS.RELEASES_CHECK,
   PERMISSIONS.RELEASES_DECIDE,
+  // Credential validation
+  PERMISSIONS.CREDENTIALS_VALIDATE,
   // Strategy configuration
   PERMISSIONS.STRATEGY_CONFIGURE,
   // QA engines execution & configuration
@@ -114,6 +119,11 @@ const ADMIN_PERMISSIONS: readonly SculraPermission[] = [
   // Integrations & settings management
   PERMISSIONS.INTEGRATIONS_CONFIGURE,
   PERMISSIONS.SETTINGS_UPDATE,
+  // Credentials vault management & key rotation
+  PERMISSIONS.CREDENTIALS_CREATE,
+  PERMISSIONS.CREDENTIALS_UPDATE,
+  PERMISSIONS.CREDENTIALS_DELETE,
+  PERMISSIONS.CREDENTIALS_ROTATE,
 ] as const;
 
 // Owner: All permissions in the system, including ownership transfer & organization deletion

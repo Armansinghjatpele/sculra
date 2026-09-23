@@ -6,6 +6,7 @@ import { PullRequestResult, DiffReviewResult, VerificationResult } from './types
 import { RemediationAnalysis } from '../remediation/types';
 import { redactSecrets } from './redaction';
 import { GitHubApiError } from './errors';
+import { CredentialResolver } from '../credentials/resolver';
 
 export interface CreatePROptions {
   repoOwner: string;
@@ -19,6 +20,7 @@ export interface CreatePROptions {
   diffReview: DiffReviewResult;
   verification: VerificationResult;
   githubToken?: string;
+  credentialId?: string;
   customPRHandler?: (options: CreatePROptions, title: string, body: string) => Promise<PullRequestResult>;
 }
 
@@ -43,7 +45,20 @@ export class GitHubPRCreator {
       customPRHandler,
     } = options;
 
-    const title = `fix: ${analysis.diagnosis.summary.slice(0, 80)}`;
+    let token = githubToken;
+    let resolutionToDispose: { dispose(): void } | null = null;
+
+    if (options.credentialId || (typeof token === 'string' && token.startsWith('vault:'))) {
+      const credId = options.credentialId || (token as string).slice(6);
+      const res = await CredentialResolver.resolve(
+        { credentialId: credId, provider: 'GITHUB', scope: 'READ_WRITE' },
+        { actor: 'FixAgent', actorType: 'WORKER', purpose: 'PullRequestCreation' }
+      );
+      token = res.secret;
+      resolutionToDispose = res;
+    }
+
+    const title = `fix: ${analysis.diagnosis?.summary ? analysis.diagnosis.summary.slice(0, 80) : 'issue'}`;
     const body = this.buildPRBody(
       issueId,
       remediationId,
@@ -57,7 +72,7 @@ export class GitHubPRCreator {
       return customPRHandler(options, title, body);
     }
 
-    if (!githubToken) {
+    if (!token) {
       // In offline / testing mode without token, return grounded draft PR result
       return {
         prNumber: 1,
@@ -76,7 +91,7 @@ export class GitHubPRCreator {
       const refRes = await fetch(refUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${githubToken}`,
+          Authorization: `Bearer ${token}`,
           Accept: 'application/vnd.github.v3+json',
           'User-Agent': 'Sculra-Fix-Agent/1.0',
         },
@@ -95,7 +110,7 @@ export class GitHubPRCreator {
       const prRes = await fetch(prUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${githubToken}`,
+          Authorization: `Bearer ${token}`,
           Accept: 'application/vnd.github.v3+json',
           'User-Agent': 'Sculra-Fix-Agent/1.0',
         },
@@ -126,6 +141,8 @@ export class GitHubPRCreator {
     } catch (err: any) {
       if (err instanceof GitHubApiError) throw err;
       throw new GitHubApiError(`GitHub API failure: ${err?.message || String(err)}`, undefined, remediationId);
+    } finally {
+      resolutionToDispose?.dispose();
     }
   }
 

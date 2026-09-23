@@ -2437,4 +2437,181 @@ export const mockReleaseDecisions: ReleaseDecision[] = [
   },
 ];
 
+// ==============================================================================
+// Prompt 39: Secure Integration & Credential Vault Models & Safe Demo Data
+// ==============================================================================
+
+export type CredentialProvider =
+  | 'GITHUB'
+  | 'OPENAI'
+  | 'GENERIC_HTTP'
+  | 'CI_WEBHOOK'
+  | 'PROJECT_SOURCE'
+  | 'ENVIRONMENT_AUTH';
+
+export type CredentialType =
+  | 'API_KEY'
+  | 'BEARER_TOKEN'
+  | 'BASIC_AUTH'
+  | 'OAUTH_TOKEN'
+  | 'GITHUB_TOKEN'
+  | 'WEBHOOK_SECRET'
+  | 'OPENAI_API_KEY'
+  | 'CUSTOM_SECRET';
+
+export type CredentialScope =
+  | 'READ_ONLY'
+  | 'READ_WRITE'
+  | 'ADMIN'
+  | 'EXECUTION_ONLY'
+  | 'WEBHOOK_VERIFY';
+
+export type CredentialStatus =
+  | 'ACTIVE'
+  | 'INVALID'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'PENDING_VALIDATION'
+  | 'VALIDATION_FAILED';
+
+export interface CredentialRecord {
+  id: string;
+  organizationId?: string | null;
+  projectId?: string | null;
+  provider: CredentialProvider;
+  credentialType: CredentialType;
+  displayName: string;
+  status: CredentialStatus;
+  scope: CredentialScope;
+  maskedPreview: string; // e.g. "gh_••••••91"
+  expiresAt?: string | null;
+  lastValidatedAt?: string | null;
+  lastUsedAt?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  keyVersion: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CredentialRotation {
+  id: string;
+  credentialId: string;
+  oldKeyVersion: string;
+  newKeyVersion: string;
+  initiatedBy: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  failureCode?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface CredentialAccessLog {
+  id: string;
+  credentialId: string;
+  actorType: string;
+  actorId: string;
+  serviceIdentity: string;
+  purpose: string;
+  provider: string;
+  result: 'SUCCESS' | 'DENIED' | 'FAILED';
+  correlationId?: string;
+  metadata: Record<string, any>;
+  accessedAt: string;
+}
+
+export const mockCredentialRecords: CredentialRecord[] = [
+  {
+    id: 'cred-gh-101',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    provider: 'GITHUB',
+    credentialType: 'GITHUB_TOKEN',
+    displayName: 'GitHub Production Repository Reader',
+    status: 'ACTIVE',
+    scope: 'READ_ONLY',
+    maskedPreview: 'gh_••••••91',
+    expiresAt: '2026-12-31T00:00:00Z',
+    lastValidatedAt: '2026-09-20T08:00:00Z',
+    lastUsedAt: '2026-09-20T10:15:00Z',
+    createdBy: 'user_owner_1',
+    createdAt: '2026-09-15T09:00:00Z',
+    updatedAt: '2026-09-20T08:00:00Z',
+    version: 1,
+    keyVersion: 'v1',
+    metadata: { repository: 'Armansinghjatpele/sculra' },
+  },
+  {
+    id: 'cred-ai-102',
+    organizationId: 'org_demo_1',
+    projectId: null,
+    provider: 'OPENAI',
+    credentialType: 'OPENAI_API_KEY',
+    displayName: 'OpenAI Reasoning Engine Key',
+    status: 'ACTIVE',
+    scope: 'EXECUTION_ONLY',
+    maskedPreview: 'sk-••••••4a',
+    expiresAt: null,
+    lastValidatedAt: '2026-09-20T08:05:00Z',
+    lastUsedAt: '2026-09-20T11:00:00Z',
+    createdBy: 'user_admin_1',
+    createdAt: '2026-09-15T09:10:00Z',
+    updatedAt: '2026-09-20T08:05:00Z',
+    version: 1,
+    keyVersion: 'v1',
+    metadata: { tier: 'enterprise' },
+  },
+  {
+    id: 'cred-wh-103',
+    organizationId: 'org_demo_1',
+    projectId: 'proj-1',
+    provider: 'CI_WEBHOOK',
+    credentialType: 'WEBHOOK_SECRET',
+    displayName: 'GitHub Actions Ingestion Secret',
+    status: 'ACTIVE',
+    scope: 'WEBHOOK_VERIFY',
+    maskedPreview: 'wh_••••••bc',
+    expiresAt: null,
+    lastValidatedAt: '2026-09-19T10:00:00Z',
+    lastUsedAt: '2026-09-20T11:20:00Z',
+    createdBy: 'user_admin_1',
+    createdAt: '2026-09-16T14:00:00Z',
+    updatedAt: '2026-09-16T14:00:00Z',
+    version: 1,
+    keyVersion: 'v1',
+    metadata: {},
+  },
+];
+
+export const mockCredentialRotations: CredentialRotation[] = [
+  {
+    id: 'rot-1',
+    credentialId: 'cred-gh-101',
+    oldKeyVersion: 'v1',
+    newKeyVersion: 'v1',
+    initiatedBy: 'user_admin_1',
+    status: 'COMPLETED',
+    createdAt: '2026-09-18T10:00:00Z',
+    completedAt: '2026-09-18T10:00:02Z',
+  },
+];
+
+export const mockCredentialAccessLogs: CredentialAccessLog[] = [
+  {
+    id: 'log-1',
+    credentialId: 'cred-gh-101',
+    actorType: 'WORKER',
+    actorId: 'worker-node-1',
+    serviceIdentity: 'CredentialResolver',
+    purpose: 'SourceInspection',
+    provider: 'GITHUB',
+    result: 'SUCCESS',
+    correlationId: 'job-101',
+    metadata: { scope: 'READ_ONLY' },
+    accessedAt: '2026-09-20T10:15:00Z',
+  },
+];
+
+
 

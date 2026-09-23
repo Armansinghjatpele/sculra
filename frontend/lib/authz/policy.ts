@@ -208,4 +208,56 @@ export class PolicyManager {
       throw new RoleNotAllowedError('Cannot alter decision for an abandoned release candidate.');
     }
   }
+
+  /**
+   * Enforces role requirements on credential management.
+   * Only OWNER or ADMIN can create, update, delete, or rotate credentials.
+   * QA_LEAD can trigger validation.
+   */
+  public static evaluateCredentialMutation(params: {
+    callerRole: SculraRole;
+    action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ROTATE' | 'VALIDATE';
+    isProductionScope?: boolean;
+  }): void {
+    if (params.action === 'VALIDATE') {
+      if (params.callerRole === 'VIEWER' || params.callerRole === 'DEVELOPER') {
+        throw new RoleNotAllowedError('Role does not have permission to trigger credential validation.');
+      }
+      return;
+    }
+
+    if (params.callerRole !== 'OWNER' && params.callerRole !== 'ADMIN') {
+      throw new RoleNotAllowedError(
+        `Only organization Owners and Admins can perform ${params.action} on credentials.`
+      );
+    }
+  }
+
+  /**
+   * Evaluates credential usage/resolution permissions.
+   */
+  public static evaluateCredentialAccess(params: {
+    callerRole: SculraRole;
+    credentialScope: string;
+    requestedScope: string;
+    isProduction?: boolean;
+  }): void {
+    if (params.callerRole === 'VIEWER') {
+      throw new RoleNotAllowedError('Viewers are not permitted to resolve or use credentials.');
+    }
+
+    if (params.isProduction && params.callerRole !== 'OWNER' && params.callerRole !== 'ADMIN' && params.callerRole !== 'QA_LEAD') {
+      throw new RoleNotAllowedError(
+        'Resolving credentials for Production environments requires QA_LEAD, ADMIN, or OWNER role.'
+      );
+    }
+
+    if (params.credentialScope === 'ADMIN' && params.callerRole !== 'OWNER' && params.callerRole !== 'ADMIN') {
+      throw new RoleNotAllowedError('ADMIN scoped credentials can only be resolved by Admins or Owners.');
+    }
+
+    if (params.credentialScope === 'READ_ONLY' && (params.requestedScope === 'READ_WRITE' || params.requestedScope === 'ADMIN')) {
+      throw new RoleNotAllowedError('Credential has READ_ONLY scope and cannot be used for write operations.');
+    }
+  }
 }

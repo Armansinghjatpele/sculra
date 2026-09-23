@@ -122,6 +122,15 @@ export const PERMISSIONS = {
   RELEASES_CREATE: 'releases.create',
   RELEASES_CHECK: 'releases.check',
   RELEASES_DECIDE: 'releases.decide',
+
+  // Credentials & Integration Vault
+  CREDENTIALS_READ: 'credentials.read',
+  CREDENTIALS_CREATE: 'credentials.create',
+  CREDENTIALS_UPDATE: 'credentials.update',
+  CREDENTIALS_DELETE: 'credentials.delete',
+  CREDENTIALS_ROTATE: 'credentials.rotate',
+  CREDENTIALS_VALIDATE: 'credentials.validate',
+  CREDENTIALS_USE: 'credentials.use',
 } as const;
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

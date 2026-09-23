@@ -122,6 +122,15 @@ export const PERMISSIONS = {
   RELEASES_CREATE: 'releases.create',
   RELEASES_CHECK: 'releases.check',
   RELEASES_DECIDE: 'releases.decide',
+
+  // Credentials & Integration Vault
+  CREDENTIALS_READ: 'credentials.read',
+  CREDENTIALS_CREATE: 'credentials.create',
+  CREDENTIALS_UPDATE: 'credentials.update',
+  CREDENTIALS_DELETE: 'credentials.delete',
+  CREDENTIALS_ROTATE: 'credentials.rotate',
+  CREDENTIALS_VALIDATE: 'credentials.validate',
+  CREDENTIALS_USE: 'credentials.use',
 };
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -365,6 +374,20 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { key: PERMISSIONS.RELEASES_CREATE, label: 'Create Release', description: 'Assemble release candidate for testing' },
       { key: PERMISSIONS.RELEASES_CHECK, label: 'Run Release Check', description: 'Execute bounded QA campaign against release candidate' },
       { key: PERMISSIONS.RELEASES_DECIDE, label: 'Record Release Decision', description: 'Approve, block, or request retest on release', isSensitive: true },
+    ],
+  },
+  {
+    id: 'credentials',
+    name: 'Credentials & Vault',
+    description: 'Secure credential storage, key rotation, and secret lifecycle',
+    permissions: [
+      { key: PERMISSIONS.CREDENTIALS_READ, label: 'View Credential Metadata', description: 'View non-sensitive credential records' },
+      { key: PERMISSIONS.CREDENTIALS_CREATE, label: 'Create Credentials', description: 'Store write-only encrypted secrets', isSensitive: true },
+      { key: PERMISSIONS.CREDENTIALS_UPDATE, label: 'Update Credential Metadata', description: 'Modify credential metadata or scopes' },
+      { key: PERMISSIONS.CREDENTIALS_DELETE, label: 'Delete Credentials', description: 'Permanently revoke and delete credentials', isSensitive: true },
+      { key: PERMISSIONS.CREDENTIALS_ROTATE, label: 'Rotate Encryption Keys', description: 'Rotate encryption key versions for secrets', isSensitive: true },
+      { key: PERMISSIONS.CREDENTIALS_VALIDATE, label: 'Validate Credentials', description: 'Perform bounded validation against providers' },
+      { key: PERMISSIONS.CREDENTIALS_USE, label: 'Use Credentials', description: 'Authorize worker execution to resolve secrets' },
     ],
   },
 ];

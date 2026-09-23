@@ -3,9 +3,9 @@
 // (worker/src/observability/types.ts)
 // ==============================================================================
 
-export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI' | 'SOURCE_INGESTOR';
+export type ActorType = 'SYSTEM' | 'WORKER' | 'AI' | 'HUMAN' | 'GITHUB' | 'CI' | 'SOURCE_INGESTOR' | 'VAULT';
 
-export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL' | 'SOURCE';
+export type EventSource = 'DETERMINISTIC' | 'AI' | 'HUMAN' | 'EXTERNAL' | 'SOURCE' | 'VAULT';
 
 export type FactCategory =
   | 'OBSERVED_FACT'
@@ -114,7 +114,17 @@ export type AutonomousEventType =
   | 'RELEASE_READY'
   | 'RELEASE_RELEASED'
   | 'RELEASE_ABANDONED'
-  | 'RELEASE_DECISION_RECORDED';
+  | 'RELEASE_DECISION_RECORDED'
+  // Credential Management & Vault
+  | 'CREDENTIAL_CREATED'
+  | 'CREDENTIAL_VALIDATED'
+  | 'CREDENTIAL_VALIDATION_FAILED'
+  | 'CREDENTIAL_USED'
+  | 'CREDENTIAL_ROTATION_STARTED'
+  | 'CREDENTIAL_ROTATED'
+  | 'CREDENTIAL_REVOKED'
+  | 'CREDENTIAL_DELETED'
+  | 'CREDENTIAL_ACCESS_DENIED';
 
 export type SkipReason =
   | 'AUTH_REQUIRED'

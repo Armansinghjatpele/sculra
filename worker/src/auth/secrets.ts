@@ -15,6 +15,8 @@
 // - public.test_evidence / public.issues
 // - Structured logs, console output, Sentry events, or screenshots.
 
+import { CredentialResolver } from '../credentials/resolver';
+
 export interface SecretProvider {
   /**
    * Retrieves a secret string by reference key.
@@ -23,8 +25,8 @@ export interface SecretProvider {
   getSecret(keyRef: string): Promise<string | undefined>;
 
   /**
-   * Resolves a secret reference string ('env:VAR_NAME', 'raw:VALUE', or plain string).
-   * Throws if an env: reference cannot be found.
+   * Resolves a secret reference string ('vault:ID', 'env:VAR_NAME', 'raw:VALUE', or plain string).
+   * Throws if an env: or vault: reference cannot be found.
    */
   resolveSecret(keyRef: string): Promise<string>;
 
@@ -52,6 +54,16 @@ export class EnvironmentSecretProvider implements SecretProvider {
     }
 
     const trimmed = keyRef.trim();
+
+    // 0. Vault reference: 'vault:cred-123'
+    if (trimmed.startsWith('vault:')) {
+      const credId = trimmed.slice(6);
+      const resolution = await CredentialResolver.resolve(
+        { credentialId: credId, provider: 'ENVIRONMENT_AUTH' },
+        { actor: 'WorkerAuthEngine', actorType: 'WORKER', purpose: 'FormLogin' }
+      );
+      return resolution.secret;
+    }
 
     // 1. Raw value prefix: 'raw:superpassword'
     if (trimmed.startsWith('raw:')) {
