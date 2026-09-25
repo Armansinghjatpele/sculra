@@ -2,7 +2,7 @@
 // Sculra CI/CD Autonomous Campaign Trigger & Queue Scheduler (worker/src/cicd/trigger.ts)
 // ==============================================================================
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NormalizedCIEvent, ProjectCIConfig } from './types';
 
 /**

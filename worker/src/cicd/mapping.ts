@@ -2,7 +2,7 @@
 // Sculra CI/CD Project Resolution & Mapping (worker/src/cicd/mapping.ts)
 // ==============================================================================
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ProjectCIConfig } from './types';
 
 /**
