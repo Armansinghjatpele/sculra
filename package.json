@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Sculra – Enterprise AI Software Quality Platform Monorepo",
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "pnpm --parallel -r run dev",
     "build": "pnpm -r run build",
