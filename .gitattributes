@@ -4,5 +4,5 @@
 # Force binary files to retain original format
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
-*.ico filter=lfs diff=lfs merge=lfs -text
 *.pdf -text
+*.ico -text
