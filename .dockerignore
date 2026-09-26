@@ -1,0 +1,38 @@
+# ==============================================================================
+# Sculra Docker Ignore Patterns (.dockerignore)
+# ==============================================================================
+# Prevent local build artifacts, secrets, and caches from leaking into Docker context
+
+.git
+.github
+.husky
+.vscode
+.next
+node_modules
+**/node_modules
+dist
+**/dist
+.turbo
+.storage
+coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Strictly exclude local credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Exclude local test screenshots and artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+worker/test-results/
+frontend/test-results/

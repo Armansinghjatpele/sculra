@@ -36,6 +36,7 @@ export class WorkerDaemon {
   private pollIntervalMs: number;
   private concurrency: number;
   private isRunning: boolean = false;
+  private isDraining: boolean = false;
   private pollTimeout: NodeJS.Timeout | null = null;
   private recoveryInterval: NodeJS.Timeout | null = null;
   private activeJobs: Map<string, { job: ExecutionJob; token: CancellationToken }> = new Map();
@@ -104,6 +105,10 @@ export class WorkerDaemon {
     return this.isRunning;
   }
 
+  public getIsDraining(): boolean {
+    return this.isDraining;
+  }
+
   async start(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('daemon_already_running', { message: 'Daemon is already running.' });
@@ -146,13 +151,14 @@ export class WorkerDaemon {
     this.scheduleNextPoll(0);
   }
 
-  async stop(gracePeriodMs: number = 3000): Promise<void> {
-    if (!this.isRunning) return;
+  async drain(gracePeriodMs: number = 30000): Promise<void> {
+    if (!this.isRunning && !this.isDraining) return;
 
-    this.logger.log('daemon_stopping', { activeJobs: this.activeJobs.size });
+    this.logger.log('daemon_draining', { activeJobs: this.activeJobs.size, gracePeriodMs });
     console.log(
-      `[Worker Daemon ${this.identity.workerId}]: Stopping daemon gracefully (active jobs: ${this.activeJobs.size})...`
+      `[Worker Daemon ${this.identity.workerId}]: Draining daemon gracefully (active jobs: ${this.activeJobs.size}, grace period: ${gracePeriodMs}ms)...`
     );
+    this.isDraining = true;
     this.isRunning = false;
 
     if (this.pollTimeout) {
@@ -165,21 +171,37 @@ export class WorkerDaemon {
       this.recoveryInterval = null;
     }
 
-    // Cancel all in-flight jobs
-    for (const [jobId, entry] of this.activeJobs.entries()) {
-      const token = (entry as any)?.token || entry;
-      token.isCancelled = true;
-      token.onCancel?.();
-      this.logger.log('cancelling_job_on_shutdown', { jobId });
-    }
-
-    // Await active jobs or grace period timeout
+    // Await active jobs within grace period
     if (this.activeJobs.size > 0 && gracePeriodMs > 0) {
       const waitStart = Date.now();
       while (this.activeJobs.size > 0 && Date.now() - waitStart < gracePeriodMs) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
+
+    // If active jobs remain after grace period (or gracePeriodMs === 0), cancel them
+    if (this.activeJobs.size > 0) {
+      this.logger.warn('drain_timeout_cancelling_jobs', { remainingJobs: this.activeJobs.size });
+      for (const [jobId, entry] of this.activeJobs.entries()) {
+        const token = (entry as any)?.token || entry;
+        token.isCancelled = true;
+        token.onCancel?.();
+        this.logger.log('cancelling_job_on_shutdown', { jobId });
+      }
+
+      // Allow in-flight cancelled jobs a brief moment to finalize cleanly
+      const cancelWaitStart = Date.now();
+      while (this.activeJobs.size > 0 && Date.now() - cancelWaitStart < 2000) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+
+    this.isDraining = false;
+    this.logger.log('daemon_stopped');
+  }
+
+  async stop(gracePeriodMs: number = 3000): Promise<void> {
+    await this.drain(gracePeriodMs);
   }
 
   private scheduleNextPoll(delayMs: number = this.pollIntervalMs): void {
@@ -198,6 +220,10 @@ export class WorkerDaemon {
   }
 
   async pollOnce(): Promise<number> {
+    if (this.isDraining) {
+      return 0;
+    }
+
     if (!this.supabase) {
       this.logger.warn('supabase_not_configured', {
         message: 'Supabase credentials missing, skipping poll cycle.',

@@ -17,6 +17,8 @@
     "analyze": "pnpm --filter sculra-frontend run analyze",
     "worker": "pnpm --filter @sculra/worker start",
     "worker:dev": "pnpm --filter @sculra/worker start",
+    "worker:prod": "pnpm --filter @sculra/worker run start:prod",
+    "worker:smoke": "pnpm --filter @sculra/worker run test:smoke",
     "maintenance:daily": "tsx scripts/maintenance/daily-maintenance.ts"
   },
   "devDependencies": {

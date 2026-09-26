@@ -8,6 +8,8 @@ import { JobExecutor } from './executor';
 import { WorkerDaemon } from './daemon';
 import { validateTargetUrl } from './security';
 import { WorkerLogger } from './logger';
+import { ProductionWorkerServer } from './server';
+import { runBrowserSmokeTest } from './smoke-test';
 import { SupabaseEvidenceStorage, LocalEvidenceStorage } from './storage';
 
 export * from './types';
@@ -158,14 +160,27 @@ export type {
 
 export * as authz from './authz';
 export * from './authz';
+export * from './config';
+export * from './health';
+export * from './server';
+export * from './errors';
+export * from './smoke-test';
 
 // CLI Support:
-// 1. Daemon mode (default): `pnpm worker` or `tsx src/index.ts`
+// 1. Production Daemon mode (default): `pnpm worker` or `tsx src/index.ts`
 // 2. Single Run mode: `pnpm worker <testRunId>` or `tsx src/index.ts <testRunId>`
+// 3. Smoke Test mode: `tsx src/index.ts --smoke-test`
 if (require.main === module) {
   const arg = process.argv[2];
 
-  if (arg && arg !== '--daemon' && !arg.startsWith('--')) {
+  if (arg === '--smoke-test') {
+    runBrowserSmokeTest()
+      .then((res) => process.exit(res.success ? 0 : 1))
+      .catch((err) => {
+        console.error('[Worker CLI]: Smoke test failed:', err);
+        process.exit(1);
+      });
+  } else if (arg && arg !== '--daemon' && !arg.startsWith('--')) {
     const testRunId = arg;
     const executor = new JobExecutor();
     console.log(`[Worker CLI]: Executing single test run ${testRunId}...`);
@@ -181,20 +196,16 @@ if (require.main === module) {
         process.exit(1);
       });
   } else {
-    const daemon = new WorkerDaemon();
-    console.log(`[Worker CLI]: Starting Sculra Test Worker Daemon (ID: ${daemon.identity.workerId})...`);
-    daemon.start().catch((err) => {
-      console.error('[Worker CLI]: Daemon failed to start:', err);
+    try {
+      const server = new ProductionWorkerServer();
+      console.log(`[Worker CLI]: Starting Sculra Production Worker Server (ID: ${server.config.workerId})...`);
+      server.start().catch((err) => {
+        console.error('[Worker CLI]: Worker server failed to start:', err.message);
+        process.exit(1);
+      });
+    } catch (err: any) {
+      console.error('[Worker CLI]: Fatal startup configuration error:', err.message);
       process.exit(1);
-    });
-
-    const shutdown = async () => {
-      console.log('\n[Worker CLI]: Termination signal received. Gracefully shutting down worker daemon...');
-      await daemon.stop();
-      process.exit(0);
-    };
-
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
+    }
   }
 }

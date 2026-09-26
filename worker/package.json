@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc",
     "start": "tsx src/index.ts",
+    "start:prod": "node dist/index.js",
     "test": "vitest run --fileParallelism=false",
+    "test:smoke": "tsx src/smoke-test.ts",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
