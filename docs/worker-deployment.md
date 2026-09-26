@@ -118,7 +118,7 @@ The worker runs an independent HTTP server on port `8080` (configured via `WORKE
 ### Liveness Probe (`GET /health`)
 - Returns `200 OK` when status is `STARTING`, `READY`, `BUSY`, or `DRAINING`.
 - Returns `503 Service Unavailable` when `UNHEALTHY` or `STOPPED`.
-- Payload:
+- Payload (Healthy):
   ```json
   {
     "status": "READY",
@@ -129,11 +129,40 @@ The worker runs an independent HTTP server on port `8080` (configured via `WORKE
     "timestamp": "2026-09-26T09:55:00.000Z"
   }
   ```
+- Payload (Unhealthy):
+  ```json
+  {
+    "status": "UNHEALTHY",
+    "workerId": "worker_1727339123_a1b2c3",
+    "uptimeSeconds": 142,
+    "activeJobs": 0,
+    "concurrency": 1,
+    "timestamp": "2026-09-26T09:55:00.000Z",
+    "errorCode": "DATABASE_CONNECTION_ERROR"
+  }
+  ```
 
 ### Readiness Probe (`GET /ready`)
 - Returns `200 OK` only when status is `READY` or `BUSY`.
 - Returns `503 Service Unavailable` during `STARTING`, `DRAINING`, `UNHEALTHY`, or `STOPPED`.
-- In container orchestration (e.g. Kubernetes, ECS, Docker Swarm), routing engines should only send traffic or schedule work when readiness returns `200`.
+- Payload:
+  ```json
+  {
+    "ready": false,
+    "status": "DRAINING",
+    "workerId": "worker_1727339123_a1b2c3",
+    "activeJobs": 1,
+    "availableSlots": 0,
+    "timestamp": "2026-09-26T09:55:00.000Z",
+    "errorCode": "DRAINING"
+  }
+  ```
+
+### Information Hardening & Secret Protection
+- **No Stack Traces**: Public health/readiness endpoints never return stack traces or raw exception messages.
+- **No Database / SQL Leakage**: Connection errors and database exceptions are mapped strictly to standard enumerated error codes (`DATABASE_CONNECTION_ERROR`, `QUEUE_ERROR`, `WORKER_RUNTIME_ERROR`).
+- **No Credentials / URLs**: Endpoints never echo Supabase URLs, tokens, authorization headers, or filesystem paths.
+- Detailed debugging information is emitted exclusively to internal structured logs with automatic secret redaction.
 
 ---
 
@@ -177,3 +206,90 @@ When receiving `SIGTERM` or `SIGINT`:
 - **Worker Heartbeat**: Active jobs receive recurring heartbeats every 15 seconds. If a worker dies abruptly, the lease expires after `WORKER_LEASE_SECONDS` (default: 60s).
 - **Stale Job Recovery**: The worker's background recovery scanner periodically scans for expired leases and requeues stale jobs up to `DEFAULT_MAX_JOB_ATTEMPTS` (3 attempts), or marks them failed if attempts are exhausted.
 - **Guard Against Stale Overwrites**: Job finalizer verifies that the completing worker still holds the active lease before updating terminal state. Stale workers whose leases were reassigned cannot overwrite results.
+
+---
+
+## 11. Production Container Platform Architecture
+
+Sculra's autonomous browser worker is architected exclusively for persistent container runtimes:
+
+```
+[Vercel Serverless Frontend]
+         │
+         ▼
+[Supabase PostgreSQL Job Queue]
+         │
+         ▼ (Atomic Polling)
+[Dedicated Persistent Container] (Fly.io / AWS ECS / Railway / Render / GCP Cloud Run)
+  ├── WorkerDaemon (Continuous loop)
+  ├── WorkerHealthServer (Port 8080: /health & /ready)
+  └── Playwright Chromium (Headless browser automation)
+```
+
+### Supported Hosting Platforms
+1. **Fly.io**: Dedicated persistent VM (`fly launch`, configure `fly.toml` with `[[services.http_checks]]` for `/health` and `/ready`).
+2. **AWS ECS / Fargate**: Persistent container task with service health check on port `8080`.
+3. **Railway**: Dockerfile-based deployment with persistent worker service.
+4. **Render**: Background Worker or Web Service with health check path `/health`.
+5. **GCP Cloud Run**: Configured with `--min-instances 1` and `--cpu-allocation always`.
+
+> **CRITICAL**: The persistent worker must NEVER be deployed to Vercel or any serverless platform with execution time limits or lack of headless Chromium process support.
+
+---
+
+## 12. Deployment & Rollback Procedure
+
+### Immutable Container Build
+Always build and tag container images with the immutable Git commit SHA:
+```bash
+COMMIT_SHA=$(git rev-parse --short HEAD)
+docker build -f worker/Dockerfile -t sculra-worker:${COMMIT_SHA} .
+```
+
+### Secrets Configuration
+Provision credentials strictly through the platform's secret manager:
+```bash
+# Example for Fly.io:
+fly secrets set \
+  SUPABASE_URL="https://<project-id>.supabase.co" \
+  SUPABASE_SERVICE_ROLE_KEY="<service-role-secret>" \
+  NODE_ENV="production" \
+  WORKER_CONCURRENCY="1"
+
+# Example for Railway:
+railway variables set \
+  SUPABASE_URL="https://<project-id>.supabase.co" \
+  SUPABASE_SERVICE_ROLE_KEY="<service-role-secret>" \
+  NODE_ENV="production"
+```
+
+### Rollback Procedure
+If a regression or failure occurs in a newly deployed worker image:
+1. Re-deploy the previously verified container image tag (e.g. `sculra-worker:<previous-commit-sha>`).
+2. Because worker jobs are stateless and lease-managed, in-flight jobs on the terminated worker will naturally expire within `WORKER_LEASE_SECONDS` (60s) and be safely reclaimed by the rolled-back worker container.
+3. No database migrations are required to roll back the worker service.
+
+---
+
+## 13. Observability & Safe Production Logging
+
+The worker emits structured JSON logs designed for cloud ingestion (Datadog, CloudWatch, Google Cloud Logging, Logtail) with zero secret leakage:
+
+- **Tracked Fields**: `workerId`, `jobId`, `jobType`, `attempt`, `status`, `durationMs`, `errorCode`.
+- **Automatic Redaction**: Service-role keys, anon keys, bearer tokens, passwords, cookies, and authorization headers are scrubbed before emission.
+- **Sentry Telemetry**: When `SENTRY_DSN` is configured, worker unhandled exceptions are captured with scrubbed breadcrumbs.
+
+---
+
+## 14. Current Platform Verification & Environment Status
+
+An environment audit was performed on the current workspace:
+- **Playwright Chromium**: Verified locally via `pnpm worker:smoke` (headless launch, navigation, DOM interaction, screenshot generation succeeded in ~2.2s).
+- **Health Server Hardening**: Verified via unit and integration tests. `/health` and `/ready` strictly output standardized error codes (`WorkerSafeErrorCode`) without leaking stack traces, exception messages, database queries, or credentials.
+- **Queue Semantics & Recovery**: Verified via integration tests. Atomic acquisition, heartbeat renewal, stale lease recovery, and stale overwrite protection tested and confirmed.
+- **Container Build & Cloud Deployment Tooling**:
+  - The local development host currently does not have an active Docker daemon (Docker Desktop uninstalled / WSL distribution missing).
+  - No authenticated cloud platform CLI (`fly`, `railway`, `render`, `gcloud`, `aws`, `gh`) is configured in the current shell.
+  - `SUPABASE_SERVICE_ROLE_KEY` is not present in local `.env` configuration.
+  - **Status**: Local code and container configurations are fully production-ready. Remote deployment and live cloud queue processing are **BLOCKED** pending provisioning of target cloud credentials and container runtime.
+

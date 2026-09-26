@@ -3,9 +3,11 @@
 // ==============================================================================
 // Independent, lightweight HTTP health/readiness server exposing /health and /ready.
 // Distinguishes STARTING, READY, BUSY, DRAINING, UNHEALTHY, and STOPPED operational states.
-// Exposes operational metrics with zero secret exposure.
+// Exposes strictly sanitized operational metrics and standardized error codes.
+// Zero secrets, zero stack traces, zero SQL details, and zero arbitrary exception strings.
 
 import * as http from 'node:http';
+import { WorkerErrorCode } from './errors';
 
 export type WorkerHealthState =
   | 'STARTING'
@@ -15,12 +17,53 @@ export type WorkerHealthState =
   | 'UNHEALTHY'
   | 'STOPPED';
 
+export type WorkerSafeErrorCode =
+  | WorkerErrorCode
+  | 'DRAINING'
+  | 'STOPPED'
+  | 'NOT_READY';
+
+export const KNOWN_SAFE_ERROR_CODES: ReadonlySet<string> = new Set<string>([
+  'STARTUP_CONFIGURATION_ERROR',
+  'DATABASE_CONNECTION_ERROR',
+  'BROWSER_INITIALIZATION_ERROR',
+  'QUEUE_ERROR',
+  'EXECUTION_ERROR',
+  'CANCELLATION',
+  'SHUTDOWN_TIMEOUT',
+  'WORKER_RUNTIME_ERROR',
+  'DRAINING',
+  'STOPPED',
+  'NOT_READY',
+]);
+
+/**
+ * Sanitizes arbitrary error objects, strings, or exception values into safe,
+ * enumerated operational error codes. Under NO circumstances are exception messages,
+ * stack traces, database queries, file paths, URLs, or secrets emitted.
+ */
+export function sanitizeToSafeErrorCode(errOrCode: unknown): WorkerSafeErrorCode {
+  if (typeof errOrCode === 'string') {
+    if (KNOWN_SAFE_ERROR_CODES.has(errOrCode)) {
+      return errOrCode as WorkerSafeErrorCode;
+    }
+  } else if (errOrCode && typeof errOrCode === 'object') {
+    if ('code' in errOrCode && typeof (errOrCode as any).code === 'string') {
+      const code = (errOrCode as any).code;
+      if (KNOWN_SAFE_ERROR_CODES.has(code)) {
+        return code as WorkerSafeErrorCode;
+      }
+    }
+  }
+  return 'WORKER_RUNTIME_ERROR';
+}
+
 export interface HealthServerOptions {
   port: number;
   workerId: string;
   concurrency: number;
   getActiveJobsCount: () => number;
-  getLastError?: () => string | null;
+  getLastErrorCode?: () => WorkerSafeErrorCode | null;
 }
 
 export interface HealthCheckResponse {
@@ -30,7 +73,7 @@ export interface HealthCheckResponse {
   activeJobs: number;
   concurrency: number;
   timestamp: string;
-  error?: string;
+  errorCode?: WorkerSafeErrorCode;
 }
 
 export interface ReadinessCheckResponse {
@@ -40,14 +83,14 @@ export interface ReadinessCheckResponse {
   activeJobs: number;
   availableSlots: number;
   timestamp: string;
-  error?: string;
+  errorCode?: WorkerSafeErrorCode;
 }
 
 export class WorkerHealthServer {
   private server: http.Server | null = null;
   private state: WorkerHealthState = 'STARTING';
   private startTime: number = Date.now();
-  private lastError: string | null = null;
+  private lastErrorCode: WorkerSafeErrorCode | null = null;
   private readonly port: number;
   private readonly workerId: string;
   private readonly concurrency: number;
@@ -59,8 +102,8 @@ export class WorkerHealthServer {
     this.workerId = options.workerId;
     this.concurrency = options.concurrency;
     this.getActiveJobsCount = options.getActiveJobsCount;
-    if (options.getLastError) {
-      this.lastError = options.getLastError();
+    if (options.getLastErrorCode) {
+      this.lastErrorCode = options.getLastErrorCode();
     }
   }
 
@@ -68,16 +111,23 @@ export class WorkerHealthServer {
     return this.state;
   }
 
-  public setState(newState: WorkerHealthState, errorDetails?: string | null): void {
+  public getLastErrorCode(): WorkerSafeErrorCode | null {
+    return this.lastErrorCode;
+  }
+
+  public setState(newState: WorkerHealthState, errorCode?: unknown): void {
     this.state = newState;
-    if (errorDetails !== undefined) {
-      this.lastError = errorDetails;
+    if (errorCode !== undefined) {
+      this.lastErrorCode = errorCode ? sanitizeToSafeErrorCode(errorCode) : null;
+    } else if (newState === 'READY' || newState === 'BUSY') {
+      // Clear error code on return to operational readiness
+      this.lastErrorCode = null;
     }
   }
 
-  public setUnhealthy(reason: string): void {
+  public setUnhealthy(reason?: unknown): void {
     this.state = 'UNHEALTHY';
-    this.lastError = reason;
+    this.lastErrorCode = sanitizeToSafeErrorCode(reason || 'WORKER_RUNTIME_ERROR');
   }
 
   public isReady(): boolean {
@@ -99,7 +149,7 @@ export class WorkerHealthServer {
         const method = req.method || 'GET';
 
         if (method !== 'GET' && method !== 'HEAD') {
-          res.writeHead(405, { 'Content-Type': 'application/json' });
+          res.writeHead(405, { 'Content-Type': 'application/json', 'Connection': 'close' });
           res.end(JSON.stringify({ error: 'Method not allowed' }));
           return;
         }
@@ -127,7 +177,9 @@ export class WorkerHealthServer {
             activeJobs,
             concurrency: this.concurrency,
             timestamp: new Date().toISOString(),
-            error: this.lastError || undefined,
+            ...(this.lastErrorCode || currentState === 'UNHEALTHY'
+              ? { errorCode: this.lastErrorCode || 'WORKER_RUNTIME_ERROR' }
+              : {}),
           };
 
           res.writeHead(statusCode, {
@@ -144,6 +196,15 @@ export class WorkerHealthServer {
           const isReady = currentState === 'READY' || currentState === 'BUSY';
           const statusCode = isReady ? 200 : 503;
 
+          const fallbackNotReadyCode: WorkerSafeErrorCode =
+            currentState === 'DRAINING'
+              ? 'DRAINING'
+              : currentState === 'STARTING'
+              ? 'NOT_READY'
+              : currentState === 'STOPPED'
+              ? 'STOPPED'
+              : 'WORKER_RUNTIME_ERROR';
+
           const responseData: ReadinessCheckResponse = {
             ready: isReady,
             status: currentState,
@@ -151,7 +212,9 @@ export class WorkerHealthServer {
             activeJobs,
             availableSlots,
             timestamp: new Date().toISOString(),
-            error: !isReady ? (this.lastError || `Worker is in ${currentState} state`) : undefined,
+            ...(!isReady
+              ? { errorCode: this.lastErrorCode || fallbackNotReadyCode }
+              : {}),
           };
 
           res.writeHead(statusCode, {
@@ -190,6 +253,7 @@ export class WorkerHealthServer {
 
   async stop(): Promise<void> {
     this.state = 'STOPPED';
+    this.lastErrorCode = 'STOPPED';
     if (!this.server || !this.isListening) {
       return;
     }

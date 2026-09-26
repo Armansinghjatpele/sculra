@@ -11,6 +11,7 @@ import { WorkerHealthServer, WorkerHealthState } from './health';
 import { WorkerDaemon } from './daemon';
 import { WorkerLogger } from './logger';
 import {
+  BaseWorkerError,
   StartupConfigurationError,
   DatabaseConnectionError,
   BrowserInitializationError,
@@ -242,7 +243,8 @@ export class ProductionWorkerServer {
         `[Production Worker ${this.config.workerId}]: Fully operational (Health: http://localhost:${this.config.healthPort}/health, Ready: http://localhost:${this.config.healthPort}/ready)`
       );
     } catch (err: any) {
-      this.healthServer.setUnhealthy(err.message);
+      const safeErrorCode = err instanceof BaseWorkerError ? err.code : 'WORKER_RUNTIME_ERROR';
+      this.healthServer.setUnhealthy(safeErrorCode);
       this.logger.error('worker_server_startup_failed', err);
       throw err;
     }

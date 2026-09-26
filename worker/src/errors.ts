@@ -11,7 +11,8 @@ export type WorkerErrorCode =
   | 'QUEUE_ERROR'
   | 'EXECUTION_ERROR'
   | 'CANCELLATION'
-  | 'SHUTDOWN_TIMEOUT';
+  | 'SHUTDOWN_TIMEOUT'
+  | 'WORKER_RUNTIME_ERROR';
 
 export abstract class BaseWorkerError extends Error {
   public abstract readonly code: WorkerErrorCode;
@@ -104,3 +105,15 @@ export class ShutdownTimeoutError extends BaseWorkerError {
     super(message, false);
   }
 }
+
+/**
+ * Thrown when an unexpected runtime exception occurs in the worker.
+ */
+export class WorkerRuntimeError extends BaseWorkerError {
+  public readonly code: WorkerErrorCode = 'WORKER_RUNTIME_ERROR';
+
+  constructor(message: string = 'Worker encountered an unexpected runtime error') {
+    super(message, true);
+  }
+}
+
