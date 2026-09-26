@@ -13,7 +13,6 @@ import { HumanApprovalsPanel } from '@/components/HumanApprovalsPanel';
 import {
   Project,
   HumanApprovalRecord,
-  mockApprovals,
 } from '@/lib/demoData';
 import {
   getProject,
@@ -26,6 +25,7 @@ import {
   RefreshCw,
   Lock,
   ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function HumanApprovalsPage() {
@@ -34,6 +34,7 @@ export default function HumanApprovalsPage() {
   const projectId = params.projectId as string;
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [approvals, setApprovals] = useState<HumanApprovalRecord[]>([]);
 
@@ -41,7 +42,7 @@ export default function HumanApprovalsPage() {
     try {
       setLoading(true);
       const token = await getToken();
-      const effectiveToken = token || 'demo-token';
+      const effectiveToken = token || '';
 
       const [proj, apprs] = await Promise.all([
         getProject(effectiveToken, projectId),
@@ -49,10 +50,12 @@ export default function HumanApprovalsPage() {
       ]);
 
       setProject(proj);
-      setApprovals(apprs.length > 0 ? apprs : mockApprovals);
-    } catch (err) {
+      setApprovals(apprs || []);
+      setError(null);
+    } catch (err: any) {
       console.error('[Approvals Page Error]:', err);
-      setApprovals(mockApprovals);
+      setError(err?.message || 'Failed loading approvals.');
+      setApprovals([]);
     } finally {
       setLoading(false);
     }
@@ -84,6 +87,20 @@ export default function HumanApprovalsPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      {error && (
+        <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => loadData()}
+            className="px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Breadcrumb & Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

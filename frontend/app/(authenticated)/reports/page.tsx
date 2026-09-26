@@ -76,7 +76,7 @@ export default function ReportsPage() {
               <tbody className="divide-y divide-white/5 text-[11px]">
                 {runs.map((r) => (
                   <tr key={r.id} className="hover:bg-white/5">
-                    <td className="p-4 text-foreground font-semibold">{r.projectName || 'Synced Project'}</td>
+                    <td className="p-4 text-foreground font-semibold">{r.projectName || 'Project'}</td>
                     <td className="p-4 text-muted-foreground">{r.id}</td>
                     <td className="p-4 text-accent font-bold">{r.releaseScore}%</td>
                     <td className="p-4 text-muted-foreground">{r.createdAt}</td>

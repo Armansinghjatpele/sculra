@@ -13,7 +13,6 @@ import { DecisionExplorer } from '@/components/DecisionExplorer';
 import {
   Project,
   DecisionRecord,
-  mockDecisions,
 } from '@/lib/demoData';
 import {
   getProject,
@@ -24,6 +23,7 @@ import {
   ChevronRight,
   RefreshCw,
   ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function DecisionsExplorerPage() {
@@ -32,6 +32,7 @@ export default function DecisionsExplorerPage() {
   const projectId = params.projectId as string;
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
 
@@ -39,7 +40,7 @@ export default function DecisionsExplorerPage() {
     try {
       setLoading(true);
       const token = await getToken();
-      const effectiveToken = token || 'demo-token';
+      const effectiveToken = token || '';
 
       const [proj, decs] = await Promise.all([
         getProject(effectiveToken, projectId),
@@ -47,10 +48,12 @@ export default function DecisionsExplorerPage() {
       ]);
 
       setProject(proj);
-      setDecisions(decs.length > 0 ? decs : mockDecisions);
-    } catch (err) {
+      setDecisions(decs || []);
+      setError(null);
+    } catch (err: any) {
       console.error('[Decisions Page Error]:', err);
-      setDecisions(mockDecisions);
+      setError(err?.message || 'Failed loading decisions.');
+      setDecisions([]);
     } finally {
       setLoading(false);
     }
@@ -62,6 +65,20 @@ export default function DecisionsExplorerPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      {error && (
+        <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => loadData()}
+            className="px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Breadcrumb & Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

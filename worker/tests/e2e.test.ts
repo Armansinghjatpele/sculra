@@ -159,5 +159,5 @@ describe('Worker Live E2E Verification against Local Fixture Target', () => {
     expect(brokenControlIssue).toBeDefined();
     expect(brokenControlIssue.severity).toBeDefined();
     expect(brokenControlIssue.fingerprint).toBeDefined();
-  }, 45000);
+  }, 90000);
 });

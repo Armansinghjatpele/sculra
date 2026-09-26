@@ -64,6 +64,14 @@ export function EvidenceGraphViewer({ graph, className = '' }: EvidenceGraphView
     }
   };
 
+  if (graph.nodes.length === 0) {
+    return (
+      <div className={`p-8 text-center rounded-xl bg-zinc-900/30 border border-zinc-800 text-zinc-500 text-sm ${className}`}>
+        No causal evidence graph generated yet.
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Visual Chain Progression */}

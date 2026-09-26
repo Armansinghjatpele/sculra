@@ -38,7 +38,7 @@ export default function TestRunsPage() {
 
   // Unique projects from runs
   const projectsList = React.useMemo(() => {
-    const names = new Set(runs.map((r) => r.projectName || 'Synced Project'));
+    const names = new Set(runs.map((r) => r.projectName || 'Project'));
     return ['all', ...Array.from(names)];
   }, [runs]);
 
@@ -46,7 +46,7 @@ export default function TestRunsPage() {
   const filteredRuns = React.useMemo(() => {
     return runs.filter((r) => {
       const matchesStatus = statusFilter === 'all' || r.status.toLowerCase() === statusFilter.toLowerCase();
-      const matchesProject = projectFilter === 'all' || (r.projectName || 'Synced Project') === projectFilter;
+      const matchesProject = projectFilter === 'all' || (r.projectName || 'Project') === projectFilter;
       return matchesStatus && matchesProject;
     });
   }, [runs, statusFilter, projectFilter]);

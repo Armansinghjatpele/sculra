@@ -18,6 +18,13 @@ export async function POST(req: NextRequest) {
     const authContext = await getAuthContext(req);
     requirePermission(authContext, PERMISSIONS.MEMBERS_INVITE);
 
+    if (!authContext.orgId) {
+      return NextResponse.json(
+        { success: false, error: 'Organization context required' },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { email, role } = body;
 
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const member = await inviteOrganizationMember(
       authContext.clerkToken,
-      authContext.orgId || 'org_demo_1',
+      authContext.orgId,
       email,
       requestedRole,
       authContext.userId

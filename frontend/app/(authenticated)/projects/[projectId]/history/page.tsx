@@ -298,7 +298,12 @@ export default function ProjectHistoryPage({ params }: ProjectHistoryPageProps) 
                 </div>
                 <div className="flex items-center gap-3 text-3xs">
                   <span className="text-muted-foreground">
-                    Flake Rate: <span className="text-amber-400 font-bold">{Math.round((ft.metadata?.flakeRate || 0.5) * 100)}%</span>
+                    Flake Rate:{' '}
+                    <span className="text-amber-400 font-bold">
+                      {typeof ft.metadata?.flakeRate === 'number'
+                        ? `${Math.round(ft.metadata.flakeRate * 100)}%`
+                        : 'N/A'}
+                    </span>
                   </span>
                   <span className="text-muted-foreground">
                     Consecutive: <span className="text-foreground">{ft.consecutiveCount || 1}</span>

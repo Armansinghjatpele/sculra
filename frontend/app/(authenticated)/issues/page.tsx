@@ -39,7 +39,7 @@ export default function IssuesPage() {
 
   // Unique projects from issues
   const projectsList = React.useMemo(() => {
-    const names = new Set(issues.map((i) => i.projectName || 'Synced Project'));
+    const names = new Set(issues.map((i) => i.projectName || 'Project'));
     return ['all', ...Array.from(names)];
   }, [issues]);
 
@@ -48,7 +48,7 @@ export default function IssuesPage() {
     return issues.filter((i) => {
       const matchesSeverity = severityFilter === 'all' || i.severity.toLowerCase() === severityFilter.toLowerCase();
       const matchesStatus = statusFilter === 'all' || (i.status || 'open').toLowerCase() === statusFilter.toLowerCase();
-      const matchesProject = projectFilter === 'all' || (i.projectName || 'Synced Project') === projectFilter;
+      const matchesProject = projectFilter === 'all' || (i.projectName || 'Project') === projectFilter;
       return matchesSeverity && matchesStatus && matchesProject;
     });
   }, [issues, severityFilter, statusFilter, projectFilter]);

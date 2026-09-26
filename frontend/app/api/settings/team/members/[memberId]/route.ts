@@ -20,6 +20,13 @@ export async function PATCH(
     const authContext = await getAuthContext(req);
     requirePermission(authContext, PERMISSIONS.MEMBERS_CHANGE_ROLE);
 
+    if (!authContext.orgId) {
+      return NextResponse.json(
+        { success: false, error: 'Organization context required' },
+        { status: 400 }
+      );
+    }
+
     const { memberId } = await params;
     const body = await req.json().catch(() => ({}));
     const { role } = body;
@@ -35,7 +42,7 @@ export async function PATCH(
 
     const updated = await updateOrganizationMemberRole(
       authContext.clerkToken,
-      authContext.orgId || 'org_demo_1',
+      authContext.orgId,
       memberId,
       newRole,
       authContext.role,
@@ -64,11 +71,18 @@ export async function DELETE(
     const authContext = await getAuthContext(req);
     requirePermission(authContext, PERMISSIONS.MEMBERS_REMOVE);
 
+    if (!authContext.orgId) {
+      return NextResponse.json(
+        { success: false, error: 'Organization context required' },
+        { status: 400 }
+      );
+    }
+
     const { memberId } = await params;
 
     const result = await removeOrganizationMember(
       authContext.clerkToken,
-      authContext.orgId || 'org_demo_1',
+      authContext.orgId,
       memberId,
       authContext.role,
       authContext.userId

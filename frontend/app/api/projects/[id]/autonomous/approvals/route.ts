@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getProject, getProjectHumanApprovals } from '@/services/db';
 import { getSupabaseUserClient } from '@/lib/supabase';
-import { mockApprovals } from '@/lib/demoData';
 
 export async function GET(
   req: NextRequest,
@@ -130,32 +129,11 @@ export async function POST(
       .maybeSingle();
 
     if (error || !data) {
-      // Demo fallback
-      const newMockApproval = {
-        id: `appr-${Date.now()}`,
-        projectId: id,
-        remediationId,
-        sourceSha,
-        fixPlanVersion,
-        status: 'PENDING' as const,
-        requestedBy: userId,
-        requestedAt: now.toISOString(),
-        expiresAt,
-        issueId,
-        issueTitle,
-        diffSummary,
-        patchUnified,
-        verificationPassed,
-        securityChecksPassed,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      };
-      mockApprovals.unshift(newMockApproval);
-
-      return NextResponse.json({
-        success: true,
-        approval: newMockApproval,
-      });
+      console.error('[API Project Human Approvals POST Error]:', error);
+      return NextResponse.json(
+        { success: false, error: error?.message || 'Failed creating human approval request.' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

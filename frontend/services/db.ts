@@ -331,7 +331,10 @@ export async function createProject(clerkToken: string, projectData: {
 
 export async function getTestRuns(clerkToken: string, clerkOrgId?: string | null) {
   const supabase = getSupabaseUserClient(clerkToken);
-  let query = supabase.from('test_runs').select('*');
+  let query = supabase
+    .from('test_runs')
+    .select('*, projects(name), issues(count)')
+    .order('created_at', { ascending: false });
 
   if (clerkOrgId) {
     const { data: orgData } = await supabase
@@ -357,12 +360,19 @@ export async function getTestRuns(clerkToken: string, clerkOrgId?: string | null
   return (data || []).map((r: any) => ({
     id: r.id,
     projectId: r.project_id,
-    projectName: 'Synced Project',
+    projectName: r.projects?.name || r.project_name || 'Project',
     status: r.status,
-    issuesCount: 0,
+    issuesCount:
+      Array.isArray(r.issues) && r.issues[0]?.count != null
+        ? r.issues[0].count
+        : typeof r.issues_count === 'number'
+        ? r.issues_count
+        : 0,
     releaseScore: r.overall_score ?? null,
     durationMs: r.duration_ms || 0,
-    createdAt: 'Synced',
+    createdAt: r.created_at || new Date().toISOString(),
+    startedAt: r.started_at || undefined,
+    completedAt: r.completed_at || undefined,
   })) as TestRun[];
 }
 
@@ -822,7 +832,7 @@ export async function getTestRun(clerkToken: string, id: string): Promise<TestRu
   const supabase = getSupabaseUserClient(clerkToken);
   const { data, error } = await supabase
     .from('test_runs')
-    .select('*, projects(name, source_url, repository_url, source_type)')
+    .select('*, projects(name, source_url, repository_url, source_type), issues(count)')
     .eq('id', id)
     .maybeSingle();
 
@@ -834,15 +844,22 @@ export async function getTestRun(clerkToken: string, id: string): Promise<TestRu
   if (!data) return null;
 
   const proj = data.projects;
+  const issuesCount =
+    Array.isArray(data.issues) && data.issues[0]?.count != null
+      ? data.issues[0].count
+      : typeof data.issues_count === 'number'
+      ? data.issues_count
+      : 0;
+
   return {
     id: data.id,
     projectId: data.project_id,
-    projectName: proj?.name || 'Synced Project',
+    projectName: proj?.name || data.project_name || 'Project',
     status: data.status,
-    issuesCount: 0,
+    issuesCount,
     releaseScore: data.overall_score ?? null,
     durationMs: data.duration_ms || 0,
-    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : 'Synced',
+    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : new Date().toLocaleString(),
     startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
     completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
     url: proj?.source_url || proj?.repository_url,
@@ -2190,6 +2207,100 @@ export async function getProjectAutonomousEvents(
   return data.map(mapAutonomousEventRecord);
 }
 
+export interface WorkspaceActivityItem {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  status: string;
+}
+
+export async function getWorkspaceActivityLog(
+  clerkToken: string,
+  clerkOrgId?: string | null,
+  limit = 50
+): Promise<WorkspaceActivityItem[]> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  let internalOrgId: string | null = null;
+
+  if (clerkOrgId) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('clerk_organization_id', clerkOrgId)
+      .maybeSingle();
+
+    if (orgData) {
+      internalOrgId = orgData.id;
+    } else {
+      return [];
+    }
+  }
+
+  // 1. Query real autonomous events
+  let autoQuery = supabase
+    .from('autonomous_events')
+    .select('*, projects(name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (internalOrgId) {
+    autoQuery = autoQuery.eq('organization_id', internalOrgId);
+  } else {
+    autoQuery = autoQuery.is('organization_id', null);
+  }
+
+  // 2. Query real activity events
+  let actQuery = supabase
+    .from('activity_events')
+    .select('*, projects(name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (internalOrgId) {
+    actQuery = actQuery.eq('organization_id', internalOrgId);
+  } else {
+    actQuery = actQuery.is('organization_id', null);
+  }
+
+  const [autoRes, actRes] = await Promise.all([
+    autoQuery,
+    actQuery,
+  ]);
+
+  if (useFallback(autoRes.error && actRes.error)) {
+    return [];
+  }
+
+  const items: WorkspaceActivityItem[] = [];
+
+  for (const row of autoRes.data || []) {
+    items.push({
+      id: `auto-${row.id}`,
+      type: row.actor_type?.toLowerCase() || 'system',
+      title: row.headline || row.summary || row.event_type || 'Autonomous Event',
+      description: row.reason || (row.projects?.name ? `Project: ${row.projects.name}` : (row.stage || row.status || 'Processed')),
+      timestamp: row.created_at,
+      status: row.status || 'completed',
+    });
+  }
+
+  for (const row of actRes.data || []) {
+    items.push({
+      id: `act-${row.id}`,
+      type: 'activity',
+      title: row.event_type || 'Activity',
+      description: row.metadata?.description || (row.projects?.name ? `Project: ${row.projects.name}` : 'Workspace activity'),
+      timestamp: row.created_at,
+      status: row.metadata?.status || 'info',
+    });
+  }
+
+  items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return items.slice(0, limit);
+}
+
 export async function getProjectAutonomousTimeline(
   clerkToken: string,
   projectId: string,
@@ -2869,16 +2980,18 @@ export async function getOrganizationMembers(
   clerkToken: string,
   clerkOrgId?: string | null
 ): Promise<OrganizationMember[]> {
+  if (!clerkOrgId) {
+    return [];
+  }
   const supabase = getSupabaseUserClient(clerkToken);
 
-  let orgId = clerkOrgId || 'org_demo_1';
   const { data: dbOrg } = await supabase
     .from('organizations')
     .select('id')
-    .eq('clerk_organization_id', orgId)
+    .eq('clerk_organization_id', clerkOrgId)
     .maybeSingle();
 
-  const internalOrgId = dbOrg?.id || orgId;
+  const internalOrgId = dbOrg?.id || clerkOrgId;
 
   const { data, error } = await supabase
     .from('organization_memberships')
@@ -2886,7 +2999,7 @@ export async function getOrganizationMembers(
     .eq('organization_id', internalOrgId);
 
   if (useFallback(error)) {
-    return localMembers;
+    return localMembers.filter((m) => m.organizationId === internalOrgId);
   }
 
   return (data || []).map((m: any) => ({

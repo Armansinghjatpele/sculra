@@ -25,10 +25,6 @@ import {
   EvidenceGraph,
   Campaign,
   CampaignTask,
-  mockAutonomousEvents,
-  mockDecisions,
-  mockApprovals,
-  mockEvidenceGraph,
 } from '@/lib/demoData';
 import {
   getProject,
@@ -63,12 +59,13 @@ export default function AutonomousControlCenterPage() {
   const projectId = params.projectId as string;
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [events, setEvents] = useState<AutonomousEvent[]>([]);
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [approvals, setApprovals] = useState<HumanApprovalRecord[]>([]);
   const [health, setHealth] = useState<AutonomousHealthMetrics | null>(null);
-  const [evidenceGraph, setEvidenceGraph] = useState<EvidenceGraph>(mockEvidenceGraph);
+  const [evidenceGraph, setEvidenceGraph] = useState<EvidenceGraph>({ nodes: [], edges: [] });
   const [activeCampaign, setActiveCampaign] = useState<Campaign | null>(null);
 
   // Tabs
@@ -84,7 +81,7 @@ export default function AutonomousControlCenterPage() {
       else setRefreshing(true);
 
       const token = await getToken();
-      const effectiveToken = token || 'demo-token';
+      const effectiveToken = token || '';
 
       const [proj, evts, decs, apprs, hlt, camps] = await Promise.all([
         getProject(effectiveToken, projectId),
@@ -96,10 +93,11 @@ export default function AutonomousControlCenterPage() {
       ]);
 
       setProject(proj);
-      setEvents(evts.length > 0 ? evts : mockAutonomousEvents);
-      setDecisions(decs.length > 0 ? decs : mockDecisions);
-      setApprovals(apprs.length > 0 ? apprs : mockApprovals);
-      setHealth(hlt);
+      setEvents(evts || []);
+      setDecisions(decs || []);
+      setApprovals(apprs || []);
+      setHealth(hlt || null);
+      setError(null);
 
       const runningCamp = camps.find((c) => c.status === 'RUNNING') || camps[0] || null;
       setActiveCampaign(runningCamp);
@@ -108,15 +106,15 @@ export default function AutonomousControlCenterPage() {
         const graph = await getCampaignEvidenceGraph(effectiveToken, runningCamp.id);
         if (graph && graph.nodes.length > 0) {
           setEvidenceGraph(graph);
+        } else {
+          setEvidenceGraph({ nodes: [], edges: [] });
         }
+      } else {
+        setEvidenceGraph({ nodes: [], edges: [] });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Control Center Error]:', err);
-      // Fallback
-      setEvents(mockAutonomousEvents);
-      setDecisions(mockDecisions);
-      setApprovals(mockApprovals);
-      setEvidenceGraph(mockEvidenceGraph);
+      setError(err?.message || 'Failed loading autonomous control center data.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -142,7 +140,7 @@ export default function AutonomousControlCenterPage() {
     reason: string
   ) => {
     const token = await getToken();
-    const effectiveToken = token || 'demo-token';
+    const effectiveToken = token || '';
     const effectiveUser = userId || 'Operator';
 
     await decideHumanApproval(
@@ -155,13 +153,27 @@ export default function AutonomousControlCenterPage() {
 
     // Refresh approvals list
     const updated = await getProjectHumanApprovals(effectiveToken, projectId);
-    setApprovals(updated.length > 0 ? updated : mockApprovals);
+    setApprovals(updated || []);
   };
 
   const pendingApprovalsCount = approvals.filter((a) => a.status === 'PENDING').length;
 
   return (
     <div className="space-y-6 pb-12">
+      {error && (
+        <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 text-red-400 text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => loadData(false)}
+            className="px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Page Breadcrumb & Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

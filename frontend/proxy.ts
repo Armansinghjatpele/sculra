@@ -2,14 +2,22 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 // Define paths requiring user authentication
 const isProtectedRoute = createRouteMatcher([
+  '/activity(.*)',
+  '/ai-insights(.*)',
+  '/api-keys(.*)',
+  '/billing(.*)',
+  '/campaigns(.*)',
   '/dashboard(.*)',
+  '/issues(.*)',
+  '/notifications(.*)',
+  '/organization(.*)',
+  '/profile(.*)',
   '/projects(.*)',
+  '/release-readiness(.*)',
   '/reports(.*)',
   '/settings(.*)',
-  '/profile(.*)',
-  '/billing(.*)',
-  '/notifications(.*)',
-  '/api-keys(.*)',
+  '/team(.*)',
+  '/test-runs(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
