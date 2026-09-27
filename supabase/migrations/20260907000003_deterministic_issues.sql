@@ -48,10 +48,10 @@ CREATE POLICY "Occurrences read by organization members" ON public.issue_occurre
   FOR SELECT USING (
     organization_id IN (
       SELECT organization_id FROM public.organization_memberships
-      WHERE clerk_user_id = auth.clerk_user_id()
+      WHERE clerk_user_id = public.clerk_user_id()
     ) OR
     (organization_id IS NULL AND project_id IN (
-      SELECT id FROM public.projects WHERE clerk_user_id = auth.clerk_user_id()
+      SELECT id FROM public.projects WHERE created_by = public.clerk_user_id()
     ))
   );
 

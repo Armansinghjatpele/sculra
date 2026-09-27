@@ -8,7 +8,7 @@
 -- ------------------------------------------------------------------------------
 
 -- Retrieve active Clerk Organization ID. Returns null if in a Personal Workspace context.
-CREATE OR REPLACE FUNCTION auth.org_id()
+CREATE OR REPLACE FUNCTION public.org_id()
 RETURNS text
 LANGUAGE sql
 STABLE
@@ -20,7 +20,7 @@ AS $$
 $$;
 
 -- Retrieve active Clerk User ID.
-CREATE OR REPLACE FUNCTION auth.clerk_user_id()
+CREATE OR REPLACE FUNCTION public.clerk_user_id()
 RETURNS text
 LANGUAGE sql
 STABLE
@@ -239,19 +239,19 @@ ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
 
 -- Profiles RLS
 CREATE POLICY "Profiles read to authenticated users" ON public.profiles
-  FOR SELECT USING (auth.clerk_user_id() IS NOT NULL);
+  FOR SELECT USING (public.clerk_user_id() IS NOT NULL);
 
 CREATE POLICY "Users can edit own profile" ON public.profiles
-  FOR ALL USING (clerk_user_id = auth.clerk_user_id());
+  FOR ALL USING (clerk_user_id = public.clerk_user_id());
 
 -- Organizations RLS
 CREATE POLICY "Members can read organizations" ON public.organizations
   FOR SELECT USING (
-    clerk_organization_id = auth.org_id() OR
+    clerk_organization_id = public.org_id() OR
     EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = organizations.id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     )
   );
 
@@ -261,7 +261,7 @@ CREATE POLICY "Members can view memberships" ON public.organization_memberships
     EXISTS (
       SELECT 1 FROM public.organization_memberships self
       WHERE self.organization_id = organization_memberships.organization_id
-      AND self.clerk_user_id = auth.clerk_user_id()
+      AND self.clerk_user_id = public.clerk_user_id()
     )
   );
 
@@ -271,10 +271,10 @@ CREATE POLICY "Members can query projects" ON public.projects
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = projects.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 CREATE POLICY "Members can write projects" ON public.projects
@@ -282,10 +282,10 @@ CREATE POLICY "Members can write projects" ON public.projects
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = projects.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 CREATE POLICY "Members can update own projects" ON public.projects
@@ -293,10 +293,10 @@ CREATE POLICY "Members can update own projects" ON public.projects
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = projects.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 CREATE POLICY "Members can delete own projects" ON public.projects
@@ -304,10 +304,10 @@ CREATE POLICY "Members can delete own projects" ON public.projects
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = projects.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 -- Test Runs RLS
@@ -316,10 +316,10 @@ CREATE POLICY "Members can view test runs" ON public.test_runs
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = test_runs.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 CREATE POLICY "Members can insert test runs" ON public.test_runs
@@ -327,10 +327,10 @@ CREATE POLICY "Members can insert test runs" ON public.test_runs
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = test_runs.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND created_by = auth.clerk_user_id())
+    (organization_id IS NULL AND created_by = public.clerk_user_id())
   );
 
 -- Issues RLS
@@ -339,13 +339,13 @@ CREATE POLICY "Members can view issues" ON public.issues
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = issues.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
     (organization_id IS NULL AND EXISTS (
       SELECT 1 FROM public.projects p
       WHERE p.id = issues.project_id
-      AND p.created_by = auth.clerk_user_id()
+      AND p.created_by = public.clerk_user_id()
     ))
   );
 
@@ -355,13 +355,13 @@ CREATE POLICY "Members can view reports" ON public.reports
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = reports.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
     (organization_id IS NULL AND EXISTS (
       SELECT 1 FROM public.projects p
       WHERE p.id = reports.project_id
-      AND p.created_by = auth.clerk_user_id()
+      AND p.created_by = public.clerk_user_id()
     ))
   );
 
@@ -371,13 +371,13 @@ CREATE POLICY "Members can view scores" ON public.release_scores
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = release_scores.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
     (organization_id IS NULL AND EXISTS (
       SELECT 1 FROM public.projects p
       WHERE p.id = release_scores.project_id
-      AND p.created_by = auth.clerk_user_id()
+      AND p.created_by = public.clerk_user_id()
     ))
   );
 
@@ -387,19 +387,19 @@ CREATE POLICY "Members can view AI insights" ON public.ai_insights
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = ai_insights.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
     (organization_id IS NULL AND EXISTS (
       SELECT 1 FROM public.projects p
       WHERE p.id = ai_insights.project_id
-      AND p.created_by = auth.clerk_user_id()
+      AND p.created_by = public.clerk_user_id()
     ))
   );
 
 -- Notifications RLS
 CREATE POLICY "Users can query notifications" ON public.notifications
-  FOR SELECT USING (clerk_user_id = auth.clerk_user_id());
+  FOR SELECT USING (clerk_user_id = public.clerk_user_id());
 
 -- Activity Events RLS
 CREATE POLICY "Members can view activity feed" ON public.activity_events
@@ -407,8 +407,8 @@ CREATE POLICY "Members can view activity feed" ON public.activity_events
     (organization_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM public.organization_memberships m
       WHERE m.organization_id = activity_events.organization_id
-      AND m.clerk_user_id = auth.clerk_user_id()
+      AND m.clerk_user_id = public.clerk_user_id()
     ))
     OR
-    (organization_id IS NULL AND clerk_user_id = auth.clerk_user_id())
+    (organization_id IS NULL AND clerk_user_id = public.clerk_user_id())
   );

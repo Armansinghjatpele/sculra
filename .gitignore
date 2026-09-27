@@ -35,6 +35,7 @@ tmp/
 temp/
 cache/
 .cache/
+supabase/.temp/
 
 # System & Editor configurations
 .DS_Store

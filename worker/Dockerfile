@@ -59,7 +59,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY worker/package.json ./worker/
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod --filter @sculra/worker...
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts --filter @sculra/worker...
 
 # Copy compiled JavaScript distribution from builder stage
 COPY --from=builder /app/worker/dist ./worker/dist

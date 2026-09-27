@@ -146,15 +146,15 @@ CREATE POLICY "Users can view credential records for their organization"
   FOR SELECT
   USING (
     organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()::text
+      SELECT organization_id FROM public.organization_memberships
+      WHERE clerk_user_id = auth.uid()::text
     )
     OR
     (project_id IS NOT NULL AND project_id IN (
       SELECT id FROM public.projects
       WHERE organization_id IN (
-        SELECT organization_id FROM public.organization_members
-        WHERE user_id = auth.uid()::text
+        SELECT organization_id FROM public.organization_memberships
+        WHERE clerk_user_id = auth.uid()::text
       )
     ))
   );
@@ -164,8 +164,8 @@ CREATE POLICY "Owners and Admins can create credential records"
   FOR INSERT
   WITH CHECK (
     organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()::text AND role IN ('OWNER', 'ADMIN')
+      SELECT organization_id FROM public.organization_memberships
+      WHERE clerk_user_id = auth.uid()::text AND LOWER(role) IN ('owner', 'admin')
     )
   );
 
@@ -174,8 +174,8 @@ CREATE POLICY "Owners and Admins can update credential records"
   FOR UPDATE
   USING (
     organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()::text AND role IN ('OWNER', 'ADMIN')
+      SELECT organization_id FROM public.organization_memberships
+      WHERE clerk_user_id = auth.uid()::text AND LOWER(role) IN ('owner', 'admin')
     )
   );
 
@@ -184,8 +184,8 @@ CREATE POLICY "Owners and Admins can delete credential records"
   FOR DELETE
   USING (
     organization_id IN (
-      SELECT organization_id FROM public.organization_members
-      WHERE user_id = auth.uid()::text AND role IN ('OWNER', 'ADMIN')
+      SELECT organization_id FROM public.organization_memberships
+      WHERE clerk_user_id = auth.uid()::text AND LOWER(role) IN ('owner', 'admin')
     )
   );
 
@@ -206,8 +206,8 @@ CREATE POLICY "Admins and Owners can view credential access logs"
     credential_id IN (
       SELECT id FROM public.credential_records
       WHERE organization_id IN (
-        SELECT organization_id FROM public.organization_members
-        WHERE user_id = auth.uid()::text AND role IN ('OWNER', 'ADMIN')
+        SELECT organization_id FROM public.organization_memberships
+        WHERE clerk_user_id = auth.uid()::text AND LOWER(role) IN ('owner', 'admin')
       )
     )
   );
@@ -225,8 +225,8 @@ CREATE POLICY "Admins and Owners can view credential rotations"
     credential_id IN (
       SELECT id FROM public.credential_records
       WHERE organization_id IN (
-        SELECT organization_id FROM public.organization_members
-        WHERE user_id = auth.uid()::text AND role IN ('OWNER', 'ADMIN')
+        SELECT organization_id FROM public.organization_memberships
+        WHERE clerk_user_id = auth.uid()::text AND LOWER(role) IN ('owner', 'admin')
       )
     )
   );
