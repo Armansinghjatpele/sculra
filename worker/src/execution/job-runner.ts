@@ -111,11 +111,12 @@ export class JobRunner {
           let campaignConfig = job.config || {};
           let campaignObjective = job.config?.objective;
           let targetUrl = job.targetUrl;
+          let testRunId = job.testRunId;
 
-          if (this.supabase && (!campaignConfig.domains || !targetUrl)) {
+          if (this.supabase) {
             const { data: campRow } = await this.supabase
               .from('qa_campaigns')
-              .select('configuration, budget, objective')
+              .select('configuration, budget, objective, test_run_id')
               .eq('id', job.jobId)
               .maybeSingle();
 
@@ -126,17 +127,48 @@ export class JobRunner {
               if (!targetUrl) {
                 targetUrl = cfg.targetUrl || cfg.url;
               }
+              if (!testRunId && campRow.test_run_id) {
+                testRunId = campRow.test_run_id;
+              }
             }
           }
 
           if (this.supabase && !targetUrl && job.projectId) {
             const { data: projRow } = await this.supabase
               .from('projects')
-              .select('url, source_url')
+              .select('source_url')
               .eq('id', job.projectId)
               .maybeSingle();
             if (projRow) {
-              targetUrl = projRow.url || projRow.source_url || '';
+              targetUrl = projRow.source_url || '';
+            }
+          }
+
+          // Ensure companion test_runs record exists so test_evidence satisfies foreign key and not-null constraints
+          if (this.supabase && !testRunId && job.projectId) {
+            try {
+              const { data: newRun } = await this.supabase
+                .from('test_runs')
+                .insert({
+                  project_id: job.projectId,
+                  organization_id: job.organizationId || null,
+                  status: 'running',
+                  trigger_type: 'future_ai_agent',
+                  started_at: new Date().toISOString(),
+                  created_by: 'system_campaign_orchestrator',
+                })
+                .select('id')
+                .maybeSingle();
+
+              if (newRun) {
+                testRunId = newRun.id;
+                await this.supabase
+                  .from('qa_campaigns')
+                  .update({ test_run_id: testRunId })
+                  .eq('id', job.jobId);
+              }
+            } catch (err: any) {
+              this.logger.warn(`Failed to create companion test_runs record: ${err?.message}`);
             }
           }
 
@@ -144,7 +176,7 @@ export class JobRunner {
             campaignId: job.jobId,
             projectId: job.projectId,
             organizationId: job.organizationId || undefined,
-            testRunId: job.testRunId || undefined,
+            testRunId: testRunId || undefined,
             targetUrl: targetUrl || 'http://localhost:3000',
             objective: campaignObjective,
             config: campaignConfig,
@@ -157,6 +189,23 @@ export class JobRunner {
             token.isCancelled
               ? (isTimedOut ? 'TIMEOUT' : 'CANCELLED')
               : (campResult.success ? 'COMPLETED' : 'FAILED');
+
+          // Update companion test_runs record if created
+          if (this.supabase && testRunId) {
+            try {
+              const testRunStatus = campResult.success ? 'passed' : 'failed';
+              await this.supabase
+                .from('test_runs')
+                .update({
+                  status: testRunStatus,
+                  completed_at: new Date().toISOString(),
+                  overall_score: campResult.summary?.releaseAssessment?.overallScore ?? (campResult.success ? 100 : 50),
+                })
+                .eq('id', testRunId);
+            } catch (err: any) {
+              this.logger.warn(`Failed to finalize companion test_runs: ${err?.message}`);
+            }
+          }
 
           // CI/CD Gate evaluation if campaign summary is available
           if (this.supabase && campResult.summary) {
