@@ -51,9 +51,9 @@ docker build -f worker/Dockerfile -t sculra-worker:latest .
 ```
 
 Key build properties:
-- **Base image**: `mcr.microsoft.com/playwright:v1.50.1-noble` (Ubuntu 24.04 with Playwright Chromium and required OS graphics/sandbox libraries pre-installed).
+- **Base image**: `mcr.microsoft.com/playwright:v1.63.0-noble` (Ubuntu 24.04 with Playwright Chromium v1.63.0 and required OS graphics/sandbox libraries pre-installed).
 - **Package manager**: `pnpm@9.15.4` matching repository workspace specifications.
-- **Dependencies**: Monorepo-aware frozen lockfile installation (`--frozen-lockfile --prod`).
+- **Dependencies**: Monorepo-aware frozen lockfile installation (`--frozen-lockfile --prod --ignore-scripts --filter @sculra/worker...`). Skipping lifecycle scripts during production runner install prevents root git hook tools (such as Husky) from failing when devDependencies are omitted.
 - **Security**: Runs under non-root user `pwuser` (UID 1000).
 - **Secrets**: No `.env` or credential files are baked into the container.
 
@@ -281,15 +281,25 @@ The worker emits structured JSON logs designed for cloud ingestion (Datadog, Clo
 
 ---
 
-## 14. Current Platform Verification & Environment Status
+## 14. Live Railway Production Deployment & Verification Status
 
-An environment and hosting audit was performed:
-- **Playwright Chromium**: Verified locally via `pnpm worker:smoke` (headless launch, navigation, DOM interaction, screenshot generation verified in ~4.1s).
-- **Health Server Hardening & Dynamic Port**: Verified via unit and integration tests. `/health` and `/ready` strictly output standardized error codes (`WorkerSafeErrorCode`) without leaking stack traces, exception messages, database queries, or credentials. The health server honors dynamic container `PORT` (e.g. from Railway) with precedence over `WORKER_HEALTH_PORT`.
-- **Queue Semantics & Recovery**: Verified via integration tests. Atomic acquisition, heartbeat renewal, stale lease recovery, and stale overwrite protection tested and confirmed.
-- **Railway Tooling & Authentication Audit**:
-  - The official Railway CLI (`@railway/cli@5.62.1`) was installed on the host.
-  - Authentication check (`railway whoami`) reported: `Unauthorized. Please login with railway login`.
-  - In accordance with Prompt 55 pre-flight and Phase 2 mandates, actual container deployment was halted with status `RAILWAY_AUTH_REQUIRED`.
-  - Deployment and live execution remain **BLOCKED** until `railway login` or `RAILWAY_TOKEN` authentication is provided by the user.
+The worker is fully deployed and operational on Railway as a persistent production container:
+
+- **Railway Project ID**: `b9bc4414-0404-4d74-bbee-6de230756818` (`sculra`)
+- **Railway Service ID**: `5d2dcba1-ea14-43d8-8a60-da8abbb961bc` (`sculra-worker`)
+- **Active Deployment ID**: `c9e65f67-b384-400b-8e40-f5e23eefe93a` (Status: `SUCCESS`)
+- **Public Domain**: `https://sculra-worker-production.up.railway.app`
+- **Health Check Endpoint**: `https://sculra-worker-production.up.railway.app/health` (HTTP 200 `READY`)
+- **Readiness Check Endpoint**: `https://sculra-worker-production.up.railway.app/ready` (HTTP 200 `ready: true`)
+- **Database / Execution Queue**: Supabase Cloud (`vycrimzpywqyjhtvvuax`), all 21 schema migrations applied.
+- **Evidence Storage**: Supabase Storage public bucket `screenshots`.
+
+### Live Execution Verification
+
+1. **Daemon Lease Polling**: The worker container continuously polls Supabase via `acquire_execution_jobs` every 2000ms with concurrency limit 1.
+2. **Job Acquisition**: Queued test run `a82baaa2-0f53-4598-a13c-e433d9d7d8d4` was atomically acquired by worker `worker_1790483450878_cp8brs`.
+3. **Headless Browser Execution**: Playwright Chromium v1.63.0 launched inside the Ubuntu 24.04 container, navigated to `https://example.com/`, executed AI QA journeys, and ran accessibility, performance, and security scans.
+4. **Evidence Persistence**: 12 screenshots were captured, uploaded to the Supabase Storage `screenshots` bucket, and persisted in `test_evidence`.
+5. **Issue Flagging**: 5 deterministic issues (4 security header findings, 1 accessibility finding) were detected and recorded in `issues`.
+6. **Final State**: Test run updated with duration 5263ms, overall score 90, and completed timestamp. The worker cleanly returned to `READY` state with 0 active jobs.
 
