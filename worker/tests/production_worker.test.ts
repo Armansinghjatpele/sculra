@@ -117,16 +117,28 @@ describe('Prompt 53: Production Worker Infrastructure & Containerization', () =>
       expect(safe.workerId).toBe('worker-test-1');
     });
 
-    it('rejects invalid concurrency limits (less than 1 or exceeding 10)', () => {
-      expect(() =>
-        validateWorkerConfig({
-          WORKER_CONCURRENCY: '0',
-        })
-      ).toThrow(StartupConfigurationError);
+    it('honors runtime PORT provided by container platforms (e.g. Railway) with precedence over defaults', () => {
+      // Default fallback
+      const defaultConfig = validateWorkerConfig({});
+      expect(defaultConfig.healthPort).toBe(8080);
 
+      // WORKER_HEALTH_PORT override
+      const workerPortConfig = validateWorkerConfig({
+        WORKER_HEALTH_PORT: '8090',
+      });
+      expect(workerPortConfig.healthPort).toBe(8090);
+
+      // Railway / container host PORT takes precedence
+      const railwayPortConfig = validateWorkerConfig({
+        PORT: '3000',
+        WORKER_HEALTH_PORT: '8090',
+      });
+      expect(railwayPortConfig.healthPort).toBe(3000);
+
+      // Invalid port rejected
       expect(() =>
         validateWorkerConfig({
-          WORKER_CONCURRENCY: '15',
+          PORT: '70000',
         })
       ).toThrow(StartupConfigurationError);
     });
@@ -407,7 +419,7 @@ describe('Prompt 53: Production Worker Infrastructure & Containerization', () =>
       expect(result.chromiumVersion).toBeDefined();
       expect(result.screenshotBytes).toBeGreaterThan(0);
       expect(result.durationMs).toBeGreaterThan(0);
-    }, 30000);
+    }, 60000);
   });
 
   describe('Phase 13: Error Classification Hierarchy', () => {

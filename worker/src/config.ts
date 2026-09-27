@@ -72,10 +72,16 @@ export const WORKER_ENV_SCHEMA: Record<string, VariableMetadata> = {
     isSecret: false,
     defaultValue: 30000,
   },
+  PORT: {
+    name: 'PORT',
+    classification: 'OPTIONAL',
+    description: 'Dynamic container runtime port provided by container hosts (e.g. Railway)',
+    isSecret: false,
+  },
   WORKER_HEALTH_PORT: {
     name: 'WORKER_HEALTH_PORT',
     classification: 'OPTIONAL',
-    description: 'Port for the lightweight HTTP health & readiness server',
+    description: 'Port for the lightweight HTTP health & readiness server (fallback when PORT is absent)',
     isSecret: false,
     defaultValue: 8080,
   },
@@ -256,13 +262,14 @@ export function validateWorkerConfig(
     shutdownGracePeriodMs = parsed;
   }
 
-  // 6. Health Port
+  // 6. Health Port (Honors Railway / container provider PORT, or WORKER_HEALTH_PORT, defaulting to 8080)
   let healthPort = 8080;
-  if (env.WORKER_HEALTH_PORT) {
-    const parsed = parseInt(env.WORKER_HEALTH_PORT, 10);
+  const rawPort = env.PORT || env.WORKER_HEALTH_PORT;
+  if (rawPort) {
+    const parsed = parseInt(rawPort, 10);
     if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
       throw new StartupConfigurationError(
-        `WORKER_HEALTH_PORT must be a valid port (1-65535), received: "${env.WORKER_HEALTH_PORT}"`
+        `Health port must be a valid port (1-65535), received: "${rawPort}"`
       );
     }
     healthPort = parsed;

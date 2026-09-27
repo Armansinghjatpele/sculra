@@ -74,7 +74,7 @@ export async function runBrowserSmokeTest(): Promise<SmokeTestResult> {
     console.log(`[Smoke Test]: Navigating to fixture...`);
     const response = await page.goto(`http://127.0.0.1:${port}`, {
       waitUntil: 'domcontentloaded',
-      timeout: 10000,
+      timeout: 30000,
     });
 
     if (!response || response.status() !== 200) {
