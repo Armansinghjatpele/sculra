@@ -15,6 +15,7 @@ import { JourneyResult } from '../journeys/types';
 import { BugObservation } from '../issues/types';
 import { RoleContext, AuthenticatedSession, AuthorizationCheckResult } from '../auth/types';
 import { SourceCapability } from '../sources/types';
+import { RegressionComparisonResult, ChangeDecision } from '../change-intelligence/types';
 
 export type QACampaignStatus =
   | 'QUEUED'
@@ -273,6 +274,8 @@ export interface CampaignState {
   networkErrors: CapturedNetworkError[];
   screenshots: CapturedScreenshot[];
   changeIntelligence?: any;
+  regressionComparison?: RegressionComparisonResult;
+  changeDecisions?: ChangeDecision[];
   terminationReason?: CampaignTerminationReason;
   terminationDetails?: string;
 }
@@ -339,6 +342,8 @@ export interface CampaignSummary {
     fixSummary: string;
     affectedFiles: string[];
   }>;
+  regressionComparison?: RegressionComparisonResult;
+  changeDecisions?: ChangeDecision[];
 }
 
 export interface CampaignRecord {

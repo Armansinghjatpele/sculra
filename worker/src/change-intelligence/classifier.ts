@@ -28,11 +28,29 @@ export function classifyChangedFile(
   }
 
   // 3. Test files
-  if (isTestFile(filePath)) {
+  if (isTestFile(filePath) || lowerPath.includes('/test/') || lowerPath.includes('/tests/') || lowerPath.includes('/__tests__/') || lowerPath.includes('.spec.') || lowerPath.includes('.test.')) {
     classifications.add('TEST');
+    classifications.add('TEST_ONLY');
   }
 
-  // 4. Configuration files
+  // 4. Infrastructure & CI/CD
+  if (
+    lowerPath.includes('.github/') ||
+    lowerPath.includes('/ci/') ||
+    filename === 'dockerfile' ||
+    filename.startsWith('docker-compose') ||
+    filename === 'railway.json' ||
+    filename === 'railway.toml' ||
+    filename === 'vercel.json' ||
+    filename === 'procfile' ||
+    lowerPath.endsWith('.tf') ||
+    lowerPath.includes('/terraform/') ||
+    lowerPath.includes('/k8s/')
+  ) {
+    classifications.add('INFRASTRUCTURE');
+  }
+
+  // 4b. Configuration files
   if (
     filename.startsWith('.env') ||
     filename === 'next.config.js' ||
@@ -41,9 +59,7 @@ export function classifyChangedFile(
     filename === 'tsconfig.json' ||
     filename === 'vite.config.ts' ||
     filename === 'tailwind.config.js' ||
-    filename === 'tailwind.config.ts' ||
-    filename === 'dockerfile' ||
-    filename.startsWith('docker-compose')
+    filename === 'tailwind.config.ts'
   ) {
     classifications.add('CONFIGURATION');
   }

@@ -16,7 +16,7 @@ export class ImpactGraphBuilder {
   private edges: ImpactEdge[] = [];
   private isTruncated = false;
 
-  public addNode(id: string, type: ImpactTargetType | 'FILE' | 'SYMBOL', name: string, metadata?: Record<string, any>): void {
+  public addNode(id: string, type: ImpactNode['type'], name: string, metadata?: Record<string, any>): void {
     if (this.nodes[id]) return;
 
     if (Object.keys(this.nodes).length >= MAX_GRAPH_NODES) {
@@ -35,16 +35,7 @@ export class ImpactGraphBuilder {
   public addEdge(
     sourceId: string,
     targetId: string,
-    relationship:
-      | 'MODIFIES'
-      | 'IMPORTS'
-      | 'SERVES'
-      | 'CALLS'
-      | 'PART_OF'
-      | 'AFFECTS'
-      | 'USED_BY'
-      | 'COVERS'
-      | 'FAILED_BEFORE',
+    relationship: ImpactEdge['relationship'],
     reason: string,
     confidence: ImpactConfidence = 'HIGH',
     source = 'change_intelligence'
@@ -54,7 +45,9 @@ export class ImpactGraphBuilder {
       return;
     }
 
-    // Avoid duplicate edges
+    // Avoid self-cycles or duplicate edges
+    if (sourceId === targetId) return;
+
     const exists = this.edges.some(
       (e) => e.sourceId === sourceId && e.targetId === targetId && e.relationship === relationship
     );
@@ -68,6 +61,34 @@ export class ImpactGraphBuilder {
         source,
       });
     }
+  }
+
+  /**
+   * Traverses downstream edges from a starting node up to maxDepth with cycle detection.
+   */
+  public getDownstreamNodes(startNodeId: string, maxDepth = 5): ImpactNode[] {
+    const visited = new Set<string>();
+    const result: ImpactNode[] = [];
+    const queue: { id: string; depth: number }[] = [{ id: startNodeId, depth: 0 }];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current.id) || current.depth >= maxDepth) continue;
+      visited.add(current.id);
+
+      if (current.id !== startNodeId && this.nodes[current.id]) {
+        result.push(this.nodes[current.id]);
+      }
+
+      const outgoing = this.edges.filter((e) => e.sourceId === current.id);
+      for (const edge of outgoing) {
+        if (!visited.has(edge.targetId)) {
+          queue.push({ id: edge.targetId, depth: current.depth + 1 });
+        }
+      }
+    }
+
+    return result;
   }
 
   public build(): ImpactGraph {

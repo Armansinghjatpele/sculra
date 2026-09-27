@@ -120,6 +120,16 @@ export class CampaignAnalyzer {
       summary.remediationAnalyses = (state as any).remediationAnalyses;
     }
 
+    if (state.regressionComparison) {
+      summary.regressionComparison = state.regressionComparison;
+      summary.regressionsCount = state.regressionComparison.regressionsCount;
+      summary.recoveriesCount = state.regressionComparison.recoveriesCount;
+    }
+
+    if (state.changeDecisions) {
+      summary.changeDecisions = state.changeDecisions;
+    }
+
     // Generate grounded AI executive narrative
     summary.aiExecutiveSummary = await this.aiReasoner.generateExecutiveSummary(state, summary);
 

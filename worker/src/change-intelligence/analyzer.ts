@@ -24,6 +24,10 @@ import { ImpactGraphBuilder } from './graph';
 import { matchChangeToDomainsAndBoosts } from './matcher';
 import { ProductModel } from '../product';
 import { QASignalRecord, StabilitySignal, RegressionEvent } from '../history/types';
+import { buildChangeSnapshot } from './snapshot';
+import { ImpactMapper } from './mapper';
+import { RegressionTargetGenerator } from './regression-targets';
+import { ChangeDecisionEngine } from './decision-engine';
 
 export interface ChangeAnalysisContext {
   projectId: string;
@@ -45,6 +49,7 @@ export interface ChangeAnalysisContext {
   recentRegressions?: RegressionEvent[];
   knownRoutes?: string[];
   knownApiPaths?: string[];
+  targetUrl?: string;
 }
 
 export class ChangeIntelligenceAnalyzer {
@@ -151,7 +156,7 @@ export class ChangeIntelligenceAnalyzer {
     const totalLines = rawData.totalAdditions + rawData.totalDeletions;
     const sizeCategory = classifyChangeSize(changedFiles.length, totalLines);
 
-    // 3. Build ChangeSet Model
+    // 3. Build ChangeSet & Canonical ChangeSnapshot
     const changeSet: ChangeSet = {
       id: `cs-${commitSha.slice(0, 7)}-${Date.now().toString(36)}`,
       commitSha,
@@ -166,6 +171,19 @@ export class ChangeIntelligenceAnalyzer {
       partialReason,
       createdAt: new Date().toISOString(),
     };
+
+    const snapshot = buildChangeSnapshot({
+      commitSha,
+      baseSha,
+      branch,
+      pullRequestNumber,
+      source: isPartial ? 'CI' : 'GIT',
+      files: changedFiles,
+      totalAdditions: rawData.totalAdditions,
+      totalDeletions: rawData.totalDeletions,
+      isPartial,
+      partialReason,
+    });
 
     // 4. Map Route Impact
     const filePaths = changedFiles.map((f) => f.path);
@@ -202,52 +220,15 @@ export class ChangeIntelligenceAnalyzer {
       historicalAssociations,
     });
 
-    // 9. Build Bounded Impact Graph
-    const graphBuilder = new ImpactGraphBuilder();
-
-    // Add file nodes
-    for (const f of changedFiles) {
-      graphBuilder.addNode(f.path, 'FILE', f.path, { status: f.status, additions: f.additions, deletions: f.deletions });
-    }
-
-    // Add route nodes & edges
-    for (const r of affectedRoutes) {
-      graphBuilder.addNode(r.route, 'ROUTE', r.route);
-      // Link corresponding file to route
-      for (const f of changedFiles) {
-        if (r.reason.includes(f.path)) {
-          graphBuilder.addEdge(f.path, r.route, 'SERVES', r.reason, r.confidence);
-        }
-      }
-    }
-
-    // Add API nodes & edges
-    for (const a of affectedApis) {
-      graphBuilder.addNode(a.path, 'API', a.path, { method: a.method });
-      for (const f of changedFiles) {
-        if (a.reason.includes(f.path)) {
-          graphBuilder.addEdge(f.path, a.path, 'SERVES', a.reason, a.confidence);
-        }
-      }
-    }
-
-    // Add Workflow nodes & edges
-    for (const wf of affectedWorkflows) {
-      graphBuilder.addNode(wf.workflowId, 'WORKFLOW', wf.workflowName, { criticality: wf.criticality });
-      for (const r of affectedRoutes) {
-        if (wf.reason.includes(r.route)) {
-          graphBuilder.addEdge(r.route, wf.workflowId, 'PART_OF', wf.reason, wf.confidence);
-        }
-      }
-    }
-
-    // Add Historical nodes & edges
-    for (const h of historicalAssociations) {
-      graphBuilder.addNode(`hist-${h.targetIdentifier}`, 'HISTORICAL_FINDING', h.signalType, { target: h.targetIdentifier });
-      graphBuilder.addEdge(h.targetIdentifier, `hist-${h.targetIdentifier}`, 'FAILED_BEFORE', h.reason, h.confidence);
-    }
-
-    const impactGraph = graphBuilder.build();
+    // 9. Build Bounded Canonical Impact Graph via ImpactMapper
+    const impactGraph = ImpactMapper.buildImpactGraph({
+      changedFiles,
+      affectedRoutes,
+      affectedApis,
+      affectedWorkflows,
+      productModel,
+      historicalSignals,
+    });
 
     // 10. Recommend Domains and Produce Strategy Boosts
     const { recommendedDomains, strategyBoosts } = matchChangeToDomainsAndBoosts({
@@ -256,6 +237,22 @@ export class ChangeIntelligenceAnalyzer {
       affectedApis,
       affectedWorkflows,
       historicalAssociations,
+    });
+
+    // 10b. Generate 10-Source Regression Candidates & Evaluate Decisions
+    const regressionCandidates = RegressionTargetGenerator.generateCandidates({
+      snapshot,
+      affectedWorkflows,
+      affectedApis,
+      affectedRoutes,
+      productModel,
+      historicalSignals,
+      targetUrl: context.targetUrl || 'http://localhost:3000',
+    });
+
+    const decisions = ChangeDecisionEngine.evaluate({
+      snapshot,
+      candidates: regressionCandidates,
     });
 
     // 11. Determine Final Analysis Status
@@ -294,6 +291,9 @@ export class ChangeIntelligenceAnalyzer {
       recommendedDomains,
       strategyBoosts,
       summary,
+      snapshot,
+      decisions,
+      regressionCandidates,
       isPartial: status === 'PARTIAL' || isPartial,
       analyzedAt: new Date().toISOString(),
       durationMs,

@@ -29,6 +29,8 @@ export type ChangeClassification =
   | 'CONFIGURATION'
   | 'DEPENDENCY'
   | 'TEST'
+  | 'TEST_ONLY'
+  | 'INFRASTRUCTURE'
   | 'DOCUMENTATION'
   | 'UNKNOWN';
 
@@ -41,7 +43,14 @@ export type ImpactTargetType =
   | 'WORKFLOW'
   | 'ROLE'
   | 'QA_TARGET'
-  | 'HISTORICAL_FINDING';
+  | 'HISTORICAL_FINDING'
+  | 'FILE'
+  | 'FUNCTION'
+  | 'COMPONENT'
+  | 'ENVIRONMENT'
+  | 'HISTORICAL_ISSUE'
+  | 'PREVIOUS_RUN'
+  | 'SYMBOL';
 
 export type ImpactRelationshipType =
   | 'DIRECT_IMPACT'
@@ -108,7 +117,12 @@ export interface ImpactEdge {
     | 'AFFECTS'
     | 'USED_BY'
     | 'COVERS'
-    | 'FAILED_BEFORE';
+    | 'FAILED_BEFORE'
+    | 'CHANGED'
+    | 'IMPLEMENTS'
+    | 'DEPENDS_ON'
+    | 'TESTED_BY'
+    | 'RECOVERED_BEFORE';
   reason: string;
   confidence: ImpactConfidence;
   source: string;
@@ -209,4 +223,129 @@ export interface ChangeAnalysisResult {
   isPartial?: boolean;
   analyzedAt: string;
   durationMs: number;
+  snapshot?: ChangeSnapshot;
+  decisions?: ChangeDecision[];
+  regressionCandidates?: RegressionCandidate[];
+}
+
+// ==============================================================================
+// Canonical Prompt 60 Change-Aware Regression Intelligence Models
+// ==============================================================================
+
+export type ChangeSource = 'GIT' | 'PR' | 'MANUAL' | 'CI';
+
+export interface ChangeSnapshot {
+  id: string;
+  commitSha: string;
+  baseSha?: string;
+  branch?: string;
+  pullRequestNumber?: number;
+  source: ChangeSource;
+  files: ChangedFile[];
+  totalAdditions: number;
+  totalDeletions: number;
+  sizeCategory: ChangeSizeCategory;
+  classifications: ChangeClassification[];
+  isDocumentationOnly: boolean;
+  isTestOnly: boolean;
+  isPartial?: boolean;
+  partialReason?: string;
+  createdAt: string;
+}
+
+export type RegressionCandidateSource =
+  | 'DIRECT_WORKFLOW'
+  | 'AFFECTED_API'
+  | 'AFFECTED_ROUTE_OR_COMPONENT'
+  | 'CRITICAL_WORKFLOW'
+  | 'HISTORICAL_FAILURE'
+  | 'RECOVERED_REGRESSION'
+  | 'FLAKY_OR_RECURRING'
+  | 'SECURITY_AUTH_BOUNDARY'
+  | 'VISUAL_BASELINE'
+  | 'ACCESSIBILITY_SURFACE';
+
+export interface RegressionCandidate {
+  id: string;
+  source: RegressionCandidateSource;
+  targetId: string;
+  targetType: ImpactTargetType;
+  targetIdentifier: string;
+  url?: string;
+  domain: string;
+  businessCriticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  priority: number;
+  reason: string;
+  historicalSignalId?: string;
+  hasVisualBaseline?: boolean;
+  requiresRole?: string;
+  metadata?: Record<string, any>;
+}
+
+export type ChangeDecisionType = 'TEST' | 'SKIP' | 'DEFER' | 'REVIEW';
+
+export type SkipReasonCode =
+  | 'DOCS_ONLY'
+  | 'UNTOUCHED'
+  | 'NO_HISTORICAL_RISK'
+  | 'DEFERRED_CAPACITY'
+  | 'LOWER_PRIORITY'
+  | 'UNSUPPORTED_SURFACE'
+  | 'ALREADY_COVERED'
+  | 'AUTH_REQUIRED'
+  | 'POLICY_BLOCKED';
+
+export interface ChangeDecision {
+  id: string;
+  candidateId: string;
+  targetIdentifier: string;
+  targetType: string;
+  domain: string;
+  decision: ChangeDecisionType;
+  priority: number;
+  reason: string;
+  skipReason?: SkipReasonCode;
+  criticalOverride?: boolean;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidence: string[];
+  createdAt: string;
+  metadata?: Record<string, any>;
+}
+
+export type ChangeRegressionClassification =
+  | 'NEW_FAILURE'
+  | 'REGRESSION'
+  | 'RECOVERED'
+  | 'PERSISTING_FAILURE'
+  | 'UNCHANGED_PASS'
+  | 'UNCHANGED_FAILURE'
+  | 'INCONCLUSIVE';
+
+export interface TargetRegressionComparison {
+  targetIdentifier: string;
+  targetType: string;
+  domain: string;
+  baselineRunId?: string;
+  baselineStatus: 'PASSED' | 'FAILED' | 'UNTESTED' | 'NO_BASELINE';
+  currentStatus: 'PASSED' | 'FAILED' | 'ERROR' | 'SKIPPED';
+  classification: ChangeRegressionClassification;
+  isAffectedByChange: boolean;
+  reason: string;
+  evidenceRefs?: string[];
+  visualBaselineFound?: boolean;
+}
+
+export interface RegressionComparisonResult {
+  comparedAt: string;
+  baselineRunId?: string;
+  currentRunId?: string;
+  totalCompared: number;
+  regressionsCount: number;
+  recoveriesCount: number;
+  persistingFailuresCount: number;
+  newFailuresCount: number;
+  unchangedPassCount: number;
+  unchangedFailuresCount: number;
+  inconclusiveCount: number;
+  targets: TargetRegressionComparison[];
 }

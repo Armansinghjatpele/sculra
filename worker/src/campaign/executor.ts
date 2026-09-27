@@ -25,7 +25,7 @@ import { CampaignTerminationEvaluator } from './termination';
 import { CampaignAnalyzer } from './analyzer';
 import { CampaignPersistenceManager } from './persistence';
 import { CampaignEvidenceFormatter } from './evidence';
-import { ChangeIntelligenceAnalyzer, ChangeAnalysisResult } from '../change-intelligence';
+import { ChangeIntelligenceAnalyzer, ChangeAnalysisResult, RegressionComparator } from '../change-intelligence';
 import { RemediationAnalyzer } from '../remediation';
 import { BugObservation } from '../issues/types';
 import {
@@ -180,9 +180,12 @@ export class CampaignExecutor {
           });
 
           this.stateManager.setChangeIntelligence(changeAnalysis);
+          if (changeAnalysis.decisions) {
+            this.stateManager.setChangeDecisions(changeAnalysis.decisions);
+          }
           (this.stateManager.rawState.config as any).changeIntelligence = changeAnalysis;
 
-          // Persist to public.change_analyses if supabaseClient is available
+          // Persist to public.change_analyses & public.autonomous_decisions if supabaseClient is available
           if (this.options.supabaseClient) {
             try {
               const { error: insertErr } = await this.options.supabaseClient
@@ -208,10 +211,65 @@ export class CampaignExecutor {
                     recommendedDomains: changeAnalysis.recommendedDomains,
                     isPartial: changeAnalysis.isPartial,
                     strategyBoostsCount: changeAnalysis.strategyBoosts.length,
+                    changeSnapshot: changeAnalysis.snapshot,
                   },
                 });
               if (insertErr) {
                 this.logger.warn('change_analyses_persistence_warning', { error: insertErr.message });
+              }
+
+              // Persist decisions to public.autonomous_decisions
+              if (changeAnalysis.decisions && changeAnalysis.decisions.length > 0) {
+                const decisionRows = changeAnalysis.decisions.map((d) => {
+                  let validSkipReason: string | null = null;
+                  if (d.skipReason) {
+                    if (d.skipReason === 'DOCS_ONLY' || d.skipReason === 'UNTOUCHED' || d.skipReason === 'LOWER_PRIORITY') {
+                      validSkipReason = 'LOW_PRIORITY';
+                    } else if (d.skipReason === 'ALREADY_COVERED') {
+                      validSkipReason = 'ALREADY_COVERED';
+                    } else if (d.skipReason === 'DEFERRED_CAPACITY') {
+                      validSkipReason = 'BUDGET_EXHAUSTED';
+                    } else if (d.skipReason === 'UNSUPPORTED_SURFACE') {
+                      validSkipReason = 'UNSUPPORTED_SURFACE';
+                    } else if (d.skipReason === 'AUTH_REQUIRED') {
+                      validSkipReason = 'AUTH_REQUIRED';
+                    } else {
+                      validSkipReason = 'LOW_PRIORITY';
+                    }
+                  }
+                  return {
+                    project_id: projectId,
+                    organization_id: this.options.organizationId || null,
+                    campaign_id: campaignId,
+                    test_run_id: this.options.testRunId || null,
+                    entity_type: 'QA_TARGET',
+                    entity_id: d.targetIdentifier,
+                    decision_type: d.decision === 'SKIP' ? 'TARGET_SKIP' : 'TARGET_SELECTION',
+                    actor_type: 'SYSTEM',
+                    actor_id: 'change-decision-engine',
+                    decision: d.decision,
+                    reason: d.reason,
+                    skip_reason: validSkipReason,
+                    evidence_ids: d.evidence || [],
+                    policy_checks: d.criticalOverride ? [{ check: 'CRITICAL_WORKFLOW_OVERRIDE', passed: true }] : [],
+                    confidence: d.confidence === 'HIGH' ? 'HIGH' : d.confidence === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+                    source: 'DETERMINISTIC',
+                    metadata: {
+                      ...d.metadata,
+                      rawSkipReason: d.skipReason,
+                      criticalOverride: d.criticalOverride,
+                      targetType: d.targetType,
+                      domain: d.domain,
+                      priority: d.priority,
+                    },
+                  };
+                });
+                const { error: decErr } = await this.options.supabaseClient
+                  .from('autonomous_decisions')
+                  .insert(decisionRows);
+                if (decErr) {
+                  this.logger.warn('autonomous_decisions_persistence_warning', { error: decErr.message });
+                }
               }
             } catch (err: any) {
               this.logger.warn('change_analyses_persistence_warning', { error: err.message });
@@ -236,6 +294,27 @@ export class CampaignExecutor {
         this.stateManager.rawState.config,
         initialTargets
       );
+
+      // Apply change intelligence decisions to planned tasks
+      if (changeAnalysis?.decisions && changeAnalysis.decisions.length > 0) {
+        for (const t of plannedTasks) {
+          const matchingDec = changeAnalysis.decisions.find(
+            (d) =>
+              d.targetIdentifier === t.target?.identifier ||
+              t.target?.identifier?.includes(d.targetIdentifier)
+          );
+          if (matchingDec) {
+            if (matchingDec.decision === 'SKIP') {
+              t.status = 'SKIPPED';
+              t.skipReason = 'LOW_PRIORITY';
+              t.reason = matchingDec.reason;
+            } else if (matchingDec.criticalOverride) {
+              t.status = 'QUEUED';
+              t.reason = `${t.reason} [CRITICAL_WORKFLOW_OVERRIDE]`;
+            }
+          }
+        }
+      }
 
       for (const t of plannedTasks) {
         this.stateManager.addTask(t);
@@ -463,6 +542,28 @@ export class CampaignExecutor {
         this.logger.warn('campaign_remediation_analysis_error', {
           message: remErr?.message || String(remErr),
         });
+      }
+
+      // 6.7 Post-Execution Change-Aware Regression Comparison
+      try {
+        const executedResults = Array.from(this.stateManager.rawState.executedTaskResults.values());
+        const regressionComparison = RegressionComparator.compare({
+          currentRunId: this.options.testRunId || campaignId,
+          baselineRun: pastRuns && pastRuns.length > 0 ? pastRuns[0] : undefined,
+          taskResults: executedResults,
+          snapshot: changeAnalysis?.snapshot,
+          decisions: changeAnalysis?.decisions,
+        });
+        this.stateManager.setRegressionComparison(regressionComparison);
+        this.logger.log('regression_comparison_completed', {
+          regressionsCount: regressionComparison.regressionsCount,
+          recoveriesCount: regressionComparison.recoveriesCount,
+          newFailuresCount: regressionComparison.newFailuresCount,
+          persistingFailuresCount: regressionComparison.persistingFailuresCount,
+          unchangedPassCount: regressionComparison.unchangedPassCount,
+        });
+      } catch (rcErr: any) {
+        this.logger.warn('regression_comparison_error', { message: rcErr?.message || String(rcErr) });
       }
 
       // Final Termination & Summary

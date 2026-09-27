@@ -393,6 +393,11 @@ export interface CampaignSummary {
     recommendedNextSteps: string[];
     summaryRiskAssessment: string;
   };
+  regressionsCount?: number;
+  recoveriesCount?: number;
+  changeIntelligence?: any;
+  regressionComparison?: any;
+  changeDecisions?: any[];
 }
 
 export interface Campaign {

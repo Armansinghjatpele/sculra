@@ -265,6 +265,14 @@ export class CampaignStateManager {
     this.state.changeIntelligence = result;
   }
 
+  setRegressionComparison(comp: any): void {
+    this.state.regressionComparison = comp;
+  }
+
+  setChangeDecisions(decisions: any[]): void {
+    this.state.changeDecisions = decisions;
+  }
+
   mergeObservations(obs: BugObservation[]): void {
     if (!obs || obs.length === 0) return;
     this.state.bugObservations.push(...obs);
@@ -363,6 +371,8 @@ export class CampaignStateManager {
         total: this.state.tasks.size,
         executed: this.state.executedTaskResults.size,
       },
+      regressionComparison: this.state.regressionComparison,
+      changeDecisions: this.state.changeDecisions,
     };
   }
 }

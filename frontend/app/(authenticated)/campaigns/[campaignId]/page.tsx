@@ -51,14 +51,16 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
   const [actionLoading, setActionLoading] = React.useState(false);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState('tasks');
+  const [decisions, setDecisions] = React.useState<any[]>([]);
 
   // Polling data
   const loadCampaignData = React.useCallback(async () => {
     try {
-      const [campRes, tasksRes, evRes] = await Promise.all([
+      const [campRes, tasksRes, evRes, decRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}`),
         fetch(`/api/campaigns/${campaignId}/tasks`),
         fetch(`/api/campaigns/${campaignId}/evidence`),
+        fetch(`/api/campaigns/${campaignId}/decisions`),
       ]);
 
       if (campRes.ok) {
@@ -79,6 +81,13 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
         const evData = await evRes.json();
         if (evData.success && evData.evidence) {
           setEvidence(evData.evidence);
+        }
+      }
+
+      if (decRes && decRes.ok) {
+        const decData = await decRes.json();
+        if (decData.success && decData.decisions) {
+          setDecisions(decData.decisions);
         }
       }
     } catch (e) {
@@ -212,6 +221,73 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
             ✕
           </button>
         </div>
+      )}
+
+      {/* Change Intelligence & Context Banner */}
+      {(campaign.config?.commitHash || summary?.changeIntelligence) && (
+        <Card className="glass-panel p-5 border-sky-500/30 bg-sky-500/5 space-y-3">
+          <Flex justify="between" align="center" className="flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </span>
+              <div>
+                <span className="text-4xs uppercase tracking-widest font-semibold text-sky-400 block">
+                  Change-Aware Continuous QA
+                </span>
+                <div className="flex items-center gap-2 font-mono text-xs text-foreground">
+                  <span className="font-bold">Commit:</span>
+                  <span className="text-sky-300 font-bold">{campaign.config?.commitHash?.slice(0, 8) || 'HEAD'}</span>
+                  {campaign.config?.branch && (
+                    <span className="text-muted-foreground">({campaign.config.branch})</span>
+                  )}
+                  {summary?.changeIntelligence?.riskLevel && (
+                    <span className={`px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
+                      summary.changeIntelligence.riskLevel === 'CRITICAL'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        : summary.changeIntelligence.riskLevel === 'HIGH'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    }`}>
+                      Risk {summary.changeIntelligence.riskScore}/100 ({summary.changeIntelligence.riskLevel})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-3xs font-mono text-muted-foreground">
+              {summary?.changeIntelligence?.changeCount !== undefined && (
+                <span><strong>{summary.changeIntelligence.changeCount}</strong> files changed</span>
+              )}
+              {summary?.changeIntelligence?.additionsCount !== undefined && (
+                <span className="text-emerald-400">+{summary.changeIntelligence.additionsCount}</span>
+              )}
+              {summary?.changeIntelligence?.deletionsCount !== undefined && (
+                <span className="text-rose-400">-{summary.changeIntelligence.deletionsCount}</span>
+              )}
+            </div>
+          </Flex>
+
+          {/* Impacted Surfaces */}
+          {summary?.changeIntelligence && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-sky-500/20 text-3xs font-mono">
+              <div className="text-muted-foreground truncate">
+                <span className="text-foreground font-bold">Routes: </span>
+                {summary.changeIntelligence.affectedRoutes?.length > 0 ? summary.changeIntelligence.affectedRoutes.join(', ') : 'None affected'}
+              </div>
+              <div className="text-muted-foreground truncate">
+                <span className="text-foreground font-bold">Workflows: </span>
+                {summary.changeIntelligence.affectedWorkflows?.length > 0 ? summary.changeIntelligence.affectedWorkflows.join(', ') : 'None affected'}
+              </div>
+              <div className="text-muted-foreground truncate">
+                <span className="text-foreground font-bold">APIs: </span>
+                {summary.changeIntelligence.affectedApis?.length > 0 ? summary.changeIntelligence.affectedApis.join(', ') : 'None affected'}
+              </div>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* 5-Stage Directed Acyclic Graph (DAG) Pipeline Indicator */}
@@ -379,6 +455,9 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
         <TabsList>
           <TabsTrigger value="tasks">
             Task Queue ({tasks.length})
+          </TabsTrigger>
+          <TabsTrigger value="regressions">
+            Change & Regressions ({summary?.regressionComparison?.totalCompared ?? (summary?.regressionsCount ? (summary.regressionsCount + (summary.recoveriesCount || 0)) : decisions.length)})
           </TabsTrigger>
           <TabsTrigger value="correlations">
             Correlations ({summary?.crossDomainCorrelations?.length || 0})
@@ -618,6 +697,229 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                 )}
               </Card>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Change & Regressions */}
+        <TabsContent value="regressions">
+          <div className="space-y-6">
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="glass-panel p-4 border-rose-500/30 bg-rose-500/5">
+                <span className="text-4xs uppercase tracking-widest font-semibold text-rose-400 block mb-1">
+                  Regressions Detected
+                </span>
+                <span className="text-2xl font-black font-mono text-rose-400">
+                  {summary?.regressionComparison?.regressionsCount ?? summary?.regressionsCount ?? 0}
+                </span>
+              </Card>
+
+              <Card className="glass-panel p-4 border-emerald-500/30 bg-emerald-500/5">
+                <span className="text-4xs uppercase tracking-widest font-semibold text-emerald-400 block mb-1">
+                  Recovered Defects
+                </span>
+                <span className="text-2xl font-black font-mono text-emerald-400">
+                  {summary?.regressionComparison?.recoveriesCount ?? summary?.recoveriesCount ?? 0}
+                </span>
+              </Card>
+
+              <Card className="glass-panel p-4 border-amber-500/30 bg-amber-500/5">
+                <span className="text-4xs uppercase tracking-widest font-semibold text-amber-400 block mb-1">
+                  New / Persisting Failures
+                </span>
+                <span className="text-2xl font-black font-mono text-amber-400">
+                  {(summary?.regressionComparison?.newFailuresCount || 0) + (summary?.regressionComparison?.persistingFailuresCount || 0)}
+                </span>
+              </Card>
+
+              <Card className="glass-panel p-4 border-border/40">
+                <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
+                  Unchanged Passing
+                </span>
+                <span className="text-2xl font-black font-mono text-foreground">
+                  {summary?.regressionComparison?.unchangedPassCount ?? tasks.filter((t) => t.status === 'COMPLETED').length}
+                </span>
+              </Card>
+            </div>
+
+            {/* Regression Comparison Table (Previous Baseline vs Current) */}
+            <Card className="glass-panel p-6 space-y-4">
+              <div>
+                <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
+                  Dimensional Regression Comparator (Baseline vs Current Run)
+                </span>
+                <h4 className="text-sm font-bold text-foreground">Target-by-Target Behavioral Diff</h4>
+              </div>
+
+              {!summary?.regressionComparison?.targets || summary.regressionComparison.targets.length === 0 ? (
+                <div className="p-6 text-center text-xs font-mono text-muted-foreground bg-surface/40 rounded-xl border border-border/40">
+                  No historical regression comparison recorded for this campaign run.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-border/50 bg-surface/50">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-surface-light/40 border-b border-border/50 text-muted-foreground">
+                      <tr>
+                        <th className="p-3 pl-4">Target Identifier</th>
+                        <th className="p-3">Domain</th>
+                        <th className="p-3">Baseline</th>
+                        <th className="p-3">Current</th>
+                        <th className="p-3">Classification</th>
+                        <th className="p-3 pr-4">Analysis / Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30 text-foreground">
+                      {summary.regressionComparison.targets.map((tgt: any, idx: number) => {
+                        const isRegression = tgt.classification === 'REGRESSION';
+                        const isRecovered = tgt.classification === 'RECOVERED';
+                        const isNewFail = tgt.classification === 'NEW_FAILURE';
+                        const isPersisting = tgt.classification === 'PERSISTING_FAILURE';
+
+                        return (
+                          <tr key={idx} className="hover:bg-surface-light/30 transition-colors">
+                            <td className="p-3 pl-4 font-semibold text-foreground truncate max-w-xs">
+                              {tgt.targetIdentifier}
+                            </td>
+                            <td className="p-3 text-muted-foreground text-3xs uppercase">
+                              {tgt.domain}
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                tgt.baselineStatus === 'PASSED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : tgt.baselineStatus === 'FAILED'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                  : 'bg-surface-light text-muted-foreground border-border/40'
+                              }`}>
+                                {tgt.baselineStatus}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                tgt.currentStatus === 'PASSED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                              }`}>
+                                {tgt.currentStatus}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                isRegression
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                  : isRecovered
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : isNewFail
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : isPersisting
+                                  ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+                                  : 'bg-surface-light text-muted-foreground border-border/40'
+                              }`}>
+                                {tgt.classification}
+                              </span>
+                            </td>
+                            <td className="p-3 pr-4 text-muted-foreground text-3xs leading-relaxed max-w-md">
+                              {tgt.reason}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            {/* Autonomous Change Decisions Audit Log ("Why Tested / Why Skipped") */}
+            <Card className="glass-panel p-6 space-y-4">
+              <div>
+                <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
+                  Autonomous Decision Engine Audit Trail
+                </span>
+                <h4 className="text-sm font-bold text-foreground">Why Tested & Why Skipped Determinations</h4>
+              </div>
+
+              {(!decisions || decisions.length === 0) && (!summary?.changeDecisions || summary.changeDecisions.length === 0) ? (
+                <div className="p-6 text-center text-xs font-mono text-muted-foreground bg-surface/40 rounded-xl border border-border/40">
+                  No autonomous decisions recorded for this campaign run.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(decisions.length > 0 ? decisions : (summary?.changeDecisions || [])).map((dec: any) => {
+                    const isTest = dec.decision === 'TEST';
+                    const isSkip = dec.decision === 'SKIP';
+                    const isDefer = dec.decision === 'DEFER';
+                    const hasOverride = dec.criticalOverride || dec.metadata?.criticalOverride;
+
+                    return (
+                      <div
+                        key={dec.id}
+                        className={`p-4 rounded-xl border text-xs font-mono space-y-2 transition-all ${
+                          hasOverride
+                            ? 'bg-purple-500/5 border-purple-500/30'
+                            : isTest
+                            ? 'bg-emerald-500/5 border-emerald-500/20'
+                            : isSkip
+                            ? 'bg-surface-light/40 border-border/40 opacity-85'
+                            : 'bg-amber-500/5 border-amber-500/20'
+                        }`}
+                      >
+                        <Flex justify="between" align="center" className="flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                hasOverride
+                                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                  : isTest
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : isSkip
+                                  ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}
+                            >
+                              {dec.decision}
+                            </span>
+                            <span className="font-bold text-foreground">
+                              {dec.entityId || dec.targetIdentifier}
+                            </span>
+                            {hasOverride && (
+                              <span className="px-2 py-0.5 rounded text-4xs font-bold uppercase bg-purple-500/30 text-purple-200 border border-purple-500/50">
+                                CRITICAL WORKFLOW OVERRIDE
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-4xs text-muted-foreground">
+                            {dec.confidence && <span>Confidence: {dec.confidence}</span>}
+                            {dec.skipReason && (
+                              <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-amber-400">
+                                Skip Reason: {dec.skipReason}
+                              </span>
+                            )}
+                          </div>
+                        </Flex>
+
+                        <p className="text-muted-foreground text-3xs leading-relaxed">
+                          {dec.reason}
+                        </p>
+
+                        {dec.evidence && dec.evidence.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {dec.evidence.map((evStr: string, i: number) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 rounded bg-surface-light/50 border border-border/30 text-4xs text-muted-foreground"
+                              >
+                                {evStr}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
           </div>
         </TabsContent>
 

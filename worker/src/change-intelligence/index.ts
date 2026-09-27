@@ -22,3 +22,8 @@ export * from './github';
 export * from './evidence';
 export * from './redaction';
 export * from './analyzer';
+export * from './snapshot';
+export * from './mapper';
+export * from './regression-targets';
+export * from './decision-engine';
+export * from './regression-comparator';
