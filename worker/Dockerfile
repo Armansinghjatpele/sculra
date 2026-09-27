@@ -40,9 +40,9 @@ RUN pnpm --filter @sculra/worker run build
 # ------------------------------------------------------------------------------
 # Stage 2: Production runtime stage
 # ------------------------------------------------------------------------------
-# Uses official Playwright noble image containing Playwright v1.50.1, Chromium,
+# Uses official Playwright noble image containing Playwright v1.63.0, Chromium,
 # and all required OS system/graphics dependencies pre-configured.
-FROM mcr.microsoft.com/playwright:v1.50.1-noble AS runner
+FROM mcr.microsoft.com/playwright:v1.63.0-noble AS runner
 
 WORKDIR /app
 
