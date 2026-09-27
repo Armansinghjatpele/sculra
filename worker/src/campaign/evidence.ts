@@ -22,8 +22,10 @@ export class CampaignEvidenceFormatter {
   static formatSummaryEvidence(
     projectId: string,
     summary: CampaignSummary,
-    testRunId?: string
+    testRunId?: string,
+    campaignId?: string
   ): TestEvidencePayload {
+    const effCampaignId = campaignId || (summary as any)?.campaignId;
     return {
       test_run_id: testRunId,
       project_id: projectId,
@@ -31,6 +33,7 @@ export class CampaignEvidenceFormatter {
       title: `Autonomous QA Campaign: ${summary.objective.toUpperCase()} (${summary.status})`,
       message: summary.aiExecutiveSummary || `Executed ${summary.tasksExecuted} tasks across ${summary.domainsExecuted.length} domains.`,
       metadata: {
+        campaignId: effCampaignId,
         campaignSummary: summary,
         status: summary.status,
         durationMs: summary.durationMs,
@@ -51,8 +54,10 @@ export class CampaignEvidenceFormatter {
   static formatTaskEvidence(
     projectId: string,
     result: CampaignTaskResult,
-    testRunId?: string
+    testRunId?: string,
+    campaignId?: string
   ): TestEvidencePayload {
+    const effCampaignId = campaignId || (result as any)?.campaignId;
     return {
       test_run_id: testRunId,
       project_id: projectId,
@@ -61,6 +66,7 @@ export class CampaignEvidenceFormatter {
       url: result.target.url,
       message: result.error || `Task executed in ${result.durationMs}ms with ${result.findings.length} findings.`,
       metadata: {
+        campaignId: effCampaignId,
         taskId: result.taskId,
         domain: result.domain,
         target: result.target,
@@ -86,7 +92,8 @@ export class CampaignEvidenceFormatter {
       targetIdentifier: string;
       severity: string;
     },
-    testRunId?: string
+    testRunId?: string,
+    campaignId?: string
   ): TestEvidencePayload {
     return {
       test_run_id: testRunId,
@@ -95,6 +102,7 @@ export class CampaignEvidenceFormatter {
       title: `Cross-Domain Correlation [${correlation.sourceDomain} <-> ${correlation.correlatedDomain}]: ${correlation.type}`,
       message: correlation.description,
       metadata: {
+        campaignId,
         correlation,
         severity: correlation.severity,
         targetIdentifier: correlation.targetIdentifier,

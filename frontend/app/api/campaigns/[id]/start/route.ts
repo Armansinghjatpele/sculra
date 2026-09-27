@@ -48,6 +48,10 @@ export async function POST(
 
     if (updateError) {
       console.warn('[Supabase update campaign start]:', updateError.message);
+      return NextResponse.json(
+        { success: false, error: `Failed to queue campaign execution: ${updateError.message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

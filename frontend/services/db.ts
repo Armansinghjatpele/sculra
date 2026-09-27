@@ -15,6 +15,12 @@ import {
   QASignalRecord,
   Campaign,
   CampaignTask,
+  CampaignObjective,
+  CampaignStatus,
+  CampaignStage,
+  CampaignDomain,
+  CampaignTaskStatus,
+  CampaignProgress,
   CICDWebhookEvent,
   CICDGateResult,
   ChangeAnalysis,
@@ -1188,111 +1194,190 @@ export async function getTestRunHistoricalEvidence(
   }));
 }
 
-// ------------------------------------------------------------------------------
+// // ------------------------------------------------------------------------------
 // Autonomous QA Campaign Service Methods
 // ------------------------------------------------------------------------------
 
-export async function createCampaign(
-  clerkToken: string,
-  projectId: string,
-  config: Record<string, any>
-): Promise<Campaign> {
-  const supabase = getSupabaseUserClient(clerkToken);
-  const { data, error } = await supabase
-    .from('qa_campaigns')
-    .insert({
-      project_id: projectId,
-      name: config.name || 'Autonomous QA Campaign',
-      objective: config.objective || 'RELEASE_GATE',
-      status: 'PENDING',
-      current_stage: 'DISCOVERY_MAPPING',
-      config,
-      budget_status: {
-        durationSeconds: { current: 0, max: config.budget?.maxDurationSeconds || 900, exhausted: false },
-        tasks: { totalPlanned: 0, completed: 0, running: 0, failed: 0, skipped: 0, max: config.budget?.maxTasks || 25, exhausted: false },
-        retries: { count: 0, maxPerTask: config.budget?.maxRetriesPerTask || 1 },
-        overallExhausted: false,
-      },
-      progress_snapshot: {
-        status: 'PENDING',
-        currentStage: 'DISCOVERY_MAPPING',
-        activeTasks: 0,
-        completedTasks: 0,
-        failedTasks: 0,
-        totalTasks: 0,
-        percentComplete: 0,
-        elapsedDurationMs: 0,
-        coverage: {
-          pagesDiscovered: 0,
-          pagesTested: 0,
-          endpointsDiscovered: 0,
-          endpointsTested: 0,
-          criticalWorkflowsTotal: 0,
-          criticalWorkflowsTested: 0,
-          rolesTested: 0,
-          domainCoveragePercentage: {},
-        },
-      },
-    })
-    .select('*')
-    .single();
-
-  if (useFallback(error) || !data) {
-    return {
-      id: `camp-mock-${Date.now()}`,
-      projectId,
-      name: config.name || 'Autonomous QA Campaign',
-      objective: config.objective || 'RELEASE_GATE',
-      status: 'PENDING',
-      currentStage: 'DISCOVERY_MAPPING',
-      config: config as any,
-      budgetStatus: {},
-      progressSnapshot: {
-        campaignId: `camp-mock-${Date.now()}`,
-        status: 'PENDING',
-        currentStage: 'DISCOVERY_MAPPING',
-        activeTasks: 0,
-        completedTasks: 0,
-        failedTasks: 0,
-        totalTasks: 0,
-        percentComplete: 0,
-        elapsedDurationMs: 0,
-        coverage: {
-          pagesDiscovered: 0,
-          pagesTested: 0,
-          endpointsDiscovered: 0,
-          endpointsTested: 0,
-          criticalWorkflowsTotal: 0,
-          criticalWorkflowsTested: 0,
-          rolesTested: 0,
-          domainCoveragePercentage: {} as any,
-        },
-        budget: {
-          durationSeconds: { current: 0, max: config.budget?.maxDurationSeconds || 900, exhausted: false },
-          tasks: { totalPlanned: 0, completed: 0, running: 0, failed: 0, skipped: 0, max: config.budget?.maxTasks || 25, exhausted: false },
-          retries: { count: 0, maxPerTask: 1 },
-          overallExhausted: false,
-        },
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+function mapFrontendObjectiveToDb(obj?: string): string {
+  switch (obj?.toUpperCase()) {
+    case 'RELEASE_GATE':
+      return 'release_readiness';
+    case 'FULL_REGRESSION':
+      return 'regression';
+    case 'SMOKE':
+      return 'smoke';
+    case 'SECURITY_SWEEP':
+      return 'security_audit';
+    case 'PERFORMANCE_AUDIT':
+      return 'performance_audit';
+    case 'ACCESSIBILITY_AUDIT':
+      return 'accessibility_audit';
+    case 'TARGETED_RETEST':
+    case 'EXPLORATORY':
+      return 'custom';
+    default:
+      if (['release_readiness', 'smoke', 'regression', 'full_suite', 'security_audit', 'accessibility_audit', 'performance_audit', 'custom'].includes(obj || '')) {
+        return obj!;
+      }
+      return 'release_readiness';
   }
+}
+
+function mapDbObjectiveToFrontend(obj?: string): CampaignObjective {
+  switch (obj?.toLowerCase()) {
+    case 'release_readiness':
+      return 'RELEASE_GATE';
+    case 'regression':
+    case 'full_suite':
+      return 'FULL_REGRESSION';
+    case 'smoke':
+      return 'SMOKE';
+    case 'security_audit':
+      return 'SECURITY_SWEEP';
+    case 'performance_audit':
+      return 'PERFORMANCE_AUDIT';
+    case 'accessibility_audit':
+      return 'ACCESSIBILITY_AUDIT';
+    case 'custom':
+      return 'EXPLORATORY';
+    default:
+      return 'RELEASE_GATE';
+  }
+}
+
+function mapDbStatusToFrontend(status?: string): CampaignStatus {
+  switch (status?.toUpperCase()) {
+    case 'QUEUED':
+    case 'PLANNING':
+    case 'READY':
+      return 'PENDING';
+    case 'RUNNING':
+    case 'PAUSED':
+    case 'CANCELLING':
+      return 'RUNNING';
+    case 'COMPLETED':
+      return 'COMPLETED';
+    case 'FAILED':
+    case 'NEEDS_REVIEW':
+      return 'FAILED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    default:
+      return 'PENDING';
+  }
+}
+
+function mapDbTaskStatusToFrontend(status?: string): CampaignTaskStatus {
+  switch (status?.toUpperCase()) {
+    case 'QUEUED':
+    case 'PENDING_DEPENDENCIES':
+      return 'PENDING';
+    case 'RUNNING':
+      return 'RUNNING';
+    case 'PASSED':
+    case 'COMPLETED':
+      return 'COMPLETED';
+    case 'FAILED':
+      return 'FAILED';
+    case 'SKIPPED':
+    case 'NOT_AVAILABLE':
+      return 'SKIPPED';
+    case 'BLOCKED':
+    case 'CANCELLED':
+      return 'CANCELLED';
+    default:
+      return 'PENDING';
+  }
+}
+
+function mapCampaignRow(data: any): Campaign {
+  const config = data.configuration || {};
+  const budget = data.budget || {};
+  const state = data.state || {};
+  const summary = data.summary && Object.keys(data.summary).length > 0 ? data.summary : undefined;
+
+  const currentStage: CampaignStage =
+    state.currentStage ||
+    (data.status === 'COMPLETED' ? 'RELEASE_EVALUATION' : 'DISCOVERY_MAPPING');
+
+  const progressSnapshot: CampaignProgress = state.progressSnapshot || {
+    campaignId: data.id,
+    status: mapDbStatusToFrontend(data.status),
+    currentStage,
+    activeTasks: state.activeTasks ?? 0,
+    completedTasks: state.completedTasks ?? summary?.tasksCompleted ?? 0,
+    failedTasks: state.failedTasks ?? summary?.tasksFailed ?? 0,
+    totalTasks: state.totalTasks ?? summary?.totalTasksPlanned ?? 0,
+    percentComplete: state.percentComplete ?? (summary ? 100 : (data.status === 'COMPLETED' ? 100 : 0)),
+    elapsedDurationMs: state.elapsedDurationMs ?? summary?.durationMs ?? 0,
+    coverage: state.coverage || {
+      pagesDiscovered: 0,
+      pagesTested: 0,
+      endpointsDiscovered: 0,
+      endpointsTested: 0,
+      criticalWorkflowsTotal: summary?.criticalWorkflowsTotal ?? 0,
+      criticalWorkflowsTested: summary?.criticalWorkflowsTested ?? 0,
+      rolesTested: 0,
+      domainCoveragePercentage: (summary?.domainCoverage as any) || {},
+    },
+    budget: {
+      durationSeconds: {
+        current: Math.round((state.elapsedDurationMs || summary?.durationMs || 0) / 1000),
+        max: budget.maxDurationSeconds || config.budget?.maxDurationSeconds || 600,
+        exhausted: false,
+      },
+      tasks: {
+        totalPlanned: summary?.totalTasksPlanned || state.totalTasks || 0,
+        completed: summary?.tasksCompleted || state.completedTasks || 0,
+        running: state.activeTasks || 0,
+        failed: summary?.tasksFailed || state.failedTasks || 0,
+        skipped: summary?.tasksSkipped || 0,
+        max: budget.maxTasks || config.budget?.maxTasks || 25,
+        exhausted: false,
+      },
+      retries: {
+        count: 0,
+        maxPerTask: budget.maxRetriesPerTask || config.budget?.maxRetriesPerTask || 1,
+      },
+      overallExhausted: false,
+    },
+    releaseReadinessStatus: summary?.releaseReadiness?.verdict,
+    latestReleaseScore: summary?.releaseReadiness?.overallScore,
+  };
 
   return {
     id: data.id,
     projectId: data.project_id,
     organizationId: data.organization_id,
-    name: data.name,
-    objective: data.objective,
-    status: data.status,
-    currentStage: data.current_stage,
-    config: data.config,
-    budgetStatus: data.budget_status || {},
-    progressSnapshot: data.progress_snapshot || {},
-    summary: data.summary,
-    overallScore: data.overall_score !== null && data.overall_score !== undefined ? Number(data.overall_score) : undefined,
-    releaseVerdict: data.release_verdict,
+    name: config.name || 'Autonomous QA Campaign',
+    objective: mapDbObjectiveToFrontend(data.objective),
+    status: mapDbStatusToFrontend(data.status),
+    currentStage,
+    config: {
+      name: config.name || 'Autonomous QA Campaign',
+      objective: mapDbObjectiveToFrontend(data.objective),
+      enabledDomains: config.enabledDomains || config.domains || [],
+      targetUrl: config.targetUrl || '',
+      targetRole: config.targetRole,
+      budget: {
+        maxDurationSeconds: budget.maxDurationSeconds || config.budget?.maxDurationSeconds || 600,
+        maxTasks: budget.maxTasks || config.budget?.maxTasks || 25,
+        maxParallelStages: budget.maxParallelStages || config.budget?.maxParallelStages || 2,
+        maxRetriesPerTask: budget.maxRetriesPerTask || config.budget?.maxRetriesPerTask || 1,
+      },
+      adaptiveInsertion: config.adaptiveInsertion !== false,
+      minReleaseScoreThreshold: config.minReleaseScoreThreshold ?? 80,
+      environment: config.environment || 'staging',
+      branch: config.branch || 'main',
+      commitHash: config.commitSha,
+    },
+    budgetStatus: budget,
+    progressSnapshot,
+    summary,
+    overallScore: summary?.releaseReadiness?.overallScore !== undefined
+      ? summary.releaseReadiness.overallScore
+      : (data.overall_score !== null && data.overall_score !== undefined ? Number(data.overall_score) : undefined),
+    releaseVerdict: summary?.releaseReadiness?.verdict || data.release_verdict,
     errorMessage: data.error_message,
     startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
     completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
@@ -1301,42 +1386,148 @@ export async function createCampaign(
   };
 }
 
+export async function createCampaign(
+  clerkToken: string,
+  projectId: string,
+  config: Record<string, any>
+): Promise<Campaign> {
+  const supabase = getSupabaseUserClient(clerkToken);
+
+  const projectQuery = supabase
+    .from('projects')
+    .select('id, organization_id, url, source_url, name')
+    .eq('id', projectId);
+  const { data: project } = typeof (projectQuery as any).maybeSingle === 'function'
+    ? await (projectQuery as any).maybeSingle()
+    : await (projectQuery as any).single().catch(() => ({ data: null }));
+
+  const dbObjective = mapFrontendObjectiveToDb(config.objective);
+  const targetUrl = config.targetUrl || project?.url || project?.source_url || '';
+  const campaignName = config.name || (project ? `${project.name} — Autonomous QA Campaign` : 'Autonomous QA Campaign');
+
+  const domains = config.enabledDomains || config.domains || [
+    'DISCOVERY',
+    'PRODUCT',
+    'FUNCTIONAL',
+    'JOURNEY',
+    'API',
+    'SECURITY',
+    'ACCESSIBILITY',
+    'VISUAL',
+    'PERFORMANCE',
+    'HISTORICAL',
+    'RELEASE',
+  ];
+
+  const configuration = {
+    name: campaignName,
+    objective: dbObjective,
+    targetUrl,
+    domains,
+    targetRole: config.targetRole,
+    environment: config.environment || 'staging',
+    branch: config.branch || 'main',
+    commitSha: config.commitSha || config.commitHash,
+    adaptiveInsertion: config.adaptiveInsertion !== false,
+    minReleaseScoreThreshold: config.minReleaseScoreThreshold ?? 80,
+    ...config,
+  };
+
+  const budget = config.budget || {
+    maxDurationSeconds: 600,
+    maxTasks: 25,
+    maxParallelStages: 2,
+    maxRetriesPerTask: 1,
+  };
+
+  const state = {
+    currentStage: 'DISCOVERY_MAPPING',
+    progressSnapshot: {
+      status: 'PENDING',
+      currentStage: 'DISCOVERY_MAPPING',
+      activeTasks: 0,
+      completedTasks: 0,
+      failedTasks: 0,
+      totalTasks: 0,
+      percentComplete: 0,
+      elapsedDurationMs: 0,
+      coverage: {
+        pagesDiscovered: 0,
+        pagesTested: 0,
+        endpointsDiscovered: 0,
+        endpointsTested: 0,
+        criticalWorkflowsTotal: 0,
+        criticalWorkflowsTested: 0,
+        rolesTested: 0,
+        domainCoveragePercentage: {},
+      },
+    },
+  };
+
+  const insertPayload: any = {
+    project_id: projectId,
+    organization_id: project?.organization_id || null,
+    status: 'QUEUED',
+    objective: dbObjective,
+    configuration,
+    budget,
+    state,
+    summary: {},
+  };
+
+  const { data, error } = await supabase
+    .from('qa_campaigns')
+    .insert(insertPayload)
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    if (useFallback(error)) {
+      return {
+        id: `camp-mock-${Date.now()}`,
+        projectId,
+        name: campaignName,
+        objective: mapDbObjectiveToFrontend(dbObjective),
+        status: 'PENDING',
+        currentStage: 'DISCOVERY_MAPPING',
+        config: configuration as any,
+        budgetStatus: budget,
+        progressSnapshot: state.progressSnapshot as any,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    console.error('[Campaigns] DB insert error:', error?.message);
+    throw new Error(`Failed to create campaign in database: ${error?.message || 'Unknown database error'}`);
+  }
+
+  return mapCampaignRow(data);
+}
+
 export async function getCampaign(
   clerkToken: string,
   campaignId: string
 ): Promise<Campaign | null> {
   const supabase = getSupabaseUserClient(clerkToken);
-  const { data, error } = await supabase
+  const query = supabase
     .from('qa_campaigns')
     .select('*')
-    .eq('id', campaignId)
-    .single();
+    .eq('id', campaignId);
 
-  if (useFallback(error) || !data) {
-    const found = mockCampaigns.find((c) => c.id === campaignId);
-    return found || null;
+  const { data, error } = typeof (query as any).maybeSingle === 'function'
+    ? await (query as any).maybeSingle()
+    : await (query as any).single();
+
+  if (error || !data) {
+    if (campaignId === 'camp-1' || useFallback(error)) {
+      const found = mockCampaigns.find((c) => c.id === campaignId);
+      return found || null;
+    }
+    if (error) console.warn('[Campaigns] getCampaign error:', error.message);
+    return null;
   }
 
-  return {
-    id: data.id,
-    projectId: data.project_id,
-    organizationId: data.organization_id,
-    name: data.name,
-    objective: data.objective,
-    status: data.status,
-    currentStage: data.current_stage,
-    config: data.config,
-    budgetStatus: data.budget_status || {},
-    progressSnapshot: data.progress_snapshot || {},
-    summary: data.summary,
-    overallScore: data.overall_score !== null && data.overall_score !== undefined ? Number(data.overall_score) : undefined,
-    releaseVerdict: data.release_verdict,
-    errorMessage: data.error_message,
-    startedAt: data.started_at ? new Date(data.started_at).toLocaleString() : undefined,
-    completedAt: data.completed_at ? new Date(data.completed_at).toLocaleString() : undefined,
-    createdAt: data.created_at ? new Date(data.created_at).toLocaleString() : '',
-    updatedAt: data.updated_at ? new Date(data.updated_at).toLocaleString() : '',
-  };
+  return mapCampaignRow(data);
 }
 
 export async function getProjectCampaigns(
@@ -1350,30 +1541,13 @@ export async function getProjectCampaigns(
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
 
-  if (useFallback(error) || !data) {
-    return mockCampaigns.filter((c) => c.projectId === projectId);
+  if (error) {
+    console.warn('[Campaigns] getProjectCampaigns error:', error.message);
+    return [];
   }
+  if (!data) return [];
 
-  return data.map((c: any) => ({
-    id: c.id,
-    projectId: c.project_id,
-    organizationId: c.organization_id,
-    name: c.name,
-    objective: c.objective,
-    status: c.status,
-    currentStage: c.current_stage,
-    config: c.config,
-    budgetStatus: c.budget_status || {},
-    progressSnapshot: c.progress_snapshot || {},
-    summary: c.summary,
-    overallScore: c.overall_score !== null && c.overall_score !== undefined ? Number(c.overall_score) : undefined,
-    releaseVerdict: c.release_verdict,
-    errorMessage: c.error_message,
-    startedAt: c.started_at ? new Date(c.started_at).toLocaleString() : undefined,
-    completedAt: c.completed_at ? new Date(c.completed_at).toLocaleString() : undefined,
-    createdAt: c.created_at ? new Date(c.created_at).toLocaleString() : '',
-    updatedAt: c.updated_at ? new Date(c.updated_at).toLocaleString() : '',
-  }));
+  return data.map(mapCampaignRow);
 }
 
 export async function getCampaignTasks(
@@ -1385,33 +1559,53 @@ export async function getCampaignTasks(
     .from('qa_campaign_tasks')
     .select('*')
     .eq('campaign_id', campaignId)
+    .order('priority', { ascending: false })
     .order('created_at', { ascending: true });
 
-  if (useFallback(error) || !data) {
-    return mockCampaignTasks.filter((t) => t.campaignId === campaignId);
+  if (error) {
+    console.warn('[CampaignTasks] Query error:', error.message);
+    return [];
   }
+  if (!data) return [];
 
-  return data.map((t: any) => ({
-    id: t.id,
-    campaignId: t.campaign_id,
-    taskKey: t.task_key,
-    stage: t.stage,
-    domain: t.domain,
-    status: t.status,
-    priority: t.priority,
-    target: t.target,
-    dependencies: t.dependencies || [],
-    retryCount: t.retry_count || 0,
-    maxRetries: t.max_retries || 1,
-    startedAt: t.started_at ? new Date(t.started_at).toLocaleString() : undefined,
-    completedAt: t.completed_at ? new Date(t.completed_at).toLocaleString() : undefined,
-    durationMs: t.duration_ms,
-    error: t.error,
-    observationsCount: t.observations_count || 0,
-    issuesDetected: t.issues_detected || 0,
-    metadata: t.metadata || {},
-    createdAt: t.created_at ? new Date(t.created_at).toLocaleString() : '',
-  }));
+  return data.map((t: any) => {
+    const res = t.result || {};
+    const taskType = t.task_type || '';
+    const stage: CampaignStage =
+      taskType.includes('DISCOVERY') ? 'DISCOVERY_MAPPING' :
+      taskType.includes('SURFACE') || taskType.includes('NAVIGATION') ? 'SURFACE_VERIFICATION' :
+      taskType.includes('HISTORICAL') || taskType.includes('CORRELATION') ? 'HISTORICAL_CORRELATION' :
+      taskType.includes('RELEASE') ? 'RELEASE_EVALUATION' : 'DEEP_ENGINE_AUDITS';
+
+    const domain = (t.domain || t.target_type || 'discovery').toLowerCase() as CampaignDomain;
+
+    return {
+      id: t.id,
+      campaignId: t.campaign_id,
+      taskKey: t.task_key || t.id,
+      stage,
+      domain,
+      status: mapDbTaskStatusToFrontend(t.status),
+      priority: t.priority ?? 50,
+      target: {
+        type: (t.target_type?.toUpperCase() as any) || 'PAGE',
+        identifier: t.target_identifier || '',
+        criticality: res.criticality || 'MEDIUM',
+        metadata: res.metadata,
+      },
+      dependencies: Array.isArray(t.dependencies) ? t.dependencies : [],
+      retryCount: t.retry_count || 0,
+      maxRetries: t.max_retries || 1,
+      startedAt: t.started_at ? new Date(t.started_at).toLocaleString() : undefined,
+      completedAt: t.completed_at ? new Date(t.completed_at).toLocaleString() : undefined,
+      durationMs: res.durationMs ?? t.duration_ms,
+      error: res.error || t.error,
+      observationsCount: res.observations?.length ?? (t.observations_count || 0),
+      issuesDetected: res.findings?.length ?? (t.issues_detected || 0),
+      metadata: res.metadata || t.metadata || {},
+      createdAt: t.created_at ? new Date(t.created_at).toLocaleString() : '',
+    };
+  });
 }
 
 export async function getCampaignEvidence(
@@ -1422,10 +1616,11 @@ export async function getCampaignEvidence(
   const { data, error } = await supabase
     .from('test_evidence')
     .select('*')
-    .eq('metadata->>campaignId', campaignId)
+    .or(`metadata->>campaignId.eq.${campaignId},metadata->campaignSummary->>campaignId.eq.${campaignId}`)
     .order('created_at', { ascending: true });
 
-  if (useFallback(error) || !data) {
+  if (error || !data) {
+    if (error) console.warn('[CampaignEvidence] Query error:', error.message);
     return [];
   }
 
@@ -1456,7 +1651,7 @@ export async function cancelCampaign(
     })
     .eq('id', campaignId);
 
-  if (error && !useFallback(error)) {
+  if (error) {
     throw new Error(`Failed to cancel campaign: ${error.message}`);
   }
 }
@@ -2338,8 +2533,8 @@ export async function getProjectAutonomousHealth(
   const supabase = getSupabaseUserClient(clerkToken);
 
   const [campaignsRes, tasksRes, approvalsRes, lastEventRes] = await Promise.all([
-    supabase.from('campaigns').select('id, status').eq('project_id', projectId),
-    supabase.from('campaign_tasks').select('id, status, duration_ms, created_at').eq('project_id', projectId),
+    supabase.from('qa_campaigns').select('id, status').eq('project_id', projectId),
+    supabase.from('qa_campaign_tasks').select('id, status, result, created_at').eq('project_id', projectId),
     supabase.from('human_approvals').select('id, status').eq('project_id', projectId).eq('status', 'PENDING'),
     supabase.from('autonomous_events').select('created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -2375,17 +2570,17 @@ export async function getProjectAutonomousHealth(
   const pendingApprovals = approvalsRes.data ?? [];
   const lastEvent = lastEventRes.data?.created_at ?? null;
 
-  const activeCampaignsCount = campaigns.filter((c) => c.status === 'RUNNING' || c.status === 'PENDING').length;
-  const queuedTasksCount = tasks.filter((t) => t.status === 'PENDING' || t.status === 'READY').length;
+  const activeCampaignsCount = campaigns.filter((c) => c.status === 'RUNNING' || c.status === 'PENDING' || c.status === 'QUEUED').length;
+  const queuedTasksCount = tasks.filter((t) => t.status === 'PENDING' || t.status === 'READY' || t.status === 'QUEUED').length;
   const runningTasksCount = tasks.filter((t) => t.status === 'RUNNING').length;
-  const completedTasksLast24h = tasks.filter((t) => t.status === 'COMPLETED').length;
+  const completedTasksLast24h = tasks.filter((t) => t.status === 'COMPLETED' || t.status === 'PASSED').length;
   const failedTasksLast24h = tasks.filter((t) => t.status === 'FAILED').length;
-  const skippedTasksLast24h = tasks.filter((t) => t.status === 'SKIPPED').length;
+  const skippedTasksLast24h = tasks.filter((t) => t.status === 'SKIPPED' || t.status === 'BLOCKED').length;
   const pendingApprovalsCount = pendingApprovals.length;
 
   const validDurations = tasks
-    .map((t) => t.duration_ms)
-    .filter((d): d is number => typeof d === 'number' && d > 0);
+    .map((t: any) => t.result?.durationMs ?? t.duration_ms)
+    .filter((d: any): d is number => typeof d === 'number' && d > 0);
   const avgTaskDurationMs = validDurations.length > 0
     ? Math.round(validDurations.reduce((sum, val) => sum + val, 0) / validDurations.length)
     : 0;
@@ -2511,8 +2706,11 @@ export async function getCampaignAutonomousTimeline(
     .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
 
-  if (useFallback(error) || !data) {
-    return mockAutonomousEvents.filter((e) => e.campaignId === campaignId || campaignId === 'camp-1');
+  if (error || !data) {
+    if (useFallback(error)) {
+      return mockAutonomousEvents.filter((e) => e.campaignId === campaignId || campaignId === 'camp-1');
+    }
+    return [];
   }
 
   return data.map(mapAutonomousEventRecord);
@@ -2529,8 +2727,11 @@ export async function getCampaignAutonomousDecisions(
     .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
 
-  if (useFallback(error) || !data) {
-    return mockDecisions.filter((d) => d.campaignId === campaignId || campaignId === 'camp-1');
+  if (error || !data) {
+    if (useFallback(error)) {
+      return mockDecisions.filter((d) => d.campaignId === campaignId || campaignId === 'camp-1');
+    }
+    return [];
   }
 
   return data.map(mapDecisionRecord);
@@ -2546,8 +2747,11 @@ export async function getCampaignEvidenceGraph(
     supabase.from('autonomous_decisions').select('*').eq('campaign_id', campaignId).limit(20),
   ]);
 
-  if (useFallback(eventsRes.error) || !eventsRes.data || eventsRes.data.length === 0) {
-    return mockEvidenceGraph;
+  if (eventsRes.error || !eventsRes.data || eventsRes.data.length === 0) {
+    if (useFallback(eventsRes.error) || campaignId === 'camp-1') {
+      return mockEvidenceGraph;
+    }
+    return { nodes: [], edges: [] };
   }
 
   const nodes: EvidenceGraph['nodes'] = [];

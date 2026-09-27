@@ -339,12 +339,23 @@ export class CampaignExecutor {
           }
 
           // Persist task evidence records
-          const taskEvidenceRecords = taskResult.evidence.map((e) =>
-            CampaignEvidenceFormatter.formatTaskEvidence(projectId, {
-              ...taskResult,
-              evidence: [e],
-            }, this.options.testRunId)
-          );
+          const taskEvidenceRecords = taskResult.evidence.length > 0
+            ? taskResult.evidence.map((e) =>
+                CampaignEvidenceFormatter.formatTaskEvidence(
+                  projectId,
+                  { ...taskResult, evidence: [e] },
+                  this.options.testRunId,
+                  campaignId
+                )
+              )
+            : [
+                CampaignEvidenceFormatter.formatTaskEvidence(
+                  projectId,
+                  taskResult,
+                  this.options.testRunId,
+                  campaignId
+                ),
+              ];
           await this.persistenceManager.persistEvidence(taskEvidenceRecords);
 
           // Adaptive Reactive Loop: If failure or regression detected, inject high-priority adaptive task
@@ -476,7 +487,8 @@ export class CampaignExecutor {
       const summaryEvidence = CampaignEvidenceFormatter.formatSummaryEvidence(
         projectId,
         summary,
-        this.options.testRunId
+        this.options.testRunId,
+        campaignId
       );
       await this.persistenceManager.persistEvidence([summaryEvidence]);
 

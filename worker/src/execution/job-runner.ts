@@ -108,14 +108,46 @@ export class JobRunner {
       // 3. Race Execution with Timeout
       const executionPromise = (async (): Promise<ExecutionResult> => {
         if (job.jobType === 'CAMPAIGN') {
+          let campaignConfig = job.config || {};
+          let campaignObjective = job.config?.objective;
+          let targetUrl = job.targetUrl;
+
+          if (this.supabase && (!campaignConfig.domains || !targetUrl)) {
+            const { data: campRow } = await this.supabase
+              .from('qa_campaigns')
+              .select('configuration, budget, objective')
+              .eq('id', job.jobId)
+              .maybeSingle();
+
+            if (campRow) {
+              const cfg = campRow.configuration || {};
+              campaignConfig = { ...cfg, budget: campRow.budget, ...campaignConfig };
+              campaignObjective = campRow.objective || cfg.objective || campaignObjective;
+              if (!targetUrl) {
+                targetUrl = cfg.targetUrl || cfg.url;
+              }
+            }
+          }
+
+          if (this.supabase && !targetUrl && job.projectId) {
+            const { data: projRow } = await this.supabase
+              .from('projects')
+              .select('url, source_url')
+              .eq('id', job.projectId)
+              .maybeSingle();
+            if (projRow) {
+              targetUrl = projRow.url || projRow.source_url || '';
+            }
+          }
+
           const campaignExecutor = new CampaignExecutor({
             campaignId: job.jobId,
             projectId: job.projectId,
             organizationId: job.organizationId || undefined,
             testRunId: job.testRunId || undefined,
-            targetUrl: job.targetUrl,
-            objective: job.config?.objective,
-            config: job.config,
+            targetUrl: targetUrl || 'http://localhost:3000',
+            objective: campaignObjective,
+            config: campaignConfig,
             supabaseClient: this.supabase,
             cancellationToken: token,
           });
