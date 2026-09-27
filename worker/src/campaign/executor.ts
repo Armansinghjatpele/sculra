@@ -2,6 +2,7 @@
 // Sculra Master Autonomous Campaign Executor (worker/src/campaign/executor.ts)
 // ==============================================================================
 
+import { randomUUID } from 'crypto';
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -373,7 +374,7 @@ export class CampaignExecutor {
 
               if (adaptiveTarget) {
                 const adaptiveTask: CampaignTask = {
-                  id: `task-adaptive-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+                  id: randomUUID(),
                   campaignId,
                   taskType: 'ADAPTIVE_REGRESSION_VERIFICATION',
                   domain: task.domain,

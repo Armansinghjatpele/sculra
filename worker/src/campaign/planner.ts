@@ -2,6 +2,7 @@
 // Sculra Autonomous Campaign Planner (worker/src/campaign/planner.ts)
 // ==============================================================================
 
+import { randomUUID } from 'crypto';
 import {
   CampaignTask,
   CampaignTarget,
@@ -33,8 +34,7 @@ export class AutonomousCampaignPlanner {
     };
 
     let taskIndex = 0;
-    const createTaskId = (domain: string, targetSlug: string) =>
-      `task-${domain.toLowerCase()}-${targetSlug}-${++taskIndex}`;
+    const createTaskId = (_domain: string, _targetSlug: string) => randomUUID();
 
     // 1. Stage 1: Discovery Task (Always required if DISCOVERY is active or needed by other domains)
     let discoveryTaskId: string | undefined;
