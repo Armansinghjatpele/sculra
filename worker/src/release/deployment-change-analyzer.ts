@@ -5,7 +5,8 @@
 // ==============================================================================
 
 import { DeploymentSnapshot, DeploymentChangeComparison, DeploymentEvidenceReference } from './types';
-import { ChangeSnapshot, buildChangeSnapshot } from '../change-intelligence/snapshot';
+import { ChangeSnapshot } from '../change-intelligence/types';
+import { buildChangeSnapshot } from '../change-intelligence/snapshot';
 import { ChangeIntelligenceAnalyzer } from '../change-intelligence/analyzer';
 
 export interface AnalyzeDeploymentChangeInput {
@@ -153,7 +154,7 @@ export class DeploymentChangeAnalyzer {
       confidence: 1.0,
     });
 
-    const classifications = snapshot.classifications.map((c) => String(c));
+    const classifications = (snapshot.classifications || []).map((c: any) => String(c));
     const affectedRoutes = snapshot.changedRoutes || [];
     const affectedApis = snapshot.changedApis || [];
 

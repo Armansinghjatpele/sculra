@@ -317,6 +317,8 @@ export interface ReleaseIssueCorrelation {
 // ==============================================================================
 
 export type DeploymentLifecycleStatus =
+  | 'RECEIVED'
+  | 'VALIDATING'
   | 'DEPLOYING'
   | 'READY'
   | 'FAILED'
@@ -448,5 +450,216 @@ export interface DeploymentChangeComparison {
   criticalWorkflows: string[];
   confidence: number;
   evidence: DeploymentEvidenceReference[];
+}
+
+// ==============================================================================
+// Prompt 63: Continuous Deployment QA Automation & Release Gate Enforcement Types
+// ==============================================================================
+
+export interface DeploymentEvent {
+  eventId: string;
+  projectId: string | null;
+  orgId: string | null;
+  provider: string;
+  providerEventId: string | null;
+  deploymentId: string | null;
+  environmentId: string | null;
+  environmentName: string | null;
+  environmentType: EnvironmentType | null;
+  deploymentStatus: DeploymentLifecycleStatus;
+  commitSha: string | null;
+  branch: string | null;
+  repository: string | null;
+  deploymentUrl: string | null;
+  releaseId: string | null;
+  occurredAt: string | null;
+  receivedAt: string;
+  source: DeploymentSource;
+  confidence: number;
+  rawMetadataReference?: Record<string, any>;
+}
+
+export type QATriggerType =
+  | 'DEPLOYMENT_READY'
+  | 'RELEASE_CREATED'
+  | 'PR_MERGED'
+  | 'PRODUCTION_DEPLOYMENT'
+  | 'STAGING_DEPLOYMENT'
+  | 'MANUAL'
+  | 'SCHEDULED';
+
+export type QATriggerStatus =
+  | 'ELIGIBLE'
+  | 'DEFERRED'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'INELIGIBLE';
+
+export interface QATriggerEligibility {
+  eligible: boolean;
+  status: QATriggerStatus;
+  reasons: string[];
+  missingFields: string[];
+  evaluatedAt: string;
+}
+
+export interface QATriggerPolicy {
+  id?: string;
+  projectId: string;
+  organizationId?: string | null;
+  enabled: boolean;
+  autoTriggerOnReady: boolean;
+  targetEnvironments: string[];
+  requireCommitSha: boolean;
+  requireEnvironment: boolean;
+  requireDeploymentId: boolean;
+  allowedBranches?: string[];
+  criticalOnlyOnDeploying?: boolean;
+}
+
+export type CampaignTriggerDecisionType =
+  | 'RUN_FULL'
+  | 'RUN_TARGETED'
+  | 'RUN_CRITICAL_ONLY'
+  | 'DEFER'
+  | 'REVIEW'
+  | 'DO_NOT_RUN';
+
+export interface CampaignTriggerDecision {
+  id: string;
+  decision: CampaignTriggerDecisionType;
+  campaignType: string;
+  projectId: string;
+  deploymentId: string | null;
+  environmentId: string | null;
+  selectedTargets: string[];
+  skippedTargets: string[];
+  deferredTargets: string[];
+  reviewTargets: string[];
+  reasons: string[];
+  evidence: DeploymentEvidenceReference[];
+  confidence: number;
+  evaluatedAt: string;
+}
+
+export type ReleaseGateDimension =
+  | 'FUNCTIONAL'
+  | 'VISUAL'
+  | 'RESPONSIVE'
+  | 'SECURITY'
+  | 'AUTHORIZATION'
+  | 'API'
+  | 'PERFORMANCE'
+  | 'ACCESSIBILITY'
+  | 'CRITICAL_WORKFLOW'
+  | 'REGRESSION'
+  | 'RELEASE_READINESS'
+  | 'EVIDENCE_CONFIDENCE';
+
+export type ReleaseGateSeverityHandling = 'BLOCK' | 'WARN' | 'IGNORE';
+
+export type ReleaseGateDecisionType =
+  | 'PASS'
+  | 'BLOCK'
+  | 'REVIEW'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export interface ReleaseGateRule {
+  dimension: ReleaseGateDimension;
+  enabled: boolean;
+  minScore?: number;
+  maxRegressions?: number;
+  maxCriticalIssues?: number;
+  severityHandling: ReleaseGateSeverityHandling;
+  environmentScope?: string[];
+  workflowScope?: string[];
+  requiredEvidence?: string[];
+  requiresApproval?: boolean;
+}
+
+export interface ReleaseGatePolicy {
+  id: string;
+  projectId: string;
+  organizationId?: string | null;
+  name: string;
+  version: string;
+  isDefault: boolean;
+  rules: ReleaseGateRule[];
+  requireHumanApprovalOnReview: boolean;
+  requireHumanApprovalOnWarn: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReleaseGateBlocker {
+  dimension: ReleaseGateDimension;
+  reason: string;
+  severity: 'CRITICAL' | 'BLOCKER' | 'HIGH';
+  evidenceRef?: string;
+  metricValue?: number;
+  threshold?: number;
+}
+
+export interface ReleaseGateWarning {
+  dimension: ReleaseGateDimension;
+  reason: string;
+  evidenceRef?: string;
+  metricValue?: number;
+  threshold?: number;
+}
+
+export interface ReleaseGateDecision {
+  id: string;
+  releaseId: string | null;
+  deploymentId: string | null;
+  projectId: string;
+  environmentId: string | null;
+  policyId: string;
+  policyVersion: string;
+  decision: ReleaseGateDecisionType;
+  blockers: ReleaseGateBlocker[];
+  warnings: ReleaseGateWarning[];
+  evidence: DeploymentEvidenceReference[];
+  confidence: number;
+  evaluatedAt: string;
+  evaluatedBy: string;
+  source: string;
+}
+
+export type ReleaseGateApprovalStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export interface ReleaseGateApproval {
+  id: string;
+  decisionId: string;
+  releaseId: string | null;
+  deploymentId: string | null;
+  projectId: string;
+  organizationId: string | null;
+  status: ReleaseGateApprovalStatus;
+  requesterId: string;
+  approverId: string | null;
+  reason: string | null;
+  requestedAt: string;
+  decidedAt: string | null;
+  expiresAt: string;
+}
+
+export interface ReleaseGateOverride {
+  id: string;
+  decisionId: string;
+  releaseId: string | null;
+  deploymentId: string | null;
+  projectId: string;
+  organizationId: string | null;
+  actorId: string;
+  originalDecision: ReleaseGateDecisionType;
+  overrideDecision: ReleaseGateDecisionType;
+  reason: string;
+  timestamp: string;
+  policyVersion: string;
 }
 

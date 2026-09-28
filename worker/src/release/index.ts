@@ -25,4 +25,13 @@ export * from './previous-deployment-resolver';
 export * from './deployment-change-analyzer';
 export * from './release-impact';
 export * from './deployment-provider';
-
+export * from './deployment-event';
+export * from './webhook-ingestion';
+export * from './qa-trigger-policy';
+export * from './campaign-selector';
+export * from './campaign-dedupe';
+export * from './gate-policy';
+export * from './human-approval';
+export * from './cd-notifications';
+export * from './ci-feedback';
+export * from './cd-orchestrator';

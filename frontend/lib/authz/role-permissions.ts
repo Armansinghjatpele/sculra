@@ -31,6 +31,7 @@ const BASE_VIEWER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.ENVIRONMENT_READ,
   PERMISSIONS.DEPLOYMENTS_READ,
   PERMISSIONS.RELEASES_READ,
+  PERMISSIONS.RELEASE_GATES_READ,
   // Credentials safe metadata read
   PERMISSIONS.CREDENTIALS_READ,
   // Notifications & Incidents read
@@ -78,6 +79,8 @@ const QA_LEAD_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.RELEASE_EVALUATE,
   PERMISSIONS.RELEASES_CHECK,
   PERMISSIONS.RELEASES_DECIDE,
+  PERMISSIONS.RELEASE_GATES_EVALUATE,
+  PERMISSIONS.RELEASE_GATES_APPROVE,
   // Credential validation
   PERMISSIONS.CREDENTIALS_VALIDATE,
   // Strategy configuration
@@ -131,6 +134,9 @@ const ADMIN_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.CREDENTIALS_UPDATE,
   PERMISSIONS.CREDENTIALS_DELETE,
   PERMISSIONS.CREDENTIALS_ROTATE,
+  // Release gate management & override
+  PERMISSIONS.RELEASE_GATES_OVERRIDE,
+  PERMISSIONS.RELEASE_GATES_CONFIGURE,
 ] as const;
 
 // Owner: All permissions in the system, including ownership transfer & organization deletion

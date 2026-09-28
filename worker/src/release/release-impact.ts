@@ -133,14 +133,14 @@ export class ReleaseImpactAnalyzer {
     // Security Impact
     const securityEvaluated =
       (changeComparison && changeComparison.status === 'ANALYZED') ||
-      taskResults.some((t) => t.domain === 'SECURITY' || (t.observations && t.observations.some((o) => o.category === 'security')));
+      taskResults.some((t) => t.domain === 'SECURITY' || (t.observations && t.observations.some((o: any) => o.category === 'security')));
 
     if (securityEvaluated) {
       const securityChange = changeComparison?.classifications.includes('SECURITY') || false;
       const securityTaskFailure = taskResults.some(
         (t) =>
           (t.domain === 'SECURITY' && (t.status === 'FAILED' || t.error)) ||
-          (t.observations && t.observations.some((o) => o.category === 'security' && (o.severity === 'critical' || o.severity === 'high')))
+          (t.observations && t.observations.some((o: any) => o.category === 'security' && (o.severity === 'critical' || o.severity === 'high')))
       );
       securityImpact = securityChange || securityTaskFailure;
     } else {
@@ -152,7 +152,8 @@ export class ReleaseImpactAnalyzer {
       (changeComparison && changeComparison.status === 'ANALYZED') ||
       taskResults.some(
         (t) =>
-          t.domain === 'AUTH' ||
+          t.domain === 'AUTHORIZATION' ||
+          (t.domain as string) === 'AUTH' ||
           (t.target && t.target.identifier.toLowerCase().includes('auth')) ||
           (t.target && t.target.identifier.toLowerCase().includes('login'))
       );
@@ -164,7 +165,7 @@ export class ReleaseImpactAnalyzer {
         false;
       const authTaskFailure = taskResults.some(
         (t) =>
-          (t.domain === 'AUTH' || t.target?.identifier.toLowerCase().includes('login')) &&
+          (t.domain === 'AUTHORIZATION' || (t.domain as string) === 'AUTH' || t.target?.identifier.toLowerCase().includes('login')) &&
           (t.status === 'FAILED' || t.error)
       );
       authenticationImpact = authChange || authTaskFailure;

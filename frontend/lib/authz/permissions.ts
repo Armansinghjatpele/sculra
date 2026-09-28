@@ -54,6 +54,13 @@ export const PERMISSIONS = {
   RELEASE_READ: 'release.read',
   RELEASE_EVALUATE: 'release.evaluate',
 
+  // Release Gates (Prompt 63)
+  RELEASE_GATES_READ: 'release.gates.read',
+  RELEASE_GATES_EVALUATE: 'release.gates.evaluate',
+  RELEASE_GATES_OVERRIDE: 'release.gates.override',
+  RELEASE_GATES_CONFIGURE: 'release.gates.configure',
+  RELEASE_GATES_APPROVE: 'release.gates.approve',
+
   // Strategy
   STRATEGY_READ: 'strategy.read',
   STRATEGY_CONFIGURE: 'strategy.configure',
@@ -416,6 +423,18 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
     permissions: [
       { key: PERMISSIONS.INCIDENTS_READ, label: 'View Incidents', description: 'Inspect open and resolved incident timelines' },
       { key: PERMISSIONS.INCIDENTS_MANAGE, label: 'Manage Incidents', description: 'Acknowledge or resolve active incidents' },
+    ],
+  },
+  {
+    id: 'release_gates',
+    name: 'Release Gates & CD Automation',
+    description: 'Release gate policy evaluation, overrides, and approvals',
+    permissions: [
+      { key: PERMISSIONS.RELEASE_GATES_READ, label: 'View Release Gates', description: 'Inspect gate evaluations and blockers' },
+      { key: PERMISSIONS.RELEASE_GATES_EVALUATE, label: 'Evaluate Gates', description: 'Trigger gate evaluation checks' },
+      { key: PERMISSIONS.RELEASE_GATES_APPROVE, label: 'Approve Gate Review', description: 'Approve releases in REVIEW state' },
+      { key: PERMISSIONS.RELEASE_GATES_OVERRIDE, label: 'Override Gate Decision', description: 'Administratively override blocked gates', isSensitive: true },
+      { key: PERMISSIONS.RELEASE_GATES_CONFIGURE, label: 'Configure Gate Policies', description: 'Create and update release gate rules', isSensitive: true },
     ],
   },
 ];

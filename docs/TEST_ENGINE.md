@@ -2425,5 +2425,110 @@ Incoming system events are normalized into a unified `NotificationEvent` model w
 - `/projects/[projectId]/incidents`: Project incident dashboard detailing open and resolved incidents with severity badges.
 - `/projects/[projectId]/incidents/[incidentId]`: Incident Command Console with factual non-causal event timeline, timeline markers, and manual acknowledge / resolve controls.
 
+---
+
+## 30. Continuous Deployment QA Automation & Release Gate Enforcement
+
+### 30.1 Mission & Architectural Principles
+Sculra closes the continuous delivery loop by connecting hosting provider webhooks and external CI/CD pipelines into an automated, bounded, explainable execution engine:
+
+```mermaid
+flowchart TD
+    subgraph WebhookIngestion[1. Ingestion & Normalization]
+        Evt[Provider Webhook Vercel / Railway / Generic] --> AuthSig[HMAC / Bearer Token Verification]
+        AuthSig --> Norm[Normalize into Canonical DeploymentEvent & Snapshot]
+        AuthSig --> DedupeEvt[Provider Event Deduplication]
+    end
+
+    subgraph TriggerEvaluation[2. Trigger Eligibility & State Machine]
+        Norm --> StateMachine[Deployment Lifecycle State Machine]
+        StateMachine --> PolicyEval[QATriggerPolicyEvaluator]
+        PolicyEval -->|DEPLOYING| Defer[Defer QA Campaign]
+        PolicyEval -->|FAILED / CANCELLED| Ineligible[Mark Ineligible & Send Alert]
+        PolicyEval -->|READY + Full Evidence| Eligible[Proceed to Campaign Selection]
+    end
+
+    subgraph CampaignOrchestration[3. Smart Campaign Selection & Deduplication]
+        Eligible --> PrevResolver[Resolve Previous Deployment Baseline]
+        PrevResolver --> ChangeComp[DeploymentChangeAnalyzer Diff]
+        ChangeComp --> SmartSelect[SmartCampaignSelector]
+        SmartSelect --> CritProtect[Critical Workflow Protection Rules]
+        CritProtect --> CampDedupe[Campaign Idempotency Key Computation]
+        CampDedupe --> LaunchCamp[Launch Autonomous QA Campaign]
+    end
+
+    subgraph GateEnforcement[4. Release Gate Policy & Decisions]
+        LaunchCamp --> CollectEv[Collect Measured QA Evidence]
+        CollectEv --> ImpactAnalysis[ReleaseImpactAnalyzer]
+        ImpactAnalysis --> GatePolicy[ReleaseGatePolicyEvaluator 12 Dimensions]
+        GatePolicy --> DeterministicDecision{Gate Decision}
+        DeterministicDecision -->|PASS| GatePassed[PASS: Promote Release]
+        DeterministicDecision -->|BLOCK| GateBlocked[BLOCK: Halt Deployment]
+        DeterministicDecision -->|REVIEW| HumanApproval[REVIEW: Human Approval Required]
+        DeterministicDecision -->|INSUFFICIENT_EVIDENCE| Inconclusive[INSUFFICIENT_EVIDENCE: Safe Halt]
+    end
+
+    subgraph FeedbackDispatches[5. Notifications & CI Feedback]
+        GatePassed & GateBlocked & HumanApproval & Inconclusive --> NotifEngine[Enterprise Notification Engine]
+        GatePassed & GateBlocked & HumanApproval & Inconclusive --> CIFeedback[Truthful CI Status Feedback]
+    end
+```
+
+### 30.2 Core Invariants & Anti-Fabrication Safeguards
+1. **NO EVIDENCE $\rightarrow$ NO INFERENCE**: Missing commit SHA, branch, environment name, or test runs are **NEVER** synthesized with default strings (e.g. `'env-default'`, `'STAGING'`, `'sha-default'`). Missing metadata evaluates strictly to `INSUFFICIENT_EVIDENCE` or `REVIEW`.
+2. **Deterministic Evaluation**: Release gate policy evaluation is a pure mathematical function of stored factual evidence and configured thresholds. Zero randomness, zero time-of-day drift, and zero nondeterministic external dependencies.
+3. **Critical Workflow Protection**: Protected flows (authentication, checkout, billing, payments, account registration) can never be silently bypassed. Any code modification touching critical workflows forces campaign inclusion regardless of general change risk ratings.
+4. **Idempotency & Replay Safety**: Webhook ingestion verifies provider signatures and deduplicates payloads using database uniqueness constraints (`provider + provider_event_id`). Automated campaigns compute a deterministic SHA-256 idempotency key:
+   $$\text{Hash}(\text{orgId} : \text{projectId} : \text{deploymentId} : \text{triggerType} : \text{policyVersion})$$
+   preventing duplicate campaigns from concurrent webhook deliveries.
+5. **Human Approval & Audit Integrity**: When a gate decision results in `REVIEW`, human sign-off requires explicit role authority. Administrative overrides require `release.gates.override` permission and record an immutable audit trail (`actor_id`, `original_decision`, `override_decision`, `reason`, `timestamp`) without mutating the underlying factual QA observations.
+6. **Truthful CI Feedback**: Commit statuses report actual verified outcomes. If an external provider integration token is missing, the system records internal gate status rather than fabricating external status checks.
+
+### 30.3 Deployment Lifecycle State Machine
+Deployments follow an explicit state transition matrix implemented in `DeploymentStateMachine`:
+- `RECEIVED`: Webhook received and authenticated.
+- `VALIDATING`: Verifying environment, repository context, and signature.
+- `DEPLOYING`: Hosting provider is building or deploying artifacts. Automatic QA is deferred.
+- `READY`: Deployment completed and healthy. Eligible for automatic post-deployment QA.
+- `FAILED`: Deployment failed at hosting provider. Automatic post-deployment QA is marked ineligible.
+- `CANCELLED`: Deployment cancelled at provider.
+- `UNKNOWN`: Insufficient evidence to determine status. Evaluates to `INSUFFICIENT_EVIDENCE` or `REVIEW`.
+
+### 30.4 The 12 Release Gate Dimensions
+
+| Dimension | Description | Default Threshold | Severity Handling |
+| :--- | :--- | :--- | :--- |
+| `FUNCTIONAL` | Functional test suite pass rate | Min 80% | BLOCK |
+| `REGRESSION` | Confirmed regressions detected against baseline | Max 0 regressions | BLOCK |
+| `CRITICAL_WORKFLOW` | Failures on protected workflows (auth, checkout, billing) | Max 0 failures | BLOCK |
+| `SECURITY` | Vulnerabilities and security scan results | Min 70% | BLOCK |
+| `AUTHORIZATION` | Broken access controls and tenant boundary leaks | Min 75% | BLOCK |
+| `API` | API contract conformance and endpoint availability | Min 70% | WARN |
+| `PERFORMANCE` | Response latencies, TTFB, and bundle sizes | Min 60% | WARN |
+| `ACCESSIBILITY` | WCAG conformance and contrast scores | Min 60% | WARN |
+| `VISUAL` | Visual regressions and unexpected layout shifts | Min 70% | WARN |
+| `RESPONSIVE` | Viewport adaptivity (desktop, tablet, mobile) | Min 70% | WARN |
+| `RELEASE_READINESS` | Composite readiness score from `DeterministicReleaseScorer` | Min 75% | BLOCK |
+| `EVIDENCE_CONFIDENCE` | Proportion of required QA domains with measured evidence | Min 60% | BLOCK |
+
+### 30.5 Database Schema (`supabase/migrations/20260928000001_cd_automation_release_gates.sql`)
+The continuous deployment automation engine introduces five forward-only tables protected by Clerk RLS:
+1. `public.deployment_events`: Raw and normalized deployment events from Vercel, Railway, and Generic CI/CD.
+2. `public.qa_trigger_decisions`: Recorded eligibility decisions, selected targets, and idempotency keys.
+3. `public.release_gate_policies`: Versioned gate policies with granular per-dimension rules.
+4. `public.release_gate_decisions`: Immutable gate evaluation records detailing blockers, warnings, and confidence.
+5. `public.release_gate_approvals`: Human sign-offs and administrative overrides with full audit logs.
+
+### 30.6 REST API & Webhook Endpoints
+- `POST /api/webhooks/deployments/[provider]`: Multi-provider webhook ingestion (Vercel, Railway, Generic CI/CD). Lightweight, asynchronous, returns `202 Accepted` immediately after scheduling background orchestration.
+- `GET /api/projects/[id]/release-gates`: Fetch configured release gate policy and rule sets.
+- `POST /api/projects/[id]/release-gates`: Create or update project release gate policy (`release.gates.configure`).
+- `POST /api/projects/[id]/release-gates/evaluate`: Manually trigger deterministic gate evaluation (`release.gates.evaluate`).
+- `GET /api/projects/[id]/deployments/[deploymentId]/gate`: Fetch latest gate decision for a deployment (`release.gates.read`).
+- `POST /api/projects/[id]/deployments/[deploymentId]/trigger-qa`: Manually trigger automated QA for a deployment (`release.gates.evaluate`).
+- `POST /api/projects/[id]/releases/[releaseId]/approve`: Record human approval or rejection (`release.gates.approve`).
+- `POST /api/projects/[id]/releases/[releaseId]/override`: Record administrative override with audit trail (`release.gates.override`).
+
+
 
 
