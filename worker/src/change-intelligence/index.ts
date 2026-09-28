@@ -27,3 +27,6 @@ export * from './mapper';
 export * from './regression-targets';
 export * from './decision-engine';
 export * from './regression-comparator';
+export * from './environment-snapshot';
+export * from './environment-comparator';
+export * from './branch-comparator';

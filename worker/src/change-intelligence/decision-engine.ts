@@ -9,13 +9,20 @@ import {
   ChangeSnapshot,
   SkipReasonCode,
   ChangeDecisionType,
+  EnvironmentSnapshot,
 } from './types';
+import { HistoricalRun } from '../history/types';
 
 export interface EvaluateDecisionsInput {
   snapshot: ChangeSnapshot;
   candidates: RegressionCandidate[];
   activeDomains?: Set<string>;
   maxTasksBudget?: number;
+  environment?: EnvironmentSnapshot;
+  branch?: string;
+  previousRun?: HistoricalRun;
+  isDocsOnly?: boolean;
+  hasHistoricalRegressions?: boolean;
 }
 
 export class ChangeDecisionEngine {
@@ -23,6 +30,7 @@ export class ChangeDecisionEngine {
    * Deterministically evaluates every candidate target and produces an auditable
    * TEST, SKIP, DEFER, or REVIEW decision with structured explanations and evidence references.
    * Enforces Critical Workflow Override (critical workflows CANNOT be skipped).
+   * Supports evidence-backed safe test reuse (REUSE vs RERUN).
    */
   static evaluate(input: EvaluateDecisionsInput): ChangeDecision[] {
     const {
@@ -42,6 +50,9 @@ export class ChangeDecisionEngine {
         'RELEASE',
       ]),
       maxTasksBudget = 100,
+      environment,
+      branch = snapshot?.headBranch || snapshot?.branch || input.branch,
+      previousRun,
     } = input;
 
     const decisions: ChangeDecision[] = [];
@@ -50,11 +61,16 @@ export class ChangeDecisionEngine {
     for (const candidate of candidates) {
       const isCritical = candidate.businessCriticality === 'CRITICAL';
       const isDomainActive = activeDomains.has(candidate.domain);
+      const envName = environment?.environmentName || 'default';
+      const currentBranch = candidate.branch || branch || 'main';
+
       const evidence = [
-        `commit:${snapshot.commitSha.slice(0, 7)}`,
+        ...(snapshot?.commitSha ? [`commit:${snapshot.commitSha.slice(0, 7)}`] : []),
         `source:${candidate.source}`,
         `domain:${candidate.domain}`,
         `criticality:${candidate.businessCriticality}`,
+        ...(environment ? [`env:${environment.environmentName}`] : []),
+        ...(currentBranch ? [`branch:${currentBranch}`] : []),
       ];
 
       // 1. Critical Workflow Override: Critical workflows are NEVER skipped
@@ -67,13 +83,18 @@ export class ChangeDecisionEngine {
           domain: candidate.domain,
           decision: 'TEST',
           priority: candidate.priority,
-          reason: snapshot.isDocumentationOnly
+          reason: (snapshot?.isDocumentationOnly || input.isDocsOnly)
             ? `CRITICAL_WORKFLOW_OVERRIDE: Business-critical workflow "${candidate.targetIdentifier}" verified despite documentation-only commit`
             : `CRITICAL_WORKFLOW: High-priority execution for critical workflow "${candidate.targetIdentifier}"`,
           criticalOverride: true,
           confidence: 'HIGH',
           evidence: [...evidence, 'policy:critical_override'],
           createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
+          reuseClassification: 'RERUN',
+          reuseJustification: 'Critical workflows require fresh execution to guarantee zero release risk',
           metadata: {
             source: candidate.source,
             criticality: candidate.businessCriticality,
@@ -84,7 +105,7 @@ export class ChangeDecisionEngine {
       }
 
       // 2. Safe Skip: Documentation-Only change
-      if (snapshot.isDocumentationOnly) {
+      if (snapshot?.isDocumentationOnly || input.isDocsOnly) {
         decisions.push({
           id: `dec-${candidate.id}-${Date.now().toString(36)}`,
           candidateId: candidate.id,
@@ -99,9 +120,12 @@ export class ChangeDecisionEngine {
           confidence: 'HIGH',
           evidence: [...evidence, 'reason:docs_only'],
           createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
           metadata: {
             source: candidate.source,
-            files: snapshot.files.map((f) => f.path),
+            files: snapshot?.files ? snapshot.files.map((f) => f.path) : [],
           },
         });
         continue;
@@ -123,13 +147,16 @@ export class ChangeDecisionEngine {
           confidence: 'HIGH',
           evidence: [...evidence, 'reason:inactive_domain'],
           createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
         });
         continue;
       }
 
       // 4. Test-Only commit optimization: If change is purely test files and candidate is UI/API
       if (
-        snapshot.isTestOnly &&
+        snapshot?.isTestOnly &&
         candidate.source !== 'HISTORICAL_FAILURE' &&
         candidate.source !== 'RECOVERED_REGRESSION'
       ) {
@@ -147,6 +174,9 @@ export class ChangeDecisionEngine {
           confidence: 'HIGH',
           evidence: [...evidence, 'reason:test_only_change'],
           createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
         });
         continue;
       }
@@ -167,11 +197,44 @@ export class ChangeDecisionEngine {
           confidence: 'MEDIUM',
           evidence: [...evidence, 'budget:capacity_reached'],
           createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
+          reuseClassification: 'DEFER',
+          reuseJustification: 'Deferred due to capacity budget limits',
         });
         continue;
       }
 
-      // 6. Default: TEST candidate
+      // 6. Safe Test Reuse Evaluation
+      let reuseClassification: 'REUSE' | 'RERUN' | 'DEFER' | 'REVIEW' = 'RERUN';
+      let reuseJustification = 'Fresh execution required: target affected by change or lacks previous passing baseline';
+      let reusedEvidenceRef: string | undefined = undefined;
+
+      if (previousRun) {
+        const prevTargets = previousRun.targets || (previousRun as any).testResults || (previousRun as any).taskResults;
+        const matchingTarget = prevTargets?.find(
+          (t: any) => (t.targetIdentifier || t.target?.identifier || t.id) === candidate.targetIdentifier || (t.url && candidate.url && t.url === candidate.url)
+        );
+        const matchingFinding = previousRun.findings?.find(
+          (f: any) => f.targetUrl && candidate.url && f.targetUrl === candidate.url
+        );
+
+        const isDirectlyMutated =
+          candidate.source === 'DIRECT_WORKFLOW' ||
+          candidate.source === 'AFFECTED_API' ||
+          candidate.source === 'AFFECTED_ROUTE_OR_COMPONENT';
+        const targetPassedInPrevious = matchingTarget ? matchingTarget.status === 'passed' : (!matchingFinding && previousRun.status === 'passed');
+
+        if (targetPassedInPrevious && !isDirectlyMutated) {
+          const runIdentifier = previousRun.testRunId || (previousRun as any).id || 'baseline';
+          reuseClassification = 'REUSE';
+          reuseJustification = `Safe test reuse: Target passed in previous run (${runIdentifier}) for environment ${previousRun.environment || envName} with no code mutations in this changeset`;
+          reusedEvidenceRef = `test_run:${runIdentifier}:target:${candidate.targetIdentifier}`;
+        }
+      }
+
+      // 7. Default: TEST candidate
       decisions.push({
         id: `dec-${candidate.id}-${Date.now().toString(36)}`,
         candidateId: candidate.id,
@@ -185,6 +248,12 @@ export class ChangeDecisionEngine {
         confidence: 'HIGH',
         evidence: [...evidence, 'action:execute_test'],
         createdAt: new Date().toISOString(),
+        environmentId: candidate.environmentId || environment?.environmentId,
+        environmentName: environment?.environmentName,
+        branch: currentBranch,
+        reuseClassification,
+        reuseJustification,
+        reusedEvidenceRef,
         metadata: {
           source: candidate.source,
           hasVisualBaseline: candidate.hasVisualBaseline,

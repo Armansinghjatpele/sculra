@@ -8,6 +8,7 @@ import {
   ChangeClassification,
   ChangedFile,
   ChangeSet,
+  EnvironmentSnapshot,
 } from './types';
 import { IGitChangeProvider, RawChangedFile } from './git-provider';
 import { GitHubChangeProvider } from './github';
@@ -50,6 +51,13 @@ export interface ChangeAnalysisContext {
   knownRoutes?: string[];
   knownApiPaths?: string[];
   targetUrl?: string;
+  // Prompt 61 Multi-Environment & Cross-Branch Context
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  environment?: EnvironmentSnapshot;
+  previousRun?: any;
 }
 
 export class ChangeIntelligenceAnalyzer {
@@ -173,9 +181,9 @@ export class ChangeIntelligenceAnalyzer {
     };
 
     const snapshot = buildChangeSnapshot({
-      commitSha,
-      baseSha,
-      branch,
+      commitSha: context.headCommit || commitSha,
+      baseSha: context.baseCommit || baseSha,
+      branch: context.headBranch || branch,
       pullRequestNumber,
       source: isPartial ? 'CI' : 'GIT',
       files: changedFiles,
@@ -183,6 +191,10 @@ export class ChangeIntelligenceAnalyzer {
       totalDeletions: rawData.totalDeletions,
       isPartial,
       partialReason,
+      baseBranch: context.baseBranch,
+      headBranch: context.headBranch,
+      baseCommit: context.baseCommit,
+      headCommit: context.headCommit,
     });
 
     // 4. Map Route Impact
@@ -228,7 +240,14 @@ export class ChangeIntelligenceAnalyzer {
       affectedWorkflows,
       productModel,
       historicalSignals,
+      baseBranch: context.baseBranch,
+      headBranch: context.headBranch || branch,
+      baseCommit: context.baseCommit || baseSha,
+      headCommit: context.headCommit || commitSha,
+      environment: context.environment,
     });
+
+    snapshot.impactGraph = impactGraph;
 
     // 10. Recommend Domains and Produce Strategy Boosts
     const { recommendedDomains, strategyBoosts } = matchChangeToDomainsAndBoosts({
@@ -248,11 +267,17 @@ export class ChangeIntelligenceAnalyzer {
       productModel,
       historicalSignals,
       targetUrl: context.targetUrl || 'http://localhost:3000',
+      environment: context.environment,
+      branch: context.headBranch || branch,
+      commitSha: context.headCommit || commitSha,
     });
 
     const decisions = ChangeDecisionEngine.evaluate({
       snapshot,
       candidates: regressionCandidates,
+      environment: context.environment,
+      branch: context.headBranch || branch,
+      previousRun: context.previousRun,
     });
 
     // 11. Determine Final Analysis Status

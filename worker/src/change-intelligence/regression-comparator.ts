@@ -20,6 +20,12 @@ export interface CompareRegressionsInput {
   taskResults: CampaignTaskResult[];
   snapshot?: ChangeSnapshot;
   decisions?: ChangeDecision[];
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  environmentId?: string;
+  environmentName?: string;
 }
 
 export class RegressionComparator {
@@ -69,14 +75,16 @@ export class RegressionComparator {
       let baselineStatus: 'PASSED' | 'FAILED' | 'UNTESTED' | 'NO_BASELINE' = 'NO_BASELINE';
       if (baselineRun) {
         // Priority 1: Direct target status in baseline run
-        const matchingTarget = baselineRun.targets?.find(
-          (t) =>
-            t.targetIdentifier === targetIdentifier ||
+        const baselineTargets = baselineRun.targets || (baselineRun as any).testResults || (baselineRun as any).taskResults;
+        const matchingTarget = baselineTargets?.find(
+          (t: any) =>
+            (t.targetIdentifier || t.target?.identifier || t.id) === targetIdentifier ||
             (t.url && result.target?.url && t.url === result.target.url)
         );
 
         if (matchingTarget) {
-          baselineStatus = matchingTarget.status === 'passed' ? 'PASSED' : matchingTarget.status === 'failed' ? 'FAILED' : 'UNTESTED';
+          const statusLower = (matchingTarget.status || '').toLowerCase();
+          baselineStatus = statusLower === 'passed' || statusLower === 'completed' ? 'PASSED' : statusLower === 'failed' ? 'FAILED' : 'UNTESTED';
         } else {
           // Priority 2: Check matching finding with exact URL path or fingerprint
           const matchingFinding = baselineRun.findings?.find((f) => {
@@ -113,7 +121,10 @@ export class RegressionComparator {
       );
       const isAffectedByChange = matchingDecision
         ? matchingDecision.decision === 'TEST' && !matchingDecision.criticalOverride
-        : false;
+        : !!(snapshot && (
+            snapshot.files.some(f => (f.path || (f as any).filename || '').toLowerCase().includes(targetIdentifier.replace(/^\//, '').toLowerCase())) ||
+            snapshot.changedRoutes?.includes(targetIdentifier)
+          ));
 
       // 4. Classify Target
       let classification: ChangeRegressionClassification = 'UNCHANGED_PASS';
@@ -138,7 +149,7 @@ export class RegressionComparator {
         }
       } else if (currentStatus === 'FAILED') {
         if (baselineStatus === 'PASSED') {
-          if (isAffectedByChange || snapshot?.classifications.length) {
+          if (isAffectedByChange || (snapshot?.files && snapshot.files.length > 0)) {
             classification = 'REGRESSION';
             regressionsCount++;
             reason = `REGRESSION CONFIRMED: Target previously passed in baseline, but failed after recent code changes.`;
@@ -171,6 +182,12 @@ export class RegressionComparator {
         reason,
         evidenceRefs: result.observations?.map((o) => o.fingerprint).filter(Boolean),
         visualBaselineFound: domain === 'VISUAL' ? baselineStatus !== 'NO_BASELINE' : undefined,
+        baseBranch: input.baseBranch ?? baselineRun?.branch ?? snapshot?.baseBranch,
+        headBranch: input.headBranch ?? snapshot?.headBranch ?? snapshot?.branch,
+        baseCommit: input.baseCommit ?? baselineRun?.commitRef ?? snapshot?.baseCommit ?? snapshot?.baseSha,
+        headCommit: input.headCommit ?? snapshot?.headCommit ?? snapshot?.commitSha,
+        environmentId: input.environmentId,
+        environmentName: input.environmentName ?? baselineRun?.environment,
       });
     }
 

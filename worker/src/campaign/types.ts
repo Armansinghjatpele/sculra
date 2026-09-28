@@ -15,7 +15,13 @@ import { JourneyResult } from '../journeys/types';
 import { BugObservation } from '../issues/types';
 import { RoleContext, AuthenticatedSession, AuthorizationCheckResult } from '../auth/types';
 import { SourceCapability } from '../sources/types';
-import { RegressionComparisonResult, ChangeDecision } from '../change-intelligence/types';
+import {
+  RegressionComparisonResult,
+  ChangeDecision,
+  EnvironmentSnapshot,
+  EnvironmentComparisonResult,
+  BranchComparisonResult,
+} from '../change-intelligence/types';
 
 export type QACampaignStatus =
   | 'QUEUED'
@@ -100,6 +106,16 @@ export interface CampaignConfig {
   changeIntelligence?: any;
   sourceId?: string;
   capabilities?: SourceCapability[];
+  // Prompt 61 Multi-Environment & Cross-Branch Config
+  environmentId?: string;
+  environmentType?: string;
+  deploymentId?: string;
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  baselineEnvironmentId?: string;
+  baselineEnvironmentName?: string;
 }
 
 export interface CampaignBudget {
@@ -276,6 +292,9 @@ export interface CampaignState {
   changeIntelligence?: any;
   regressionComparison?: RegressionComparisonResult;
   changeDecisions?: ChangeDecision[];
+  environmentSnapshot?: EnvironmentSnapshot;
+  environmentComparison?: EnvironmentComparisonResult;
+  branchComparison?: BranchComparisonResult;
   terminationReason?: CampaignTerminationReason;
   terminationDetails?: string;
 }
@@ -344,6 +363,9 @@ export interface CampaignSummary {
   }>;
   regressionComparison?: RegressionComparisonResult;
   changeDecisions?: ChangeDecision[];
+  environmentSnapshot?: EnvironmentSnapshot;
+  environmentComparison?: EnvironmentComparisonResult;
+  branchComparison?: BranchComparisonResult;
 }
 
 export interface CampaignRecord {

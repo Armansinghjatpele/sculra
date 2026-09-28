@@ -27,6 +27,7 @@ export * from './campaign';
 export * from './product';
 export * from './auth';
 export * from './api-qa';
+export type { EnvironmentType } from './release';
 export * from './release';
 export * from './security';
 export * from './performance';

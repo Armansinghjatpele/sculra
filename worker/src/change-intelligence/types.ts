@@ -50,7 +50,10 @@ export type ImpactTargetType =
   | 'ENVIRONMENT'
   | 'HISTORICAL_ISSUE'
   | 'PREVIOUS_RUN'
-  | 'SYMBOL';
+  | 'SYMBOL'
+  | 'BRANCH'
+  | 'COMMIT'
+  | 'DEPLOYMENT';
 
 export type ImpactRelationshipType =
   | 'DIRECT_IMPACT'
@@ -100,7 +103,7 @@ export interface ChangeSet {
 
 export interface ImpactNode {
   id: string;
-  type: ImpactTargetType | 'FILE' | 'SYMBOL';
+  type: ImpactTargetType | 'FILE' | 'SYMBOL' | 'BRANCH' | 'COMMIT' | 'ENVIRONMENT' | 'DEPLOYMENT';
   name: string;
   metadata?: Record<string, any>;
 }
@@ -122,7 +125,16 @@ export interface ImpactEdge {
     | 'IMPLEMENTS'
     | 'DEPENDS_ON'
     | 'TESTED_BY'
-    | 'RECOVERED_BEFORE';
+    | 'RECOVERED_BEFORE'
+    | 'BASE_COMMIT'
+    | 'HEAD_COMMIT'
+    | 'CHANGED_FILE'
+    | 'CHANGED_SYMBOL'
+    | 'AFFECTED_ROUTE'
+    | 'AFFECTED_API'
+    | 'AFFECTED_WORKFLOW'
+    | 'AFFECTED_QA_TARGET'
+    | 'AFFECTED_ENVIRONMENT';
   reason: string;
   confidence: ImpactConfidence;
   source: string;
@@ -234,6 +246,25 @@ export interface ChangeAnalysisResult {
 
 export type ChangeSource = 'GIT' | 'PR' | 'MANUAL' | 'CI';
 
+export type EnvironmentType = 'DEVELOPMENT' | 'STAGING' | 'PREVIEW' | 'PRODUCTION' | 'CUSTOM';
+
+export interface EnvironmentSnapshot {
+  environmentId: string;
+  environmentName: string;
+  environmentType: EnvironmentType;
+  projectId: string;
+  organizationId?: string | null;
+  targetUrl: string;
+  branch?: string | null;
+  commitSha?: string | null;
+  deploymentId?: string | null;
+  releaseId?: string | null;
+  capturedAt: string;
+  source: 'PROJECT_ENVIRONMENT' | 'DEPLOYMENT' | 'RELEASE' | 'CAMPAIGN_CONFIG' | 'MANUAL';
+  availability: 'ONLINE' | 'DEGRADED' | 'UNREACHABLE' | 'UNKNOWN';
+  metadata?: Record<string, any>;
+}
+
 export interface ChangeSnapshot {
   id: string;
   commitSha: string;
@@ -251,6 +282,20 @@ export interface ChangeSnapshot {
   isPartial?: boolean;
   partialReason?: string;
   createdAt: string;
+  // Prompt 61 Cross-Branch Extensions
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  renamedFiles?: Array<{ oldPath: string; newPath: string }>;
+  changedSymbols?: string[];
+  changedRoutes?: string[];
+  changedApis?: string[];
+  changedDatabaseAreas?: string[];
+  changedAuthAreas?: string[];
+  changedConfigurations?: string[];
+  changedDependencies?: string[];
+  impactGraph?: ImpactGraph;
 }
 
 export type RegressionCandidateSource =
@@ -263,7 +308,10 @@ export type RegressionCandidateSource =
   | 'FLAKY_OR_RECURRING'
   | 'SECURITY_AUTH_BOUNDARY'
   | 'VISUAL_BASELINE'
-  | 'ACCESSIBILITY_SURFACE';
+  | 'ACCESSIBILITY_SURFACE'
+  | 'API_CONTRACT'
+  | 'PERFORMANCE_BASELINE'
+  | 'ENVIRONMENT_SPECIFIC_FAILURE';
 
 export interface RegressionCandidate {
   id: string;
@@ -280,6 +328,14 @@ export interface RegressionCandidate {
   hasVisualBaseline?: boolean;
   requiresRole?: string;
   metadata?: Record<string, any>;
+  // Prompt 61 Environment & Evidence Extensions
+  environmentId?: string;
+  branch?: string;
+  commitSha?: string;
+  deploymentId?: string;
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceReferences?: string[];
+  recommendedDomains?: string[];
 }
 
 export type ChangeDecisionType = 'TEST' | 'SKIP' | 'DEFER' | 'REVIEW';
@@ -310,6 +366,13 @@ export interface ChangeDecision {
   evidence: string[];
   createdAt: string;
   metadata?: Record<string, any>;
+  // Prompt 61 Environment & Safe Test Reuse Extensions
+  environmentId?: string;
+  environmentName?: string;
+  branch?: string;
+  reuseClassification?: 'REUSE' | 'RERUN' | 'DEFER' | 'REVIEW';
+  reuseJustification?: string;
+  reusedEvidenceRef?: string;
 }
 
 export type ChangeRegressionClassification =
@@ -333,6 +396,13 @@ export interface TargetRegressionComparison {
   reason: string;
   evidenceRefs?: string[];
   visualBaselineFound?: boolean;
+  // Prompt 61 Cross-Branch & Environment Context
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  environmentId?: string;
+  environmentName?: string;
 }
 
 export interface RegressionComparisonResult {
@@ -348,4 +418,86 @@ export interface RegressionComparisonResult {
   unchangedFailuresCount: number;
   inconclusiveCount: number;
   targets: TargetRegressionComparison[];
+}
+
+// ==============================================================================
+// Canonical Prompt 61 Multi-Environment & Cross-Branch Regression Models
+// ==============================================================================
+
+export type EnvironmentComparisonClassification =
+  | 'SAME_BEHAVIOR'
+  | 'ENVIRONMENT_SPECIFIC_FAILURE'
+  | 'ENVIRONMENT_SPECIFIC_RECOVERY'
+  | 'CROSS_ENVIRONMENT_REGRESSION'
+  | 'CROSS_ENVIRONMENT_RECOVERY'
+  | 'CONFIGURATION_DRIFT'
+  | 'DEPLOYMENT_DRIFT'
+  | 'VERSION_DRIFT'
+  | 'INCONCLUSIVE';
+
+export interface TargetEnvironmentObservation {
+  targetIdentifier: string;
+  targetType: string;
+  domain: string;
+  environmentId: string;
+  environmentName: string;
+  environmentType: EnvironmentType;
+  branch?: string | null;
+  commitSha?: string | null;
+  status: 'PASSED' | 'FAILED' | 'ERROR' | 'SKIPPED' | 'UNTESTED';
+  findingsCount: number;
+  observationsCount: number;
+  durationMs?: number;
+  error?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface TargetEnvironmentComparison {
+  targetIdentifier: string;
+  targetType: string;
+  domain: string;
+  baseEnvironment: EnvironmentSnapshot;
+  targetEnvironment: EnvironmentSnapshot;
+  baseObservation?: TargetEnvironmentObservation;
+  targetObservation?: TargetEnvironmentObservation;
+  classification: EnvironmentComparisonClassification;
+  reason: string;
+  evidenceRefs: string[];
+  driftDetails?: {
+    type: 'CONFIGURATION_DRIFT' | 'DEPLOYMENT_DRIFT' | 'VERSION_DRIFT';
+    description: string;
+    keysChanged?: string[];
+  };
+}
+
+export interface EnvironmentComparisonResult {
+  comparedAt: string;
+  baseEnvironment: EnvironmentSnapshot;
+  targetEnvironment: EnvironmentSnapshot;
+  totalTargetsCompared: number;
+  sameBehaviorCount: number;
+  environmentSpecificFailuresCount: number;
+  environmentSpecificRecoveriesCount: number;
+  crossEnvironmentRegressionsCount: number;
+  crossEnvironmentRecoveriesCount: number;
+  configurationDriftCount: number;
+  deploymentDriftCount: number;
+  versionDriftCount: number;
+  inconclusiveCount: number;
+  driftDetected: boolean;
+  driftTypes: Array<'CONFIGURATION_DRIFT' | 'DEPLOYMENT_DRIFT' | 'VERSION_DRIFT'>;
+  targets: TargetEnvironmentComparison[];
+}
+
+export interface BranchComparisonResult {
+  comparedAt: string;
+  baseBranch: string;
+  headBranch: string;
+  baseCommit?: string;
+  headCommit?: string;
+  changedFilesCount: number;
+  affectedAreas: string[];
+  regressionsCount: number;
+  recoveriesCount: number;
+  targetComparisons: TargetRegressionComparison[];
 }

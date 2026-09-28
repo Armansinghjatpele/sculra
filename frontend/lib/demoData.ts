@@ -398,6 +398,9 @@ export interface CampaignSummary {
   changeIntelligence?: any;
   regressionComparison?: any;
   changeDecisions?: any[];
+  environmentSnapshot?: any;
+  environmentComparison?: any;
+  branchComparison?: any;
 }
 
 export interface Campaign {

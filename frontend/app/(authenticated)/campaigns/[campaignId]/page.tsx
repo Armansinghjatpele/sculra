@@ -701,8 +701,105 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
         </TabsContent>
 
         {/* Tab: Change & Regressions */}
+        {/* Tab: Change & Regressions */}
         <TabsContent value="regressions">
           <div className="space-y-6">
+            {/* Multi-Environment & Cross-Branch Intelligence (Prompt 61) */}
+            {(summary?.branchComparison || summary?.environmentSnapshot || summary?.environmentComparison) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Cross-Branch Intelligence */}
+                {summary?.branchComparison && (
+                  <Card className="glass-panel p-5 border-border/50 bg-surface/40 space-y-3">
+                    <Flex justify="between" align="center">
+                      <div>
+                        <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-0.5">
+                          Cross-Branch Intelligence
+                        </span>
+                        <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                          <span className="text-cyan-400 font-mono">{summary.branchComparison.baseBranch}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="text-indigo-400 font-mono">{summary.branchComparison.headBranch}</span>
+                        </h4>
+                      </div>
+                      <div className="text-right font-mono text-3xs text-muted-foreground">
+                        <span>{summary.branchComparison.changedFilesCount} changed files</span>
+                      </div>
+                    </Flex>
+
+                    {(summary.branchComparison.baseCommit || summary.branchComparison.headCommit) && (
+                      <div className="flex items-center gap-2 text-3xs font-mono text-muted-foreground">
+                        {summary.branchComparison.baseCommit && (
+                          <span className="px-1.5 py-0.5 rounded bg-surface border border-border">
+                            base: {summary.branchComparison.baseCommit}
+                          </span>
+                        )}
+                        {summary.branchComparison.headCommit && (
+                          <span className="px-1.5 py-0.5 rounded bg-surface border border-border">
+                            head: {summary.branchComparison.headCommit}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {summary.branchComparison.affectedAreas && summary.branchComparison.affectedAreas.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-4xs uppercase tracking-wider text-muted-foreground">Affected Areas:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {summary.branchComparison.affectedAreas.map((area: string, i: number) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded bg-surface-light border border-border/40 text-4xs text-foreground font-mono">
+                              {area}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                )}
+
+                {/* Multi-Environment Runtime & Drift */}
+                {(summary?.environmentSnapshot || summary?.environmentComparison) && (
+                  <Card className="glass-panel p-5 border-border/50 bg-surface/40 space-y-3">
+                    <Flex justify="between" align="center">
+                      <div>
+                        <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-0.5">
+                          Multi-Environment Runtime
+                        </span>
+                        <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-3xs font-mono font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                            {summary?.environmentSnapshot?.environmentName || 'STAGING'}
+                          </span>
+                          {summary?.environmentSnapshot?.environmentType && (
+                            <span className="text-3xs text-muted-foreground">({summary.environmentSnapshot.environmentType})</span>
+                          )}
+                        </h4>
+                      </div>
+                      {summary?.environmentComparison?.driftDetected && (
+                        <span className="px-2 py-0.5 rounded text-4xs font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                          Drift Detected
+                        </span>
+                      )}
+                    </Flex>
+
+                    {summary?.environmentComparison?.driftTypes && summary.environmentComparison.driftTypes.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {summary.environmentComparison.driftTypes.map((dt: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded text-4xs font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            {dt.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {summary?.environmentSnapshot?.targetUrl && (
+                      <p className="text-3xs font-mono text-muted-foreground truncate">
+                        Target: {summary.environmentSnapshot.targetUrl}
+                      </p>
+                    )}
+                  </Card>
+                )}
+              </div>
+            )}
+
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card className="glass-panel p-4 border-rose-500/30 bg-rose-500/5">
@@ -830,6 +927,89 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
               )}
             </Card>
 
+            {/* Multi-Environment Cross-Environment Observations & Drift (Prompt 61) */}
+            {summary?.environmentComparison?.targets && summary.environmentComparison.targets.length > 0 && (
+              <Card className="glass-panel p-6 space-y-4">
+                <div>
+                  <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
+                    Multi-Environment Regression Matrix (
+                    {summary.environmentComparison.baseEnvironment?.environmentName || 'BASELINE'} vs{' '}
+                    {summary.environmentComparison.targetEnvironment?.environmentName || 'TARGET'})
+                  </span>
+                  <h4 className="text-sm font-bold text-foreground">Cross-Environment Behavioral Observations</h4>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-border/50 bg-surface/50">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-surface-light/40 border-b border-border/50 text-muted-foreground">
+                      <tr>
+                        <th className="p-3 pl-4">Target</th>
+                        <th className="p-3">Domain</th>
+                        <th className="p-3">{summary.environmentComparison.baseEnvironment?.environmentName || 'Baseline'}</th>
+                        <th className="p-3">{summary.environmentComparison.targetEnvironment?.environmentName || 'Target'}</th>
+                        <th className="p-3">Classification</th>
+                        <th className="p-3 pr-4">Analysis / Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30 text-foreground">
+                      {summary.environmentComparison.targets.map((tgt: any, idx: number) => {
+                        const isEnvFailure = tgt.classification === 'ENVIRONMENT_SPECIFIC_FAILURE';
+                        const isCrossReg = tgt.classification === 'CROSS_ENVIRONMENT_REGRESSION';
+                        const isDrift = tgt.classification?.includes('DRIFT');
+
+                        return (
+                          <tr key={idx} className="hover:bg-surface-light/30 transition-colors">
+                            <td className="p-3 pl-4 font-semibold text-foreground truncate max-w-xs">
+                              {tgt.targetIdentifier}
+                            </td>
+                            <td className="p-3 text-muted-foreground text-3xs uppercase">
+                              {tgt.domain}
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                tgt.baseObservation?.status === 'PASSED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : tgt.baseObservation?.status === 'FAILED'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                  : 'bg-surface-light text-muted-foreground border-border/40'
+                              }`}>
+                                {tgt.baseObservation?.status || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                tgt.targetObservation?.status === 'PASSED'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : tgt.targetObservation?.status === 'FAILED'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                  : 'bg-surface-light text-muted-foreground border-border/40'
+                              }`}>
+                                {tgt.targetObservation?.status || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                isCrossReg || isEnvFailure
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : isDrift
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : 'bg-surface-light text-muted-foreground border-border/40'
+                              }`}>
+                                {tgt.classification?.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td className="p-3 pr-4 text-muted-foreground text-3xs leading-relaxed max-w-md">
+                              {tgt.reason}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+
             {/* Autonomous Change Decisions Audit Log ("Why Tested / Why Skipped") */}
             <Card className="glass-panel p-6 space-y-4">
               <div>
@@ -865,7 +1045,7 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                         }`}
                       >
                         <Flex justify="between" align="center" className="flex-wrap gap-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span
                               className={`px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
                                 hasOverride
@@ -882,6 +1062,22 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                             <span className="font-bold text-foreground">
                               {dec.entityId || dec.targetIdentifier}
                             </span>
+                            {dec.environmentName && (
+                              <span className="px-1.5 py-0.5 rounded text-4xs font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                                {dec.environmentName}
+                              </span>
+                            )}
+                            {dec.reuseClassification && (
+                              <span className={`px-2 py-0.5 rounded text-4xs font-bold uppercase border ${
+                                dec.reuseClassification === 'REUSE'
+                                  ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                                  : dec.reuseClassification === 'RERUN'
+                                  ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}>
+                                {dec.reuseClassification}
+                              </span>
+                            )}
                             {hasOverride && (
                               <span className="px-2 py-0.5 rounded text-4xs font-bold uppercase bg-purple-500/30 text-purple-200 border border-purple-500/50">
                                 CRITICAL WORKFLOW OVERRIDE
@@ -901,6 +1097,12 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                         <p className="text-muted-foreground text-3xs leading-relaxed">
                           {dec.reason}
                         </p>
+
+                        {dec.reuseJustification && (
+                          <p className="text-3xs text-teal-400/90 italic">
+                            Reuse Justification: {dec.reuseJustification}
+                          </p>
+                        )}
 
                         {dec.evidence && dec.evidence.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">

@@ -14,6 +14,14 @@ export const MAX_GRAPH_EDGES = 3000;
 export const MAX_IMPACT_TARGETS = 200;
 export const MAX_ANALYSIS_SECONDS = 30;
 
+// Prompt 61 Multi-Environment & Cross-Branch Performance Bounds
+export const MAX_ENVIRONMENTS = 20;
+export const MAX_BRANCH_COMPARISONS = 10;
+export const MAX_COMMITS = 50;
+export const MAX_REGRESSION_TARGETS = 200;
+export const MAX_HISTORICAL_RECORDS = 500;
+export const MAX_EXECUTION_TIME_MS = 60000;
+
 /**
  * Categorizes the magnitude of a change set based on file and line count thresholds.
  */

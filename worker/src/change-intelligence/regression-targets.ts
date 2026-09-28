@@ -8,6 +8,7 @@ import {
   AffectedWorkflow,
   AffectedApi,
   AffectedRoute,
+  EnvironmentSnapshot,
 } from './types';
 import { ProductModel } from '../product';
 import { QASignalRecord } from '../history/types';
@@ -16,27 +17,38 @@ export interface GenerateRegressionTargetsInput {
   snapshot: ChangeSnapshot;
   affectedWorkflows: AffectedWorkflow[];
   affectedApis: AffectedApi[];
-  affectedRoutes: AffectedRoute[];
+  affectedRoutes?: AffectedRoute[];
+  criticalWorkflows?: any[];
   productModel?: ProductModel;
   historicalSignals?: QASignalRecord[];
-  targetUrl: string;
+  targetUrl?: string;
   hasVisualBaselineLookup?: (identifier: string) => boolean;
+  environment?: EnvironmentSnapshot;
+  branch?: string;
+  commitSha?: string;
+  deploymentId?: string;
 }
 
 export class RegressionTargetGenerator {
   /**
-   * Discovers and synthesizes candidate regression targets across 10 deterministic dimensions.
+   * Discovers and synthesizes candidate regression targets across deterministic dimensions
+   * including environment-specific failures, API contracts, and performance baselines.
    */
   static generateCandidates(input: GenerateRegressionTargetsInput): RegressionCandidate[] {
     const {
       snapshot,
-      affectedWorkflows,
-      affectedApis,
-      affectedRoutes,
+      affectedWorkflows = [],
+      affectedApis = [],
+      affectedRoutes = [],
+      criticalWorkflows = [],
       productModel,
       historicalSignals = [],
-      targetUrl,
+      targetUrl = input.environment?.targetUrl || 'http://localhost:3000',
       hasVisualBaselineLookup,
+      environment,
+      branch = snapshot?.headBranch || snapshot?.branch,
+      commitSha = snapshot?.headCommit || snapshot?.commitSha,
+      deploymentId = environment?.deploymentId,
     } = input;
 
     const candidates: RegressionCandidate[] = [];
@@ -46,7 +58,21 @@ export class RegressionTargetGenerator {
       const key = `${candidate.source}:${candidate.domain}:${candidate.targetIdentifier}`;
       if (!seenIdentifiers.has(key)) {
         seenIdentifiers.add(key);
-        candidates.push(candidate);
+        candidates.push({
+          ...candidate,
+          environmentId: candidate.environmentId ?? (environment?.environmentId || undefined),
+          branch: candidate.branch ?? (branch || undefined),
+          commitSha: candidate.commitSha ?? (commitSha || undefined),
+          deploymentId: candidate.deploymentId ?? (deploymentId || undefined),
+          confidence: candidate.confidence ?? 'HIGH',
+          evidenceReferences: candidate.evidenceReferences ?? [
+            `source:${candidate.source}`,
+            `target:${candidate.targetIdentifier}`,
+            ...(commitSha ? [`commit:${commitSha.slice(0, 7)}`] : []),
+            ...(environment?.environmentName ? [`env:${environment.environmentName}`] : []),
+          ],
+          recommendedDomains: candidate.recommendedDomains ?? [candidate.domain],
+        });
       }
     };
 
@@ -142,6 +168,23 @@ export class RegressionTargetGenerator {
             });
           }
         }
+      }
+    }
+
+    if (criticalWorkflows && criticalWorkflows.length > 0) {
+      for (const cw of criticalWorkflows) {
+        addCandidate({
+          id: `rc-crit-direct-${cw.workflowId || cw.workflowName}`,
+          source: 'CRITICAL_WORKFLOW',
+          targetId: cw.workflowId || cw.workflowName,
+          targetType: 'WORKFLOW',
+          targetIdentifier: cw.entryRoute || cw.workflowName,
+          url: targetUrl,
+          domain: 'JOURNEY',
+          businessCriticality: 'CRITICAL',
+          priority: 100,
+          reason: `Critical workflow target: ${cw.workflowName}`,
+        });
       }
     }
 
@@ -271,7 +314,82 @@ export class RegressionTargetGenerator {
       }
     }
 
+    // --------------------------------------------------------------------------
+    // Source 11: ENVIRONMENT_SPECIFIC_FAILURE (Environment-scoped historical signals)
+    // --------------------------------------------------------------------------
+    if (environment) {
+      const envName = environment.environmentName.toLowerCase();
+      const envType = environment.environmentType.toLowerCase();
+      const envSignals = historicalSignals.filter((s) => {
+        const sigEnv = (s.environment || '').toLowerCase();
+        return (
+          sigEnv === envName ||
+          sigEnv === envType ||
+          s.metadata?.environmentId === environment.environmentId
+        );
+      });
+
+      for (const es of envSignals) {
+        const esReason = es.metadata?.reason || `Historical defect in ${environment.environmentName}`;
+        addCandidate({
+          id: `rc-env-fail-${es.targetIdentifier.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          source: 'ENVIRONMENT_SPECIFIC_FAILURE',
+          targetId: es.targetIdentifier,
+          targetType: es.targetType === 'API' ? 'API' : 'ROUTE',
+          targetIdentifier: es.targetIdentifier,
+          url: es.targetIdentifier.startsWith('http') ? es.targetIdentifier : targetUrl,
+          domain: es.targetType === 'API' ? 'API' : 'FUNCTIONAL',
+          businessCriticality: es.severity === 'critical' ? 'CRITICAL' : 'HIGH',
+          priority: es.severity === 'critical' ? 95 : 88,
+          reason: `Environment-specific failure history on ${environment.environmentName}: ${esReason}`,
+          historicalSignalId: es.id,
+        });
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // Source 12: API_CONTRACT (Schema & Contract changes)
+    // --------------------------------------------------------------------------
+    if (hasApiChanges) {
+      for (const api of affectedApis) {
+        addCandidate({
+          id: `rc-contract-${(api.method || 'GET').toLowerCase()}-${api.path.replace(/[^a-z0-9]+/g, '-')}`,
+          source: 'API_CONTRACT',
+          targetId: `contract:${api.method || 'GET'}:${api.path}`,
+          targetType: 'API',
+          targetIdentifier: `Contract: ${api.method || 'GET'} ${api.path}`,
+          url: api.path.startsWith('http') ? api.path : `${targetUrl.replace(/\/$/, '')}${api.path.startsWith('/') ? '' : '/'}${api.path}`,
+          domain: 'API',
+          businessCriticality: 'HIGH',
+          priority: 80,
+          reason: `API contract & payload schema validation for ${api.path}: ${api.reason}`,
+        });
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // Source 13: PERFORMANCE_BASELINE (Performance baseline comparisons on touched routes)
+    // --------------------------------------------------------------------------
+    if (snapshot.classifications.includes('PERFORMANCE') || hasUiChanges) {
+      for (const route of affectedRoutes.slice(0, 3)) {
+        addCandidate({
+          id: `rc-perf-${route.route.replace(/[^a-z0-9]+/g, '-') || 'root'}`,
+          source: 'PERFORMANCE_BASELINE',
+          targetId: route.route,
+          targetType: 'ROUTE',
+          targetIdentifier: `Perf: ${route.route}`,
+          url: route.route.startsWith('http') ? route.route : `${targetUrl.replace(/\/$/, '')}${route.route.startsWith('/') ? '' : '/'}${route.route}`,
+          domain: 'PERFORMANCE',
+          businessCriticality: 'MEDIUM',
+          priority: 60,
+          reason: `Performance audit for latency, bundle size, and Core Web Vitals on touched route ${route.route}`,
+        });
+      }
+    }
+
     // Sort descending by priority
     return candidates.sort((a, b) => b.priority - a.priority);
   }
+
+  static generateTargets = RegressionTargetGenerator.generateCandidates;
 }

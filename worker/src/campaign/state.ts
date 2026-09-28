@@ -27,6 +27,11 @@ import { ApiEndpoint, ApiTestResult, ApiCoverageSummary } from '../api-qa/types'
 import { JourneyResult } from '../journeys/types';
 import { BugObservation } from '../issues/types';
 import { RoleContext, AuthenticatedSession, AuthorizationCheckResult } from '../auth/types';
+import {
+  EnvironmentSnapshot,
+  EnvironmentComparisonResult,
+  BranchComparisonResult,
+} from '../change-intelligence/types';
 
 export class CampaignStateManager {
   private state: CampaignState;
@@ -273,6 +278,18 @@ export class CampaignStateManager {
     this.state.changeDecisions = decisions;
   }
 
+  setEnvironmentSnapshot(snapshot: EnvironmentSnapshot): void {
+    this.state.environmentSnapshot = snapshot;
+  }
+
+  setEnvironmentComparison(comparison: EnvironmentComparisonResult): void {
+    this.state.environmentComparison = comparison;
+  }
+
+  setBranchComparison(comparison: BranchComparisonResult): void {
+    this.state.branchComparison = comparison;
+  }
+
   mergeObservations(obs: BugObservation[]): void {
     if (!obs || obs.length === 0) return;
     this.state.bugObservations.push(...obs);
@@ -373,6 +390,9 @@ export class CampaignStateManager {
       },
       regressionComparison: this.state.regressionComparison,
       changeDecisions: this.state.changeDecisions,
+      environmentSnapshot: this.state.environmentSnapshot,
+      environmentComparison: this.state.environmentComparison,
+      branchComparison: this.state.branchComparison,
     };
   }
 }

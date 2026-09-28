@@ -25,7 +25,16 @@ import { CampaignTerminationEvaluator } from './termination';
 import { CampaignAnalyzer } from './analyzer';
 import { CampaignPersistenceManager } from './persistence';
 import { CampaignEvidenceFormatter } from './evidence';
-import { ChangeIntelligenceAnalyzer, ChangeAnalysisResult, RegressionComparator } from '../change-intelligence';
+import {
+  ChangeIntelligenceAnalyzer,
+  ChangeAnalysisResult,
+  RegressionComparator,
+  buildEnvironmentSnapshot,
+  EnvironmentComparator,
+  BranchComparator,
+  EnvironmentSnapshot,
+  TargetEnvironmentObservation,
+} from '../change-intelligence';
 import { RemediationAnalyzer } from '../remediation';
 import { BugObservation } from '../issues/types';
 import {
@@ -154,11 +163,32 @@ export class CampaignExecutor {
         context = page.context();
       }
 
-      // 2.5 Change Intelligence Analysis (if commitSha or gitChanges provided)
+      // 2.5 Change Intelligence & Multi-Environment Analysis (Prompt 61)
+      const currentEnvSnapshot = buildEnvironmentSnapshot({
+        environmentId: this.options.config?.environmentId || 'env-default',
+        environmentName: (this.options.config?.environment as any) || (this.options.config?.environmentType as any) || 'STAGING',
+        environmentType: (this.options.config?.environmentType as any) || 'STAGING',
+        projectId,
+        organizationId: this.options.organizationId || null,
+        targetUrl,
+        branch: this.options.config?.headBranch || this.options.config?.branch || null,
+        commitSha: this.options.config?.headCommit || this.options.config?.commitSha || null,
+        deploymentId: this.options.config?.deploymentId || null,
+        metadata: (this.options.config as any)?.configuration || {},
+      });
+      this.stateManager.setEnvironmentSnapshot(currentEnvSnapshot);
+      this.logger.log('environment_snapshot_created', {
+        environmentId: currentEnvSnapshot.environmentId,
+        environmentName: currentEnvSnapshot.environmentName,
+        environmentType: currentEnvSnapshot.environmentType,
+        commitSha: currentEnvSnapshot.commitSha,
+        branch: currentEnvSnapshot.branch,
+      });
+
       let changeAnalysis: ChangeAnalysisResult | undefined =
         this.stateManager.rawState.changeIntelligence || (this.stateManager.rawState.config as any)?.changeIntelligence;
 
-      if (!changeAnalysis && (this.options.config?.commitSha || this.options.config?.gitChanges)) {
+      if (!changeAnalysis && (this.options.config?.commitSha || this.options.config?.headCommit || this.options.config?.gitChanges)) {
         try {
           const analyzer = new ChangeIntelligenceAnalyzer({
             supabaseClient: this.options.supabaseClient || undefined,
@@ -169,14 +199,20 @@ export class CampaignExecutor {
             projectId,
             organizationId: this.options.organizationId,
             campaignId,
-            commitSha: this.options.config.commitSha || 'head',
-            baseSha: this.options.config.baseSha,
-            branch: this.options.config.branch,
-            pullRequestNumber: this.options.config.pullRequestNumber,
-            webhookPayloadFiles: this.options.config.gitChanges?.files || (Array.isArray(this.options.config.gitChanges) ? this.options.config.gitChanges : undefined),
-            unifiedDiffText: this.options.config.gitChanges?.diffText || (typeof this.options.config.gitChanges === 'string' ? this.options.config.gitChanges : undefined),
+            commitSha: this.options.config?.headCommit || this.options.config?.commitSha || 'head',
+            baseSha: this.options.config?.baseCommit || this.options.config?.baseSha,
+            branch: this.options.config?.headBranch || this.options.config?.branch,
+            baseBranch: this.options.config?.baseBranch,
+            headBranch: this.options.config?.headBranch || this.options.config?.branch,
+            baseCommit: this.options.config?.baseCommit || this.options.config?.baseSha,
+            headCommit: this.options.config?.headCommit || this.options.config?.commitSha,
+            environment: currentEnvSnapshot,
+            pullRequestNumber: this.options.config?.pullRequestNumber,
+            webhookPayloadFiles: this.options.config?.gitChanges?.files || (Array.isArray(this.options.config?.gitChanges) ? this.options.config?.gitChanges : undefined),
+            unifiedDiffText: this.options.config?.gitChanges?.diffText || (typeof this.options.config?.gitChanges === 'string' ? this.options.config?.gitChanges : undefined),
             productModel: this.stateManager.rawState.productModel,
             historicalSignals: this.stateManager.rawState.historicalSignals,
+            previousRun: pastRuns && pastRuns.length > 0 ? pastRuns[0] : undefined,
           });
 
           this.stateManager.setChangeIntelligence(changeAnalysis);
@@ -544,7 +580,7 @@ export class CampaignExecutor {
         });
       }
 
-      // 6.7 Post-Execution Change-Aware Regression Comparison
+      // 6.7 Post-Execution Change-Aware Regression & Multi-Environment Comparison (Prompt 61)
       try {
         const executedResults = Array.from(this.stateManager.rawState.executedTaskResults.values());
         const regressionComparison = RegressionComparator.compare({
@@ -553,6 +589,12 @@ export class CampaignExecutor {
           taskResults: executedResults,
           snapshot: changeAnalysis?.snapshot,
           decisions: changeAnalysis?.decisions,
+          environmentId: currentEnvSnapshot.environmentId,
+          environmentName: currentEnvSnapshot.environmentName,
+          baseBranch: this.options.config?.baseBranch,
+          headBranch: this.options.config?.headBranch || this.options.config?.branch,
+          baseCommit: this.options.config?.baseCommit || this.options.config?.baseSha,
+          headCommit: this.options.config?.headCommit || this.options.config?.commitSha,
         });
         this.stateManager.setRegressionComparison(regressionComparison);
         this.logger.log('regression_comparison_completed', {
@@ -562,6 +604,108 @@ export class CampaignExecutor {
           persistingFailuresCount: regressionComparison.persistingFailuresCount,
           unchangedPassCount: regressionComparison.unchangedPassCount,
         });
+
+        // Cross-Branch Comparison (Prompt 61)
+        if (this.options.config?.baseBranch || this.options.config?.headBranch) {
+          const baseBranch = this.options.config?.baseBranch || 'main';
+          const headBranch = this.options.config?.headBranch || this.options.config?.branch || 'HEAD';
+          const branchComp = BranchComparator.compare({
+            baseBranch,
+            headBranch,
+            baseCommit: this.options.config?.baseCommit || this.options.config?.baseSha,
+            headCommit: this.options.config?.headCommit || this.options.config?.commitSha,
+            snapshot: changeAnalysis?.snapshot,
+            regressionComparison,
+          });
+          this.stateManager.setBranchComparison(branchComp);
+          this.logger.log('branch_comparison_completed', {
+            baseBranch,
+            headBranch,
+            regressionsCount: branchComp.regressionsCount,
+            recoveriesCount: branchComp.recoveriesCount,
+          });
+        }
+
+        // Multi-Environment Comparison (Prompt 61)
+        const baselineRun = pastRuns && pastRuns.length > 0 ? pastRuns.find(r => 
+          (this.options.config?.baselineEnvironmentId && (r.environmentId === this.options.config.baselineEnvironmentId || r.environment === this.options.config.baselineEnvironmentId)) ||
+          (this.options.config?.baselineEnvironmentName && r.environment === this.options.config.baselineEnvironmentName) ||
+          (r.environment && r.environment !== currentEnvSnapshot.environmentName)
+        ) || pastRuns[0] : undefined;
+
+        if (baselineRun) {
+          const baseEnvSnapshot: EnvironmentSnapshot = baselineRun.environmentSnapshot || buildEnvironmentSnapshot({
+            environmentId: baselineRun.environmentId || 'env-baseline',
+            environmentName: baselineRun.environment || 'PRODUCTION',
+            environmentType: (baselineRun.environmentType || (baselineRun.environment === 'production' ? 'PRODUCTION' : 'STAGING')) as any,
+            projectId,
+            organizationId: this.options.organizationId || null,
+            targetUrl: baselineRun.targetUrl || targetUrl,
+            branch: baselineRun.branch || null,
+            commitSha: baselineRun.commitSha || null,
+            deploymentId: baselineRun.deploymentId || null,
+            metadata: baselineRun.configuration || baselineRun.metadata || {},
+          });
+
+          const currentObservations: TargetEnvironmentObservation[] = executedResults.map(r => ({
+            targetIdentifier: r.target.identifier,
+            targetType: r.target.type,
+            domain: r.domain,
+            environmentId: currentEnvSnapshot.environmentId,
+            environmentName: currentEnvSnapshot.environmentName,
+            environmentType: currentEnvSnapshot.environmentType,
+            branch: currentEnvSnapshot.branch,
+            commitSha: currentEnvSnapshot.commitSha,
+            status: r.status === 'PASSED' ? 'PASSED' : r.status === 'FAILED' ? 'FAILED' : 'SKIPPED',
+            findingsCount: r.findings?.length || 0,
+            observationsCount: r.observations?.length || 0,
+            durationMs: r.durationMs,
+            error: r.error,
+          }));
+
+          const baseObservations: TargetEnvironmentObservation[] = (baselineRun.taskResults || baselineRun.executedTaskResults || []).map((r: any) => ({
+            targetIdentifier: r.targetIdentifier || r.target?.identifier || r.id,
+            targetType: r.targetType || r.target?.type || 'ROUTE',
+            domain: r.domain,
+            environmentId: baseEnvSnapshot.environmentId,
+            environmentName: baseEnvSnapshot.environmentName,
+            environmentType: baseEnvSnapshot.environmentType,
+            branch: baseEnvSnapshot.branch,
+            commitSha: baseEnvSnapshot.commitSha,
+            status: r.status === 'PASSED' ? 'PASSED' : r.status === 'FAILED' ? 'FAILED' : 'SKIPPED',
+            findingsCount: r.findings?.length || r.findingsCount || 0,
+            observationsCount: r.observations?.length || r.observationsCount || 0,
+            durationMs: r.durationMs,
+            error: r.error,
+          }));
+
+          const envComp = EnvironmentComparator.compare({
+            baseEnvironment: baseEnvSnapshot,
+            targetEnvironment: currentEnvSnapshot,
+            baseObservations,
+            targetObservations: currentObservations,
+          });
+
+          this.stateManager.setEnvironmentComparison(envComp);
+          this.logger.log('environment_comparison_completed', {
+            baseEnvironment: baseEnvSnapshot.environmentName,
+            targetEnvironment: currentEnvSnapshot.environmentName,
+            versionDriftCount: envComp.versionDriftCount,
+            deploymentDriftCount: envComp.deploymentDriftCount,
+            configurationDriftCount: envComp.configurationDriftCount,
+            regressionsCount: envComp.crossEnvironmentRegressionsCount,
+            recoveriesCount: envComp.crossEnvironmentRecoveriesCount,
+          });
+
+          if (envComp.driftDetected) {
+            this.logger.log('environment_drift_detected', {
+              driftTypes: envComp.driftTypes,
+              configurationDriftCount: envComp.configurationDriftCount,
+              deploymentDriftCount: envComp.deploymentDriftCount,
+              versionDriftCount: envComp.versionDriftCount,
+            });
+          }
+        }
       } catch (rcErr: any) {
         this.logger.warn('regression_comparison_error', { message: rcErr?.message || String(rcErr) });
       }

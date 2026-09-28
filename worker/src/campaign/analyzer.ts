@@ -130,6 +130,18 @@ export class CampaignAnalyzer {
       summary.changeDecisions = state.changeDecisions;
     }
 
+    if (state.environmentSnapshot) {
+      summary.environmentSnapshot = state.environmentSnapshot;
+    }
+
+    if (state.environmentComparison) {
+      summary.environmentComparison = state.environmentComparison;
+    }
+
+    if (state.branchComparison) {
+      summary.branchComparison = state.branchComparison;
+    }
+
     // Generate grounded AI executive narrative
     summary.aiExecutiveSummary = await this.aiReasoner.generateExecutiveSummary(state, summary);
 

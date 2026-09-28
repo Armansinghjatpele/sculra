@@ -22,17 +22,35 @@ export interface BuildChangeSnapshotInput {
   isPartial?: boolean;
   partialReason?: string;
   createdAt?: string;
+  // Prompt 61 Cross-Branch Inputs
+  baseBranch?: string;
+  headBranch?: string;
+  baseCommit?: string;
+  headCommit?: string;
+  changedSymbols?: string[];
+  changedRoutes?: string[];
+  changedApis?: string[];
+  changedDatabaseAreas?: string[];
+  changedAuthAreas?: string[];
+  changedConfigurations?: string[];
+  changedDependencies?: string[];
 }
 
 /**
  * Builds a deterministic, validated ChangeSnapshot answering "What changed?".
  * Analyzes whether changes are documentation-only, test-only, or full product surface mutations.
+ * Supports cross-branch diffing (baseBranch@baseCommit -> headBranch@headCommit).
  */
 export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnapshot {
+  const commitSha = input.headCommit || input.commitSha;
+  const baseSha = input.baseCommit || input.baseSha;
+  const branch = input.headBranch || input.branch;
+  const baseBranch = input.baseBranch;
+  const headBranch = input.headBranch || branch;
+  const baseCommit = input.baseCommit || baseSha;
+  const headCommit = input.headCommit || commitSha;
+
   const {
-    commitSha,
-    baseSha,
-    branch,
     pullRequestNumber,
     source = 'GIT',
     files,
@@ -46,11 +64,80 @@ export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnap
   let calculatedDeletions = 0;
   const classificationSet = new Set<ChangeClassification>();
 
+  // Area sets
+  const symbolSet = new Set<string>(input.changedSymbols || []);
+  const routeSet = new Set<string>(input.changedRoutes || []);
+  const apiSet = new Set<string>(input.changedApis || []);
+  const dbSet = new Set<string>(input.changedDatabaseAreas || []);
+  const authSet = new Set<string>(input.changedAuthAreas || []);
+  const configSet = new Set<string>(input.changedConfigurations || []);
+  const depSet = new Set<string>(input.changedDependencies || []);
+  const renamedFiles: Array<{ oldPath: string; newPath: string }> = [];
+
   for (const file of files) {
     calculatedAdditions += file.additions || 0;
     calculatedDeletions += file.deletions || 0;
     for (const c of file.classifications || []) {
       classificationSet.add(c);
+    }
+
+    const filePath = file.path || (file as any).filename || '';
+
+    if (file.status === 'RENAMED' && file.previousPath) {
+      renamedFiles.push({ oldPath: file.previousPath, newPath: filePath });
+    }
+
+    const normPath = filePath.toLowerCase();
+
+    // Route detection
+    if (normPath.includes('/app/') || normPath.includes('/pages/') || normPath.includes('/routes/')) {
+      const routeMatch = filePath.match(/(?:app|pages|routes)\/(.+?)(?:\/page|\/route|\.tsx|\.ts|\.jsx|\.js|$)/);
+      if (routeMatch && routeMatch[1]) {
+        const route = '/' + routeMatch[1].replace(/\/page$/, '').replace(/\/route$/, '');
+        if (normPath.includes('/api/')) {
+          apiSet.add(route);
+        } else {
+          routeSet.add(route);
+        }
+      }
+    }
+
+    // Database / Schema detection
+    if (normPath.includes('migration') || normPath.includes('schema') || normPath.includes('prisma') || normPath.includes('/db/')) {
+      dbSet.add(filePath);
+    }
+
+    // Auth / Security detection
+    if (normPath.includes('auth') || normPath.includes('session') || normPath.includes('permission') || normPath.includes('secret')) {
+      authSet.add(filePath);
+    }
+
+    // Config & Infrastructure detection
+    if (normPath.endsWith('.json') || normPath.endsWith('.yaml') || normPath.endsWith('.yml') || normPath.includes('docker') || normPath.includes('.env')) {
+      configSet.add(filePath);
+    }
+
+    // Dependencies
+    if (normPath.endsWith('package.json') || normPath.endsWith('pnpm-lock.yaml') || normPath.endsWith('package-lock.json') || normPath.endsWith('yarn.lock')) {
+      depSet.add(filePath);
+    }
+
+    // Symbol extraction from hunks
+    for (const hunk of file.hunks || []) {
+      if (hunk.header) {
+        const headerMatch = hunk.header.match(/(?:function|class|interface|type|const|let|var|def)\s+([A-Za-z0-9_$]+)/);
+        if (headerMatch && headerMatch[1]) {
+          symbolSet.add(headerMatch[1]);
+        }
+      }
+      for (const line of hunk.lines || []) {
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          const match = line.match(/(?:export\s+(?:default\s+)?)?(?:async\s+)?(?:function|class|const|let|interface|type)\s+([A-Za-z0-9_$]+)/);
+          if (match && match[1]) {
+            symbolSet.add(match[1]);
+          }
+        }
+      }
     }
   }
 
@@ -67,18 +154,18 @@ export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnap
     files.every(
       (f) =>
         f.isDocumentation ||
-        (f.classifications.length === 1 && f.classifications[0] === 'DOCUMENTATION')
+        (f.classifications && f.classifications.length === 1 && f.classifications[0] === 'DOCUMENTATION')
     );
 
   // Deterministic check for Test-Only changes (all files are test files or test configs)
   const isTestOnly =
     !isDocumentationOnly &&
     files.length > 0 &&
-    files.some((f) => f.classifications.includes('TEST') || f.classifications.includes('TEST_ONLY')) &&
+    files.some((f) => f.classifications?.includes('TEST') || f.classifications?.includes('TEST_ONLY')) &&
     files.every(
       (f) =>
-        f.classifications.includes('TEST') ||
-        f.classifications.includes('TEST_ONLY') ||
+        f.classifications?.includes('TEST') ||
+        f.classifications?.includes('TEST_ONLY') ||
         f.isDocumentation
     );
 
@@ -99,5 +186,17 @@ export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnap
     isPartial,
     partialReason,
     createdAt,
+    baseBranch,
+    headBranch,
+    baseCommit,
+    headCommit,
+    renamedFiles: renamedFiles.length > 0 ? renamedFiles : undefined,
+    changedSymbols: symbolSet.size > 0 ? Array.from(symbolSet) : undefined,
+    changedRoutes: routeSet.size > 0 ? Array.from(routeSet) : undefined,
+    changedApis: apiSet.size > 0 ? Array.from(apiSet) : undefined,
+    changedDatabaseAreas: dbSet.size > 0 ? Array.from(dbSet) : undefined,
+    changedAuthAreas: authSet.size > 0 ? Array.from(authSet) : undefined,
+    changedConfigurations: configSet.size > 0 ? Array.from(configSet) : undefined,
+    changedDependencies: depSet.size > 0 ? Array.from(depSet) : undefined,
   };
 }
