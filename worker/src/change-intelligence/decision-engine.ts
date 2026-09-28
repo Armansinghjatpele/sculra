@@ -61,15 +61,15 @@ export class ChangeDecisionEngine {
     for (const candidate of candidates) {
       const isCritical = candidate.businessCriticality === 'CRITICAL';
       const isDomainActive = activeDomains.has(candidate.domain);
-      const envName = environment?.environmentName || 'default';
-      const currentBranch = candidate.branch || branch || 'main';
+      const envName = environment?.environmentName || null;
+      const currentBranch = candidate.branch || branch || null;
 
       const evidence = [
         ...(snapshot?.commitSha ? [`commit:${snapshot.commitSha.slice(0, 7)}`] : []),
         `source:${candidate.source}`,
         `domain:${candidate.domain}`,
         `criticality:${candidate.businessCriticality}`,
-        ...(environment ? [`env:${environment.environmentName}`] : []),
+        ...(envName ? [`env:${envName}`] : []),
         ...(currentBranch ? [`branch:${currentBranch}`] : []),
       ];
 
@@ -229,7 +229,7 @@ export class ChangeDecisionEngine {
         if (targetPassedInPrevious && !isDirectlyMutated) {
           const runIdentifier = previousRun.testRunId || (previousRun as any).id || 'baseline';
           reuseClassification = 'REUSE';
-          reuseJustification = `Safe test reuse: Target passed in previous run (${runIdentifier}) for environment ${previousRun.environment || envName} with no code mutations in this changeset`;
+          reuseJustification = `Safe test reuse: Target passed in previous run (${runIdentifier})${previousRun.environment || envName ? ` for environment ${previousRun.environment || envName}` : ''} with no code mutations in this changeset`;
           reusedEvidenceRef = `test_run:${runIdentifier}:target:${candidate.targetIdentifier}`;
         }
       }

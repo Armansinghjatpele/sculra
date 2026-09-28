@@ -175,7 +175,7 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
       {/* Top Header */}
       <PageHeader
         title={campaign.name}
-        description={`Objective: ${getObjectiveLabel(campaign.objective)} | Target: ${campaign.config?.targetUrl || '--'} | Environment: ${campaign.config?.environment || 'Staging'}`}
+        description={`Objective: ${getObjectiveLabel(campaign.objective)} | Target: ${campaign.config?.targetUrl || '--'} | Environment: ${campaign.config?.environment || 'Environment unavailable'}`}
         action={
           <Flex align="center" className="gap-3">
             <span
@@ -766,7 +766,7 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                         </span>
                         <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded text-3xs font-mono font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                            {summary?.environmentSnapshot?.environmentName || 'STAGING'}
+                            {summary?.environmentSnapshot?.environmentName || 'Environment unavailable'}
                           </span>
                           {summary?.environmentSnapshot?.environmentType && (
                             <span className="text-3xs text-muted-foreground">({summary.environmentSnapshot.environmentType})</span>
@@ -933,8 +933,8 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                 <div>
                   <span className="text-4xs uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
                     Multi-Environment Regression Matrix (
-                    {summary.environmentComparison.baseEnvironment?.environmentName || 'BASELINE'} vs{' '}
-                    {summary.environmentComparison.targetEnvironment?.environmentName || 'TARGET'})
+                    {summary.environmentComparison.baseEnvironment?.environmentName || 'Baseline unavailable'} vs{' '}
+                    {summary.environmentComparison.targetEnvironment?.environmentName || 'Target unavailable'})
                   </span>
                   <h4 className="text-sm font-bold text-foreground">Cross-Environment Behavioral Observations</h4>
                 </div>
@@ -945,8 +945,8 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
                       <tr>
                         <th className="p-3 pl-4">Target</th>
                         <th className="p-3">Domain</th>
-                        <th className="p-3">{summary.environmentComparison.baseEnvironment?.environmentName || 'Baseline'}</th>
-                        <th className="p-3">{summary.environmentComparison.targetEnvironment?.environmentName || 'Target'}</th>
+                        <th className="p-3">{summary.environmentComparison.baseEnvironment?.environmentName || 'Baseline unavailable'}</th>
+                        <th className="p-3">{summary.environmentComparison.targetEnvironment?.environmentName || 'Target unavailable'}</th>
                         <th className="p-3">Classification</th>
                         <th className="p-3 pr-4">Analysis / Reason</th>
                       </tr>

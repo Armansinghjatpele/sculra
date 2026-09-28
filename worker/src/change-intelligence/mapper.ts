@@ -68,8 +68,8 @@ export class ImpactMapper {
     }
 
     // 0.5 Environment Node
-    if (environment) {
-      builder.addNode(`env:${environment.environmentId}`, 'ENVIRONMENT', environment.environmentName, {
+    if (environment && environment.environmentId) {
+      builder.addNode(`env:${environment.environmentId}`, 'ENVIRONMENT', environment.environmentName || environment.environmentId, {
         type: environment.environmentType,
         targetUrl: environment.targetUrl,
         branch: environment.branch,
@@ -178,8 +178,8 @@ export class ImpactMapper {
         criticality: wf.criticality,
       });
       builder.addEdge(wfNodeId, targetNodeId, 'AFFECTED_QA_TARGET', `Workflow exercised by journey QA`, 'HIGH');
-      if (environment) {
-        builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName}`, 'HIGH');
+      if (environment && environment.environmentId) {
+        builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName || environment.environmentId}`, 'HIGH');
       }
     }
 
@@ -191,8 +191,8 @@ export class ImpactMapper {
         path: a.path,
       });
       builder.addEdge(apiNodeId, targetNodeId, 'AFFECTED_QA_TARGET', `API endpoint verified by API QA`, 'HIGH');
-      if (environment) {
-        builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName}`, 'HIGH');
+      if (environment && environment.environmentId) {
+        builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName || environment.environmentId}`, 'HIGH');
       }
     }
 

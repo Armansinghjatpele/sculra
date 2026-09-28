@@ -13,10 +13,10 @@ import {
 } from './types';
 
 export interface CompareBranchesInput {
-  baseBranch: string;
-  headBranch: string;
-  baseCommit?: string;
-  headCommit?: string;
+  baseBranch?: string | null;
+  headBranch?: string | null;
+  baseCommit?: string | null;
+  headCommit?: string | null;
   snapshot?: ChangeSnapshot;
   regressionComparison?: RegressionComparisonResult;
   affectedWorkflows?: AffectedWorkflow[];
@@ -26,15 +26,19 @@ export interface CompareBranchesInput {
 
 export class BranchComparator {
   /**
-   * Deterministically compares two branches/commits (e.g. main@abc123 vs feature/payment@def456),
+   * Deterministically compares two branches/commits,
    * aggregating mutated files, affected application areas, regressions, and recoveries.
+   *
+   * Strict Guardrails:
+   * - Never fabricates a branch name (e.g. main, HEAD) when not supplied.
+   * - Missing branch identity is preserved as null.
    */
   static compare(input: CompareBranchesInput): BranchComparisonResult {
     const {
-      baseBranch,
-      headBranch,
-      baseCommit = input.snapshot?.baseCommit || input.snapshot?.baseSha || input.baseCommit,
-      headCommit = input.snapshot?.headCommit || input.snapshot?.commitSha || input.headCommit,
+      baseBranch = null,
+      headBranch = null,
+      baseCommit = input.snapshot?.baseCommit || input.snapshot?.baseSha || input.baseCommit || null,
+      headCommit = input.snapshot?.headCommit || input.snapshot?.commitSha || input.headCommit || null,
       snapshot,
       regressionComparison,
       affectedWorkflows = [],

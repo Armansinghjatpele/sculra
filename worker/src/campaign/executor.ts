@@ -30,6 +30,7 @@ import {
   ChangeAnalysisResult,
   RegressionComparator,
   buildEnvironmentSnapshot,
+  inferEnvironmentType,
   EnvironmentComparator,
   BranchComparator,
   EnvironmentSnapshot,
@@ -163,11 +164,20 @@ export class CampaignExecutor {
         context = page.context();
       }
 
-      // 2.5 Change Intelligence & Multi-Environment Analysis (Prompt 61)
+      // 2.5 Change Intelligence & Multi-Environment Analysis (Prompt 61 / 61A)
+      const configEnvId = this.options.config?.environmentId || null;
+      const configEnvName =
+        (this.options.config?.environment as any) ||
+        (typeof this.options.config?.environmentType === 'string' ? this.options.config.environmentType : null) ||
+        null;
+      const configEnvType =
+        (this.options.config?.environmentType as any) ||
+        (configEnvName ? inferEnvironmentType(configEnvName) : null);
+
       const currentEnvSnapshot = buildEnvironmentSnapshot({
-        environmentId: this.options.config?.environmentId || 'env-default',
-        environmentName: (this.options.config?.environment as any) || (this.options.config?.environmentType as any) || 'STAGING',
-        environmentType: (this.options.config?.environmentType as any) || 'STAGING',
+        environmentId: configEnvId,
+        environmentName: configEnvName,
+        environmentType: configEnvType,
         projectId,
         organizationId: this.options.organizationId || null,
         targetUrl,
@@ -199,7 +209,7 @@ export class CampaignExecutor {
             projectId,
             organizationId: this.options.organizationId,
             campaignId,
-            commitSha: this.options.config?.headCommit || this.options.config?.commitSha || 'head',
+            commitSha: this.options.config?.headCommit || this.options.config?.commitSha || '',
             baseSha: this.options.config?.baseCommit || this.options.config?.baseSha,
             branch: this.options.config?.headBranch || this.options.config?.branch,
             baseBranch: this.options.config?.baseBranch,
@@ -605,15 +615,15 @@ export class CampaignExecutor {
           unchangedPassCount: regressionComparison.unchangedPassCount,
         });
 
-        // Cross-Branch Comparison (Prompt 61)
-        if (this.options.config?.baseBranch || this.options.config?.headBranch) {
-          const baseBranch = this.options.config?.baseBranch || 'main';
-          const headBranch = this.options.config?.headBranch || this.options.config?.branch || 'HEAD';
+        // Cross-Branch Comparison (Prompt 61 / 61A)
+        if (this.options.config?.baseBranch || this.options.config?.headBranch || this.options.config?.branch) {
+          const baseBranch = this.options.config?.baseBranch || null;
+          const headBranch = this.options.config?.headBranch || this.options.config?.branch || null;
           const branchComp = BranchComparator.compare({
             baseBranch,
             headBranch,
-            baseCommit: this.options.config?.baseCommit || this.options.config?.baseSha,
-            headCommit: this.options.config?.headCommit || this.options.config?.commitSha,
+            baseCommit: this.options.config?.baseCommit || this.options.config?.baseSha || null,
+            headCommit: this.options.config?.headCommit || this.options.config?.commitSha || null,
             snapshot: changeAnalysis?.snapshot,
             regressionComparison,
           });
@@ -626,18 +636,24 @@ export class CampaignExecutor {
           });
         }
 
-        // Multi-Environment Comparison (Prompt 61)
+        // Multi-Environment Comparison (Prompt 61 / 61A)
         const baselineRun = pastRuns && pastRuns.length > 0 ? pastRuns.find(r => 
           (this.options.config?.baselineEnvironmentId && (r.environmentId === this.options.config.baselineEnvironmentId || r.environment === this.options.config.baselineEnvironmentId)) ||
           (this.options.config?.baselineEnvironmentName && r.environment === this.options.config.baselineEnvironmentName) ||
-          (r.environment && r.environment !== currentEnvSnapshot.environmentName)
+          (r.environment && currentEnvSnapshot.environmentName && r.environment !== currentEnvSnapshot.environmentName)
         ) || pastRuns[0] : undefined;
 
         if (baselineRun) {
+          const baseEnvId = baselineRun.environmentId || null;
+          const baseEnvName = baselineRun.environment || (baselineRun.environmentType as any) || null;
+          const baseEnvType =
+            baselineRun.environmentType ||
+            (baseEnvName ? inferEnvironmentType(baseEnvName) : null);
+
           const baseEnvSnapshot: EnvironmentSnapshot = baselineRun.environmentSnapshot || buildEnvironmentSnapshot({
-            environmentId: baselineRun.environmentId || 'env-baseline',
-            environmentName: baselineRun.environment || 'PRODUCTION',
-            environmentType: (baselineRun.environmentType || (baselineRun.environment === 'production' ? 'PRODUCTION' : 'STAGING')) as any,
+            environmentId: baseEnvId,
+            environmentName: baseEnvName,
+            environmentType: baseEnvType,
             projectId,
             organizationId: this.options.organizationId || null,
             targetUrl: baselineRun.targetUrl || targetUrl,

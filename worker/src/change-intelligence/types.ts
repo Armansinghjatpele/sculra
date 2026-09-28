@@ -249,9 +249,9 @@ export type ChangeSource = 'GIT' | 'PR' | 'MANUAL' | 'CI';
 export type EnvironmentType = 'DEVELOPMENT' | 'STAGING' | 'PREVIEW' | 'PRODUCTION' | 'CUSTOM';
 
 export interface EnvironmentSnapshot {
-  environmentId: string;
-  environmentName: string;
-  environmentType: EnvironmentType;
+  environmentId: string | null;
+  environmentName: string | null;
+  environmentType: EnvironmentType | null;
   projectId: string;
   organizationId?: string | null;
   targetUrl: string;
@@ -366,10 +366,10 @@ export interface ChangeDecision {
   evidence: string[];
   createdAt: string;
   metadata?: Record<string, any>;
-  // Prompt 61 Environment & Safe Test Reuse Extensions
-  environmentId?: string;
-  environmentName?: string;
-  branch?: string;
+  // Prompt 61 / 61A Environment & Safe Test Reuse Extensions
+  environmentId?: string | null;
+  environmentName?: string | null;
+  branch?: string | null;
   reuseClassification?: 'REUSE' | 'RERUN' | 'DEFER' | 'REVIEW';
   reuseJustification?: string;
   reusedEvidenceRef?: string;
@@ -396,13 +396,13 @@ export interface TargetRegressionComparison {
   reason: string;
   evidenceRefs?: string[];
   visualBaselineFound?: boolean;
-  // Prompt 61 Cross-Branch & Environment Context
-  baseBranch?: string;
-  headBranch?: string;
-  baseCommit?: string;
-  headCommit?: string;
-  environmentId?: string;
-  environmentName?: string;
+  // Prompt 61 / 61A Cross-Branch & Environment Context
+  baseBranch?: string | null;
+  headBranch?: string | null;
+  baseCommit?: string | null;
+  headCommit?: string | null;
+  environmentId?: string | null;
+  environmentName?: string | null;
 }
 
 export interface RegressionComparisonResult {
@@ -439,9 +439,9 @@ export interface TargetEnvironmentObservation {
   targetIdentifier: string;
   targetType: string;
   domain: string;
-  environmentId: string;
-  environmentName: string;
-  environmentType: EnvironmentType;
+  environmentId: string | null;
+  environmentName: string | null;
+  environmentType: EnvironmentType | null;
   branch?: string | null;
   commitSha?: string | null;
   status: 'PASSED' | 'FAILED' | 'ERROR' | 'SKIPPED' | 'UNTESTED';
@@ -491,8 +491,8 @@ export interface EnvironmentComparisonResult {
 
 export interface BranchComparisonResult {
   comparedAt: string;
-  baseBranch: string;
-  headBranch: string;
+  baseBranch: string | null;
+  headBranch: string | null;
   baseCommit?: string;
   headCommit?: string;
   changedFilesCount: number;

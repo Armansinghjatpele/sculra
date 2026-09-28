@@ -317,20 +317,20 @@ export class RegressionTargetGenerator {
     // --------------------------------------------------------------------------
     // Source 11: ENVIRONMENT_SPECIFIC_FAILURE (Environment-scoped historical signals)
     // --------------------------------------------------------------------------
-    if (environment) {
-      const envName = environment.environmentName.toLowerCase();
-      const envType = environment.environmentType.toLowerCase();
+    if (environment && (environment.environmentName || environment.environmentId)) {
+      const envName = (environment.environmentName || '').toLowerCase();
+      const envType = (environment.environmentType || '').toLowerCase();
       const envSignals = historicalSignals.filter((s) => {
         const sigEnv = (s.environment || '').toLowerCase();
         return (
-          sigEnv === envName ||
-          sigEnv === envType ||
-          s.metadata?.environmentId === environment.environmentId
+          (envName && sigEnv === envName) ||
+          (envType && sigEnv === envType) ||
+          (environment.environmentId && s.metadata?.environmentId === environment.environmentId)
         );
       });
 
       for (const es of envSignals) {
-        const esReason = es.metadata?.reason || `Historical defect in ${environment.environmentName}`;
+        const esReason = es.metadata?.reason || `Historical defect in ${environment.environmentName || 'environment'}`;
         addCandidate({
           id: `rc-env-fail-${es.targetIdentifier.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
           source: 'ENVIRONMENT_SPECIFIC_FAILURE',
@@ -341,7 +341,7 @@ export class RegressionTargetGenerator {
           domain: es.targetType === 'API' ? 'API' : 'FUNCTIONAL',
           businessCriticality: es.severity === 'critical' ? 'CRITICAL' : 'HIGH',
           priority: es.severity === 'critical' ? 95 : 88,
-          reason: `Environment-specific failure history on ${environment.environmentName}: ${esReason}`,
+          reason: `Environment-specific failure history on ${environment.environmentName || 'environment'}: ${esReason}`,
           historicalSignalId: es.id,
         });
       }

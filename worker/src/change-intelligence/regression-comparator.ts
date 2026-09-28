@@ -20,12 +20,12 @@ export interface CompareRegressionsInput {
   taskResults: CampaignTaskResult[];
   snapshot?: ChangeSnapshot;
   decisions?: ChangeDecision[];
-  baseBranch?: string;
-  headBranch?: string;
-  baseCommit?: string;
-  headCommit?: string;
-  environmentId?: string;
-  environmentName?: string;
+  baseBranch?: string | null;
+  headBranch?: string | null;
+  baseCommit?: string | null;
+  headCommit?: string | null;
+  environmentId?: string | null;
+  environmentName?: string | null;
 }
 
 export class RegressionComparator {
@@ -187,7 +187,7 @@ export class RegressionComparator {
         baseCommit: input.baseCommit ?? baselineRun?.commitRef ?? snapshot?.baseCommit ?? snapshot?.baseSha,
         headCommit: input.headCommit ?? snapshot?.headCommit ?? snapshot?.commitSha,
         environmentId: input.environmentId,
-        environmentName: input.environmentName ?? baselineRun?.environment,
+        environmentName: input.environmentName,
       });
     }
 
