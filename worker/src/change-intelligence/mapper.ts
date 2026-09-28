@@ -23,6 +23,12 @@ export interface ImpactMapperInput {
   baseCommit?: string;
   headCommit?: string;
   environment?: EnvironmentSnapshot;
+  deployment?: {
+    deploymentId?: string | null;
+    deploymentStatus?: string | null;
+    environmentId?: string | null;
+    commitSha?: string | null;
+  };
 }
 
 export class ImpactMapper {
@@ -43,6 +49,7 @@ export class ImpactMapper {
       baseCommit,
       headCommit,
       environment,
+      deployment,
     } = input;
 
     const builder = new ImpactGraphBuilder();
@@ -75,6 +82,22 @@ export class ImpactMapper {
         branch: environment.branch,
         commitSha: environment.commitSha,
       });
+    }
+
+    // 0.6 Deployment Node & Edges
+    if (deployment && deployment.deploymentId) {
+      const depNodeId = `deployment:${deployment.deploymentId}`;
+      builder.addNode(depNodeId, 'DEPLOYMENT', deployment.deploymentId, {
+        status: deployment.deploymentStatus,
+        commitSha: deployment.commitSha,
+      });
+
+      if (deployment.environmentId) {
+        builder.addEdge(depNodeId, `env:${deployment.environmentId}`, 'DEPLOYED_TO', `Deployment deployed to environment ${deployment.environmentId}`, 'HIGH');
+      }
+      if (deployment.commitSha) {
+        builder.addEdge(depNodeId, `commit:${deployment.commitSha}`, 'DEPLOYED_COMMIT', `Deployment contains commit ${deployment.commitSha.slice(0, 7)}`, 'HIGH');
+      }
     }
 
     // 1. FILE Nodes
@@ -119,7 +142,7 @@ export class ImpactMapper {
       builder.addNode(r.route, 'ROUTE', r.route);
       for (const f of changedFiles) {
         if (r.reason && (r.reason.includes(f.path) || f.path.includes(r.route.replace(/^\//, '')))) {
-          builder.addEdge(f.path, r.route, 'AFFECTED_ROUTE', r.reason, r.confidence);
+          builder.addEdge(f.path, r.route, 'SERVES', r.reason, r.confidence);
         }
       }
     }
@@ -133,7 +156,7 @@ export class ImpactMapper {
       });
       for (const f of changedFiles) {
         if (a.reason && (a.reason.includes(f.path) || f.path.includes(a.path.replace(/^\//, '')))) {
-          builder.addEdge(f.path, apiNodeId, 'AFFECTED_API', a.reason, a.confidence);
+          builder.addEdge(f.path, apiNodeId, 'SERVES', a.reason, a.confidence);
         }
       }
     }
@@ -177,7 +200,7 @@ export class ImpactMapper {
         domain: 'JOURNEY',
         criticality: wf.criticality,
       });
-      builder.addEdge(wfNodeId, targetNodeId, 'AFFECTED_QA_TARGET', `Workflow exercised by journey QA`, 'HIGH');
+      builder.addEdge(wfNodeId, targetNodeId, 'TESTED_BY', `Workflow exercised by journey QA`, 'HIGH');
       if (environment && environment.environmentId) {
         builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName || environment.environmentId}`, 'HIGH');
       }
@@ -190,7 +213,7 @@ export class ImpactMapper {
         domain: 'API',
         path: a.path,
       });
-      builder.addEdge(apiNodeId, targetNodeId, 'AFFECTED_QA_TARGET', `API endpoint verified by API QA`, 'HIGH');
+      builder.addEdge(apiNodeId, targetNodeId, 'TESTED_BY', `API endpoint verified by API QA`, 'HIGH');
       if (environment && environment.environmentId) {
         builder.addEdge(targetNodeId, `env:${environment.environmentId}`, 'AFFECTED_ENVIRONMENT', `Target scoped to ${environment.environmentName || environment.environmentId}`, 'HIGH');
       }

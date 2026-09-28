@@ -15,6 +15,7 @@ import {
   ReleaseDecision,
   ProjectEnvironment,
   Deployment,
+  ReleaseImpact,
 } from '@/lib/demoData';
 import {
   getProject,
@@ -22,6 +23,7 @@ import {
   getProjectEnvironment,
   getReleaseChecks,
   getReleaseDecisions,
+  getReleaseImpact,
 } from '@/services/db';
 
 interface ReleaseDetailPageProps {
@@ -38,6 +40,7 @@ export default function ReleaseCommandCenterPage({ params }: ReleaseDetailPagePr
   const [environment, setEnvironment] = React.useState<ProjectEnvironment | null>(null);
   const [checks, setChecks] = React.useState<ReleaseCheck[]>([]);
   const [decisions, setDecisions] = React.useState<ReleaseDecision[]>([]);
+  const [releaseImpact, setReleaseImpact] = React.useState<ReleaseImpact | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   // Evaluation states
@@ -65,14 +68,16 @@ export default function ReleaseCommandCenterPage({ params }: ReleaseDetailPagePr
         setRelease(rel);
 
         if (rel) {
-          const [env, chks, decs] = await Promise.all([
+          const [env, chks, decs, impact] = await Promise.all([
             getProjectEnvironment(token, projectId, rel.environmentId),
             getReleaseChecks(token, releaseId),
             getReleaseDecisions(token, releaseId),
+            getReleaseImpact(token, projectId, releaseId),
           ]);
           setEnvironment(env);
           setChecks(chks);
           setDecisions(decs);
+          setReleaseImpact(impact);
         }
       }
     } catch (err) {
@@ -261,6 +266,90 @@ export default function ReleaseCommandCenterPage({ params }: ReleaseDetailPagePr
           </CardContent>
         </Card>
       </Grid>
+
+      {/* Release Impact Analysis (Prompt 62 Authority) */}
+      {releaseImpact && (
+        <Card className="glass-panel p-5 font-mono text-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Release Impact & Blast Radius</span>
+                <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
+                  releaseImpact.status === 'LOW_IMPACT'
+                    ? 'bg-success/20 text-success border border-success/30'
+                    : releaseImpact.status === 'MATERIAL_IMPACT'
+                    ? 'bg-warning/20 text-warning border border-warning/30'
+                    : releaseImpact.status === 'HIGH_IMPACT'
+                    ? 'bg-danger/20 text-danger border border-danger/30'
+                    : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                }`}>
+                  {releaseImpact.status}
+                </span>
+              </div>
+              <p className="text-3xs text-muted-foreground mt-0.5">
+                Deterministic multi-dimensional assessment of blast radius, code mutations, and regressions.
+              </p>
+            </div>
+            <div className="text-3xs text-muted-foreground">
+              Confidence: <span className="text-accent font-bold">{(releaseImpact.confidence * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5">
+              <span className="text-4xs uppercase tracking-wider text-muted-foreground block">Changed Areas</span>
+              <span className="text-lg font-bold text-foreground mt-0.5 block">{releaseImpact.changedAreaCount}</span>
+            </div>
+            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5">
+              <span className="text-4xs uppercase tracking-wider text-muted-foreground block">Affected Workflows</span>
+              <span className="text-lg font-bold text-foreground mt-0.5 block">
+                {releaseImpact.affectedWorkflowCount} <span className="text-3xs font-normal text-warning">({releaseImpact.criticalWorkflowCount} critical)</span>
+              </span>
+            </div>
+            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5">
+              <span className="text-4xs uppercase tracking-wider text-muted-foreground block">New Regressions</span>
+              <span className={`text-lg font-bold mt-0.5 block ${releaseImpact.newRegressionCount > 0 ? 'text-danger' : 'text-success'}`}>
+                {releaseImpact.newRegressionCount}
+              </span>
+            </div>
+            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5">
+              <span className="text-4xs uppercase tracking-wider text-muted-foreground block">Recovered Issues</span>
+              <span className="text-lg font-bold text-success mt-0.5 block">{releaseImpact.recoveredCount}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-3xs text-zinc-500 uppercase tracking-wider mr-1">Domain Impacts:</span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.securityImpact ? 'bg-danger/20 text-danger border border-danger/30' : releaseImpact.securityImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              Security: {releaseImpact.securityImpact === null ? 'Not Measured' : releaseImpact.securityImpact ? 'Impacted' : 'Clean'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.authenticationImpact ? 'bg-danger/20 text-danger border border-danger/30' : releaseImpact.authenticationImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              Auth: {releaseImpact.authenticationImpact === null ? 'Not Measured' : releaseImpact.authenticationImpact ? 'Impacted' : 'Clean'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.apiImpact ? 'bg-warning/20 text-warning border border-warning/30' : releaseImpact.apiImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              API: {releaseImpact.apiImpact === null ? 'Not Measured' : releaseImpact.apiImpact ? 'Impacted' : 'Clean'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.performanceImpact ? 'bg-warning/20 text-warning border border-warning/30' : releaseImpact.performanceImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              Perf: {releaseImpact.performanceImpact === null ? 'Not Measured' : releaseImpact.performanceImpact ? 'Impacted' : 'Clean'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.visualImpact ? 'bg-warning/20 text-warning border border-warning/30' : releaseImpact.visualImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              Visual: {releaseImpact.visualImpact === null ? 'Not Measured' : releaseImpact.visualImpact ? 'Impacted' : 'Clean'}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-3xs font-semibold ${releaseImpact.accessibilityImpact ? 'bg-warning/20 text-warning border border-warning/30' : releaseImpact.accessibilityImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>
+              A11y: {releaseImpact.accessibilityImpact === null ? 'Not Measured' : releaseImpact.accessibilityImpact ? 'Impacted' : 'Clean'}
+            </span>
+          </div>
+
+          {releaseImpact.unknownFields && releaseImpact.unknownFields.length > 0 && (
+            <div className="p-2.5 rounded bg-zinc-900 border border-zinc-800 text-3xs text-muted-foreground flex items-center justify-between">
+              <span className="text-zinc-400">
+                ℹ️ <strong className="text-zinc-300">Guardrail Integrity:</strong> Dimensions ({releaseImpact.unknownFields.join(', ')}) were not measured and strictly retained as null.
+              </span>
+              <span className="text-zinc-500 text-4xs">NO EVIDENCE → NO INFERENCE</span>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Evaluation Trigger Control */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-900/40 p-4 rounded-xl border border-white/5 font-mono text-xs">

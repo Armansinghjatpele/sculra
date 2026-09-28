@@ -26,6 +26,8 @@ export interface CompareRegressionsInput {
   headCommit?: string | null;
   environmentId?: string | null;
   environmentName?: string | null;
+  deploymentId?: string | null;
+  previousDeploymentId?: string | null;
 }
 
 export class RegressionComparator {
@@ -188,6 +190,8 @@ export class RegressionComparator {
         headCommit: input.headCommit ?? snapshot?.headCommit ?? snapshot?.commitSha,
         environmentId: input.environmentId,
         environmentName: input.environmentName,
+        deploymentId: input.deploymentId,
+        previousDeploymentId: input.previousDeploymentId,
       });
     }
 
@@ -195,6 +199,8 @@ export class RegressionComparator {
       comparedAt: new Date().toISOString(),
       baselineRunId: baselineRun?.testRunId,
       currentRunId,
+      deploymentId: input.deploymentId,
+      previousDeploymentId: input.previousDeploymentId,
       totalCompared: comparisons.length,
       regressionsCount,
       recoveriesCount,

@@ -312,3 +312,141 @@ export interface ReleaseIssueCorrelation {
   explanation: string;
 }
 
+// ==============================================================================
+// Prompt 62: Deployment-Aware Regression Intelligence & Release Impact Models
+// ==============================================================================
+
+export type DeploymentLifecycleStatus =
+  | 'DEPLOYING'
+  | 'READY'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'UNKNOWN';
+
+export type DeploymentSource =
+  | 'VERCEL'
+  | 'RAILWAY'
+  | 'GITHUB'
+  | 'CI'
+  | 'MANUAL'
+  | 'INTERNAL'
+  | 'UNKNOWN';
+
+export interface DeploymentEvidenceReference {
+  kind: string;
+  source: string;
+  ref: string;
+  description?: string;
+  confidence: number;
+  metadata?: Record<string, any>;
+}
+
+export interface DeploymentSnapshot {
+  deploymentId: string | null;
+  projectId: string;
+  organizationId: string | null;
+
+  environmentId: string | null;
+  environmentName: string | null;
+  environmentType: EnvironmentType | null;
+
+  deploymentStatus: DeploymentLifecycleStatus | null;
+  deploymentUrl: string | null;
+
+  commitSha: string | null;
+  branch: string | null;
+
+  previousDeploymentId: string | null;
+  previousCommitSha: string | null;
+
+  releaseId: string | null;
+  releaseVersion: string | null;
+
+  provider: string | null;
+
+  startedAt: string | null;
+  completedAt: string | null;
+
+  source: DeploymentSource;
+  confidence: number;
+  evidence: DeploymentEvidenceReference[];
+  metadata?: Record<string, any>;
+}
+
+export type CorrelationMethod =
+  | 'explicit_deployment_release_link'
+  | 'commit_match'
+  | 'branch_match'
+  | 'ci_workflow'
+  | 'unresolved';
+
+export type CorrelationStatus =
+  | 'EXPLICIT'
+  | 'COMMIT_MATCH'
+  | 'BRANCH_MATCH'
+  | 'AMBIGUOUS'
+  | 'NOT_FOUND';
+
+export interface DeploymentReleaseCorrelation {
+  deploymentId: string | null;
+  releaseId: string | null;
+  releaseVersion: string | null;
+  correlationMethod: CorrelationMethod;
+  status: CorrelationStatus;
+  confidence: number;
+  evidence: DeploymentEvidenceReference[];
+  timestamp: string;
+  explanation: string;
+}
+
+export type ReleaseImpactStatus =
+  | 'LOW_IMPACT'
+  | 'MATERIAL_IMPACT'
+  | 'HIGH_IMPACT'
+  | 'INCONCLUSIVE';
+
+export interface ReleaseImpact {
+  releaseId: string | null;
+  deploymentId: string | null;
+  environmentId: string | null;
+
+  changedAreaCount: number;
+  affectedWorkflowCount: number;
+  criticalWorkflowCount: number;
+
+  newRegressionCount: number;
+  recoveredCount: number;
+  persistentFailureCount: number;
+  unresolvedIssueCount: number;
+
+  securityImpact: boolean | null;
+  authenticationImpact: boolean | null;
+  performanceImpact: boolean | null;
+  accessibilityImpact: boolean | null;
+  visualImpact: boolean | null;
+  apiImpact: boolean | null;
+
+  confidence: number;
+  status: ReleaseImpactStatus;
+  evidence: DeploymentEvidenceReference[];
+  unknownFields: string[];
+  calculatedAt: string;
+}
+
+export interface DeploymentChangeComparison {
+  deploymentId: string | null;
+  previousDeploymentId: string | null;
+  currentCommitSha: string | null;
+  previousCommitSha: string | null;
+  status: 'ANALYZED' | 'INCONCLUSIVE' | 'IDENTICAL_COMMITS';
+  reason: string;
+  changedFilesCount: number;
+  classifications: string[];
+  affectedRoutes: string[];
+  affectedApis: string[];
+  affectedWorkflows: string[];
+  criticalWorkflows: string[];
+  confidence: number;
+  evidence: DeploymentEvidenceReference[];
+}
+

@@ -9,8 +9,20 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
 import { Stack, Grid, Flex } from '@/components/LayoutPrimitives';
-import { Project, Deployment, ProjectEnvironment } from '@/lib/demoData';
-import { getProject, getProjectDeployments, getProjectEnvironments } from '@/services/db';
+import {
+  Project,
+  Deployment,
+  ProjectEnvironment,
+  DeploymentIntelligenceData,
+  ReleaseImpact,
+} from '@/lib/demoData';
+import {
+  getProject,
+  getProjectDeployments,
+  getProjectEnvironments,
+  getDeploymentIntelligence,
+  getDeploymentImpact,
+} from '@/services/db';
 
 interface DeploymentsPageProps {
   params: Promise<{ projectId: string }>;
@@ -29,6 +41,12 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
   const [loading, setLoading] = React.useState(true);
   const [selectedEnv, setSelectedEnv] = React.useState<string>(envFilter);
 
+  // Deployment Intelligence & Impact inspection drawer
+  const [inspectingDepId, setInspectingDepId] = React.useState<string | null>(null);
+  const [intelData, setIntelData] = React.useState<DeploymentIntelligenceData | null>(null);
+  const [impactData, setImpactData] = React.useState<ReleaseImpact | null>(null);
+  const [intelLoading, setIntelLoading] = React.useState(false);
+
   // Record deployment modal
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [targetEnvId, setTargetEnvId] = React.useState('');
@@ -38,6 +56,33 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
   const [trigger, setTrigger] = React.useState<string>('MANUAL');
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
+
+  const handleInspectDeployment = async (depId: string) => {
+    if (inspectingDepId === depId) {
+      setInspectingDepId(null);
+      setIntelData(null);
+      setImpactData(null);
+      return;
+    }
+
+    try {
+      setInspectingDepId(depId);
+      setIntelLoading(true);
+      const token = await getToken();
+      if (token) {
+        const [intel, impact] = await Promise.all([
+          getDeploymentIntelligence(token, projectId, depId),
+          getDeploymentImpact(token, projectId, depId),
+        ]);
+        setIntelData(intel);
+        setImpactData(impact);
+      }
+    } catch (err) {
+      console.error('[Inspect Deployment Error]:', err);
+    } finally {
+      setIntelLoading(false);
+    }
+  };
 
   const loadData = React.useCallback(async () => {
     try {
@@ -227,15 +272,131 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
                       </div>
                     </div>
 
-                    <div className="text-right text-xs text-muted-foreground">
-                      <div>Recorded: {new Date(dep.createdAt).toLocaleString()}</div>
-                      {dep.completedAt && dep.startedAt && (
-                        <div className="text-3xs text-zinc-500 mt-1">
-                          Duration: {Math.round((new Date(dep.completedAt).getTime() - new Date(dep.startedAt).getTime()) / 1000)}s
-                        </div>
-                      )}
+                    <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground">
+                      <div className="text-right">
+                        <div>Recorded: {new Date(dep.createdAt).toLocaleString()}</div>
+                        {dep.completedAt && dep.startedAt && (
+                          <div className="text-3xs text-zinc-500 mt-0.5">
+                            Duration: {Math.round((new Date(dep.completedAt).getTime() - new Date(dep.startedAt).getTime()) / 1000)}s
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={inspectingDepId === dep.id ? 'accent' : 'outline'}
+                        onClick={() => handleInspectDeployment(dep.id)}
+                        className="text-3xs"
+                      >
+                        {inspectingDepId === dep.id ? 'Hide Intelligence' : '⚡ Inspect Intelligence & Impact'}
+                      </Button>
                     </div>
                   </div>
+
+                  {/* Expanded Intelligence & Impact Panel */}
+                  {inspectingDepId === dep.id && (
+                    <div className="mt-4 pt-4 border-t border-white/10 space-y-4 animate-in fade-in duration-200">
+                      {intelLoading ? (
+                        <div className="p-6 text-center text-xs text-muted-foreground font-mono">
+                          Evaluating deployment evidence, release correlations, and regression impact...
+                        </div>
+                      ) : intelData ? (
+                        <div className="space-y-4 font-mono text-xs">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {/* Card 1: Snapshot Evidence */}
+                            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5 space-y-2">
+                              <div className="text-3xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center justify-between">
+                                <span>Deployment Snapshot</span>
+                                <span className="text-accent font-bold">{(intelData.snapshot.confidence * 100).toFixed(0)}% Conf</span>
+                              </div>
+                              <div className="space-y-1 text-3xs">
+                                <div><span className="text-zinc-500">Status:</span> <span className="font-semibold text-foreground">{intelData.snapshot.deploymentStatus || 'UNKNOWN'}</span></div>
+                                <div><span className="text-zinc-500">Env:</span> <span className="text-foreground">{intelData.snapshot.environmentName || 'None'} ({intelData.snapshot.environmentType || 'CUSTOM'})</span></div>
+                                <div><span className="text-zinc-500">Commit:</span> <span className="text-foreground font-semibold">{intelData.snapshot.commitSha ? intelData.snapshot.commitSha.slice(0, 7) : 'None'}</span></div>
+                                <div><span className="text-zinc-500">Provider:</span> <span className="text-zinc-400">{intelData.snapshot.provider || 'UNKNOWN'}</span></div>
+                              </div>
+                            </div>
+
+                            {/* Card 2: Release Correlation */}
+                            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5 space-y-2">
+                              <div className="text-3xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center justify-between">
+                                <span>Release Correlation</span>
+                                <span className={`px-1.5 py-0.5 rounded text-4xs font-bold ${
+                                  intelData.correlation.status === 'EXPLICIT' || intelData.correlation.status === 'COMMIT_MATCH'
+                                    ? 'bg-success/20 text-success'
+                                    : intelData.correlation.status === 'BRANCH_MATCH'
+                                    ? 'bg-warning/20 text-warning'
+                                    : 'bg-zinc-800 text-zinc-400'
+                                }`}>
+                                  {intelData.correlation.status}
+                                </span>
+                              </div>
+                              <div className="space-y-1 text-3xs">
+                                <div><span className="text-zinc-500">Release:</span> <span className="font-semibold text-accent">{intelData.correlation.releaseVersion || 'Uncorrelated'}</span></div>
+                                <div><span className="text-zinc-500">Method:</span> <span className="text-zinc-300">{intelData.correlation.correlationMethod}</span></div>
+                                <div className="text-zinc-400 truncate" title={intelData.correlation.explanation}>{intelData.correlation.explanation}</div>
+                              </div>
+                            </div>
+
+                            {/* Card 3: Previous Deployment Diff */}
+                            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5 space-y-2">
+                              <div className="text-3xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center justify-between">
+                                <span>Previous Deployment</span>
+                                <span className="text-zinc-400 text-4xs">{intelData.previousDeployment.status}</span>
+                              </div>
+                              <div className="space-y-1 text-3xs">
+                                <div><span className="text-zinc-500">Diff:</span> <span className="text-zinc-400">{intelData.previousDeployment.commitSha ? intelData.previousDeployment.commitSha.slice(0, 7) : 'None'}</span> → <span className="text-foreground font-bold">{intelData.snapshot.commitSha?.slice(0, 7) || 'None'}</span></div>
+                                <div><span className="text-zinc-500">Files Changed:</span> <span className="font-semibold text-foreground">{intelData.changeComparison.changedFilesCount}</span></div>
+                                <div><span className="text-zinc-500">Critical Workflows:</span> <span className="text-warning font-semibold">{intelData.changeComparison.criticalWorkflows.length}</span></div>
+                              </div>
+                            </div>
+
+                            {/* Card 4: Release Impact */}
+                            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/5 space-y-2">
+                              <div className="text-3xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center justify-between">
+                                <span>Release Impact</span>
+                                {impactData && (
+                                  <span className={`px-1.5 py-0.5 rounded text-4xs font-bold ${
+                                    impactData.status === 'LOW_IMPACT'
+                                      ? 'bg-success/20 text-success'
+                                      : impactData.status === 'MATERIAL_IMPACT'
+                                      ? 'bg-warning/20 text-warning'
+                                      : impactData.status === 'HIGH_IMPACT'
+                                      ? 'bg-danger/20 text-danger'
+                                      : 'bg-zinc-800 text-zinc-400'
+                                  }`}>
+                                    {impactData.status}
+                                  </span>
+                                )}
+                              </div>
+                              {impactData && (
+                                <div className="space-y-1 text-3xs">
+                                  <div><span className="text-zinc-500">Regressions:</span> <span className={impactData.newRegressionCount > 0 ? 'text-danger font-bold' : 'text-success'}>{impactData.newRegressionCount}</span> | <span className="text-zinc-500">Recovered:</span> <span className="text-success">{impactData.recoveredCount}</span></div>
+                                  <div><span className="text-zinc-500">Affected Workflows:</span> <span className="font-semibold text-foreground">{impactData.affectedWorkflowCount}</span></div>
+                                  <div className="flex items-center gap-1 mt-1 text-4xs">
+                                    <span className={`px-1 rounded ${impactData.securityImpact ? 'bg-danger/20 text-danger' : impactData.securityImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>SEC</span>
+                                    <span className={`px-1 rounded ${impactData.authenticationImpact ? 'bg-danger/20 text-danger' : impactData.authenticationImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>AUTH</span>
+                                    <span className={`px-1 rounded ${impactData.apiImpact ? 'bg-warning/20 text-warning' : impactData.apiImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>API</span>
+                                    <span className={`px-1 rounded ${impactData.performanceImpact ? 'bg-warning/20 text-warning' : impactData.performanceImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>PERF</span>
+                                    <span className={`px-1 rounded ${impactData.visualImpact ? 'bg-warning/20 text-warning' : impactData.visualImpact === false ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-zinc-600'}`}>VISUAL</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Unknown Fields Notice if any */}
+                          {impactData && impactData.unknownFields && impactData.unknownFields.length > 0 && (
+                            <div className="p-2.5 rounded bg-zinc-900 border border-zinc-800 text-3xs text-muted-foreground flex items-center justify-between">
+                              <span className="text-zinc-400">
+                                ℹ️ <strong className="text-zinc-300">Evidence Guardrail:</strong> Dimensions not evaluated ({impactData.unknownFields.join(', ')}) remain strictly unmeasured (null) to prevent fabricated inferences.
+                              </span>
+                              <span className="text-zinc-500 text-4xs">NO EVIDENCE → NO INFERENCE</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               );
             })}

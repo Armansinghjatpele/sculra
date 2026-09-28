@@ -53,7 +53,7 @@ export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnap
   const {
     pullRequestNumber,
     source = 'GIT',
-    files,
+    files = [],
     isPartial = false,
     partialReason,
     createdAt = new Date().toISOString(),
@@ -89,15 +89,29 @@ export function buildChangeSnapshot(input: BuildChangeSnapshotInput): ChangeSnap
 
     const normPath = filePath.toLowerCase();
 
-    // Route detection
-    if (normPath.includes('/app/') || normPath.includes('/pages/') || normPath.includes('/routes/')) {
-      const routeMatch = filePath.match(/(?:app|pages|routes)\/(.+?)(?:\/page|\/route|\.tsx|\.ts|\.jsx|\.js|$)/);
+    // Route and API detection
+    if (
+      normPath.startsWith('app/') ||
+      normPath.includes('/app/') ||
+      normPath.startsWith('pages/') ||
+      normPath.includes('/pages/') ||
+      normPath.startsWith('routes/') ||
+      normPath.includes('/routes/') ||
+      normPath.startsWith('api/') ||
+      normPath.includes('/api/')
+    ) {
+      const routeMatch = filePath.match(/(?:^|\/)(?:app|pages|routes|src\/app|src\/pages)\/(.+?)(?:\/page|\/route|\.tsx|\.ts|\.jsx|\.js|$)/);
       if (routeMatch && routeMatch[1]) {
         const route = '/' + routeMatch[1].replace(/\/page$/, '').replace(/\/route$/, '');
-        if (normPath.includes('/api/')) {
+        if (normPath.includes('api/')) {
           apiSet.add(route);
         } else {
           routeSet.add(route);
+        }
+      } else if (normPath.startsWith('api/') || normPath.includes('/api/')) {
+        const apiMatch = filePath.match(/(?:^|\/)(api\/.+?)(?:\/route|\.tsx|\.ts|\.jsx|\.js|$)/);
+        if (apiMatch && apiMatch[1]) {
+          apiSet.add('/' + apiMatch[1]);
         }
       }
     }

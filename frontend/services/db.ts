@@ -75,6 +75,12 @@ import {
   CredentialRecord,
   CredentialRotation,
   CredentialAccessLog,
+  DeploymentSnapshot,
+  DeploymentReleaseCorrelation,
+  ReleaseImpact,
+  DeploymentIntelligenceData,
+  getMockDeploymentIntelligence,
+  getMockReleaseImpact,
 } from '../lib/demoData';
 import { PolicyManager } from '../lib/authz/policy';
 import type { SculraRole } from '../lib/authz/roles';
@@ -4474,6 +4480,166 @@ export async function getCredentialAccessLogs(
   credentialId: string
 ): Promise<CredentialAccessLog[]> {
   return localCredentialAccessLogs.filter((l) => l.credentialId === credentialId);
+}
+
+// ==============================================================================
+// Prompt 62: Deployment-Aware Regression Intelligence & Release Impact
+// ==============================================================================
+
+export async function getDeploymentIntelligence(
+  clerkToken: string,
+  projectId: string,
+  deploymentId: string
+): Promise<DeploymentIntelligenceData> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data: snapshotData, error } = await supabase
+    .from('deployment_snapshots')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('deployment_id', deploymentId)
+    .maybeSingle();
+
+  if (useFallback(error) || !snapshotData) {
+    return getMockDeploymentIntelligence(deploymentId, projectId);
+  }
+
+  return {
+    snapshot: {
+      deploymentId: snapshotData.deployment_id,
+      projectId: snapshotData.project_id,
+      organizationId: snapshotData.organization_id,
+      environmentId: snapshotData.environment_id,
+      environmentName: snapshotData.environment_name,
+      environmentType: snapshotData.environment_type,
+      deploymentStatus: snapshotData.deployment_status,
+      deploymentUrl: snapshotData.deployment_url,
+      commitSha: snapshotData.commit_sha,
+      branch: snapshotData.branch,
+      previousDeploymentId: snapshotData.previous_deployment_id,
+      previousCommitSha: snapshotData.previous_commit_sha,
+      releaseId: snapshotData.release_id,
+      releaseVersion: snapshotData.release_version,
+      provider: snapshotData.provider,
+      startedAt: snapshotData.started_at,
+      completedAt: snapshotData.completed_at,
+      source: snapshotData.source || 'UNKNOWN',
+      confidence: Number(snapshotData.confidence || 0),
+      evidence: snapshotData.evidence || [],
+    },
+    correlation: {
+      deploymentId: snapshotData.deployment_id,
+      releaseId: snapshotData.release_id,
+      releaseVersion: snapshotData.release_version,
+      correlationMethod: snapshotData.release_id ? 'explicit_deployment_release_link' : 'unresolved',
+      status: snapshotData.release_id ? 'EXPLICIT' : 'NOT_FOUND',
+      confidence: snapshotData.release_id ? 1.0 : 0.0,
+      explanation: snapshotData.release_id
+        ? `Linked explicitly to release ${snapshotData.release_version || snapshotData.release_id}.`
+        : 'No correlated release record found.',
+    },
+    previousDeployment: {
+      status: snapshotData.previous_deployment_id ? 'RESOLVED' : 'NO_PREVIOUS',
+      deploymentId: snapshotData.previous_deployment_id,
+      commitSha: snapshotData.previous_commit_sha,
+      reason: snapshotData.previous_deployment_id
+        ? `Previous deployment resolved to ${snapshotData.previous_deployment_id}`
+        : 'Initial deployment in this environment.',
+    },
+    changeComparison: {
+      status: snapshotData.previous_commit_sha ? 'ANALYZED' : 'INCONCLUSIVE',
+      changedFilesCount: snapshotData.metadata?.changedFilesCount || 0,
+      affectedRoutes: snapshotData.metadata?.affectedRoutes || [],
+      affectedApis: snapshotData.metadata?.affectedApis || [],
+      affectedWorkflows: snapshotData.metadata?.affectedWorkflows || [],
+      criticalWorkflows: snapshotData.metadata?.criticalWorkflows || [],
+      classifications: snapshotData.metadata?.classifications || [],
+      reason: snapshotData.metadata?.changeReason || 'Deployment changes evaluated against previous baseline.',
+    },
+  };
+}
+
+export async function getDeploymentImpact(
+  clerkToken: string,
+  projectId: string,
+  deploymentId: string
+): Promise<ReleaseImpact> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_impacts')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('deployment_id', deploymentId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return getMockReleaseImpact(null, deploymentId, null);
+  }
+
+  return {
+    releaseId: data.release_id,
+    deploymentId: data.deployment_id,
+    environmentId: data.environment_id,
+    changedAreaCount: data.changed_area_count,
+    affectedWorkflowCount: data.affected_workflow_count,
+    criticalWorkflowCount: data.critical_workflow_count,
+    newRegressionCount: data.new_regression_count,
+    recoveredCount: data.recovered_count,
+    persistentFailureCount: data.persistent_failure_count,
+    unresolvedIssueCount: data.unresolved_issue_count,
+    securityImpact: data.security_impact,
+    authenticationImpact: data.authentication_impact,
+    performanceImpact: data.performance_impact,
+    accessibilityImpact: data.accessibility_impact,
+    visualImpact: data.visual_impact,
+    apiImpact: data.api_impact,
+    confidence: Number(data.confidence || 0),
+    status: data.status,
+    evidence: data.evidence || [],
+    unknownFields: data.unknown_fields || [],
+    calculatedAt: data.calculated_at,
+  };
+}
+
+export async function getReleaseImpact(
+  clerkToken: string,
+  projectId: string,
+  releaseId: string
+): Promise<ReleaseImpact> {
+  const supabase = getSupabaseUserClient(clerkToken);
+  const { data, error } = await supabase
+    .from('release_impacts')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('release_id', releaseId)
+    .maybeSingle();
+
+  if (useFallback(error) || !data) {
+    return getMockReleaseImpact(releaseId, null, null);
+  }
+
+  return {
+    releaseId: data.release_id,
+    deploymentId: data.deployment_id,
+    environmentId: data.environment_id,
+    changedAreaCount: data.changed_area_count,
+    affectedWorkflowCount: data.affected_workflow_count,
+    criticalWorkflowCount: data.critical_workflow_count,
+    newRegressionCount: data.new_regression_count,
+    recoveredCount: data.recovered_count,
+    persistentFailureCount: data.persistent_failure_count,
+    unresolvedIssueCount: data.unresolved_issue_count,
+    securityImpact: data.security_impact,
+    authenticationImpact: data.authentication_impact,
+    performanceImpact: data.performance_impact,
+    accessibilityImpact: data.accessibility_impact,
+    visualImpact: data.visual_impact,
+    apiImpact: data.api_impact,
+    confidence: Number(data.confidence || 0),
+    status: data.status,
+    evidence: data.evidence || [],
+    unknownFields: data.unknown_fields || [],
+    calculatedAt: data.calculated_at,
+  };
 }
 
 

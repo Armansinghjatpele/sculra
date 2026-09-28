@@ -387,6 +387,25 @@ export class RegressionTargetGenerator {
       }
     }
 
+    // --------------------------------------------------------------------------
+    // Source 14: DEPLOYMENT_REGRESSION_SURFACE (Deployment-specific active target testing)
+    // --------------------------------------------------------------------------
+    if (deploymentId) {
+      addCandidate({
+        id: `rc-deployment-surface-${deploymentId.slice(0, 8)}`,
+        source: 'DEPLOYMENT_REGRESSION_SURFACE',
+        targetId: `deployment:${deploymentId}`,
+        targetType: 'DEPLOYMENT',
+        targetIdentifier: `Deployment Surface: ${deploymentId.slice(0, 8)}`,
+        url: targetUrl,
+        domain: 'FUNCTIONAL',
+        businessCriticality: 'HIGH',
+        priority: 89,
+        reason: `Targeted regression surface for deployment ${deploymentId} on environment ${environment?.environmentName || 'configured environment'}`,
+        deploymentId,
+      });
+    }
+
     // Sort descending by priority
     return candidates.sort((a, b) => b.priority - a.priority);
   }

@@ -23,6 +23,8 @@ export interface EvaluateDecisionsInput {
   previousRun?: HistoricalRun;
   isDocsOnly?: boolean;
   hasHistoricalRegressions?: boolean;
+  deploymentId?: string | null;
+  deploymentStatus?: string | null;
 }
 
 export class ChangeDecisionEngine {
@@ -53,7 +55,12 @@ export class ChangeDecisionEngine {
       environment,
       branch = snapshot?.headBranch || snapshot?.branch || input.branch,
       previousRun,
+      deploymentId: inputDeploymentId,
+      deploymentStatus: inputDeploymentStatus,
     } = input;
+
+    const resolvedDeploymentId = inputDeploymentId || environment?.deploymentId || null;
+    const resolvedDeploymentStatus = inputDeploymentStatus || null;
 
     const decisions: ChangeDecision[] = [];
     let scheduledTestCount = 0;
@@ -63,6 +70,8 @@ export class ChangeDecisionEngine {
       const isDomainActive = activeDomains.has(candidate.domain);
       const envName = environment?.environmentName || null;
       const currentBranch = candidate.branch || branch || null;
+      const depId = candidate.deploymentId || resolvedDeploymentId;
+      const depStatus = resolvedDeploymentStatus;
 
       const evidence = [
         ...(snapshot?.commitSha ? [`commit:${snapshot.commitSha.slice(0, 7)}`] : []),
@@ -71,6 +80,7 @@ export class ChangeDecisionEngine {
         `criticality:${candidate.businessCriticality}`,
         ...(envName ? [`env:${envName}`] : []),
         ...(currentBranch ? [`branch:${currentBranch}`] : []),
+        ...(depId ? [`deployment:${depId}`] : []),
       ];
 
       // 1. Critical Workflow Override: Critical workflows are NEVER skipped
@@ -93,6 +103,8 @@ export class ChangeDecisionEngine {
           environmentId: candidate.environmentId || environment?.environmentId,
           environmentName: environment?.environmentName,
           branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
           reuseClassification: 'RERUN',
           reuseJustification: 'Critical workflows require fresh execution to guarantee zero release risk',
           metadata: {
@@ -101,6 +113,33 @@ export class ChangeDecisionEngine {
           },
         });
         scheduledTestCount++;
+        continue;
+      }
+
+      // 1.5 Deployment Lifecycle Gate: Defer non-critical targets if deployment is still in-flight
+      if (depStatus === 'DEPLOYING') {
+        decisions.push({
+          id: `dec-${candidate.id}-${Date.now().toString(36)}`,
+          candidateId: candidate.id,
+          targetIdentifier: candidate.targetIdentifier,
+          targetType: candidate.targetType,
+          domain: candidate.domain,
+          decision: 'DEFER',
+          priority: candidate.priority,
+          reason: `Target deferred: Deployment ${depId || 'target'} is currently in DEPLOYING state. Testing deferred until deployment reaches READY status.`,
+          skipReason: 'DEPLOYMENT_IN_PROGRESS',
+          criticalOverride: false,
+          confidence: 'HIGH',
+          evidence: [...evidence, 'deployment:deploying_in_progress'],
+          createdAt: new Date().toISOString(),
+          environmentId: candidate.environmentId || environment?.environmentId,
+          environmentName: environment?.environmentName,
+          branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
+          reuseClassification: 'DEFER',
+          reuseJustification: 'Deferred until deployment rollout is complete',
+        });
         continue;
       }
 
@@ -123,6 +162,8 @@ export class ChangeDecisionEngine {
           environmentId: candidate.environmentId || environment?.environmentId,
           environmentName: environment?.environmentName,
           branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
           metadata: {
             source: candidate.source,
             files: snapshot?.files ? snapshot.files.map((f) => f.path) : [],
@@ -150,6 +191,8 @@ export class ChangeDecisionEngine {
           environmentId: candidate.environmentId || environment?.environmentId,
           environmentName: environment?.environmentName,
           branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
         });
         continue;
       }
@@ -177,6 +220,8 @@ export class ChangeDecisionEngine {
           environmentId: candidate.environmentId || environment?.environmentId,
           environmentName: environment?.environmentName,
           branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
         });
         continue;
       }
@@ -200,6 +245,8 @@ export class ChangeDecisionEngine {
           environmentId: candidate.environmentId || environment?.environmentId,
           environmentName: environment?.environmentName,
           branch: currentBranch,
+          deploymentId: depId,
+          deploymentStatus: depStatus,
           reuseClassification: 'DEFER',
           reuseJustification: 'Deferred due to capacity budget limits',
         });
@@ -251,6 +298,8 @@ export class ChangeDecisionEngine {
         environmentId: candidate.environmentId || environment?.environmentId,
         environmentName: environment?.environmentName,
         branch: currentBranch,
+        deploymentId: depId,
+        deploymentStatus: depStatus,
         reuseClassification,
         reuseJustification,
         reusedEvidenceRef,

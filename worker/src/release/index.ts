@@ -19,4 +19,10 @@ export * from './release-orchestrator';
 export * from './release-events';
 export * from './release-evidence';
 export * from './release-health';
+export * from './deployment-snapshot';
+export * from './deployment-release-correlator';
+export * from './previous-deployment-resolver';
+export * from './deployment-change-analyzer';
+export * from './release-impact';
+export * from './deployment-provider';
 

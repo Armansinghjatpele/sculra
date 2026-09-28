@@ -35,7 +35,7 @@ export class DeploymentDetector {
       const dep = payload.deployment || {};
       const state = (depStatus.state || '').toLowerCase();
       const commitSha = dep.sha || depStatus.target_url || '';
-      const environmentName = dep.environment || payload.environment || 'production';
+      const environmentName = dep.environment || payload.environment || undefined;
       const deploymentUrl = depStatus.environment_url || depStatus.target_url || undefined;
       const idempotencyKey = depStatus.id ? `gh-dep-${depStatus.id}` : deliveryId;
 
@@ -76,7 +76,7 @@ export class DeploymentDetector {
     // 2. Generic deployment webhook payload (e.g. from custom CI/CD or hosting provider)
     if (eventType === 'deployment' || payload.deployment_confirmed === true) {
       const commitSha = payload.commit_sha || payload.sha || payload.commit || '';
-      const environmentName = payload.environment || payload.environment_name || 'production';
+      const environmentName = payload.environment || payload.environment_name || undefined;
       const deploymentUrl = payload.deployment_url || payload.url;
       const statusRaw = (payload.status || 'SUCCEEDED').toUpperCase();
       const status: DeploymentStatus = ['SUCCEEDED', 'FAILED', 'RUNNING', 'QUEUED', 'CANCELLED'].includes(statusRaw)

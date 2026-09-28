@@ -2691,5 +2691,187 @@ export const mockCredentialAccessLogs: CredentialAccessLog[] = [
   },
 ];
 
+// ==============================================================================
+// Prompt 62: Deployment-Aware Regression Intelligence & Release Impact Models
+// ==============================================================================
+
+export type DeploymentLifecycleStatus = 'DEPLOYING' | 'READY' | 'FAILED' | 'CANCELLED' | 'UNKNOWN';
+export type DeploymentSource = 'VERCEL' | 'RAILWAY' | 'GITHUB' | 'CI' | 'MANUAL' | 'INTERNAL' | 'UNKNOWN';
+export type ReleaseImpactStatus = 'LOW_IMPACT' | 'MATERIAL_IMPACT' | 'HIGH_IMPACT' | 'INCONCLUSIVE';
+
+export interface DeploymentEvidenceReference {
+  kind: string;
+  source: string;
+  ref: string;
+  description?: string;
+  confidence: number;
+}
+
+export interface DeploymentSnapshot {
+  deploymentId: string | null;
+  projectId: string;
+  organizationId: string | null;
+  environmentId: string | null;
+  environmentName: string | null;
+  environmentType: string | null;
+  deploymentStatus: DeploymentLifecycleStatus | null;
+  deploymentUrl: string | null;
+  commitSha: string | null;
+  branch: string | null;
+  previousDeploymentId: string | null;
+  previousCommitSha: string | null;
+  releaseId: string | null;
+  releaseVersion: string | null;
+  provider: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  source: DeploymentSource;
+  confidence: number;
+  evidence: DeploymentEvidenceReference[];
+}
+
+export interface DeploymentReleaseCorrelation {
+  deploymentId: string | null;
+  releaseId: string | null;
+  releaseVersion: string | null;
+  correlationMethod: 'explicit_deployment_release_link' | 'commit_match' | 'branch_match' | 'ci_workflow' | 'unresolved';
+  status: 'EXPLICIT' | 'COMMIT_MATCH' | 'BRANCH_MATCH' | 'AMBIGUOUS' | 'NOT_FOUND';
+  confidence: number;
+  explanation: string;
+}
+
+export interface ReleaseImpact {
+  releaseId: string | null;
+  deploymentId: string | null;
+  environmentId: string | null;
+  changedAreaCount: number;
+  affectedWorkflowCount: number;
+  criticalWorkflowCount: number;
+  newRegressionCount: number;
+  recoveredCount: number;
+  persistentFailureCount: number;
+  unresolvedIssueCount: number;
+  securityImpact: boolean | null;
+  authenticationImpact: boolean | null;
+  performanceImpact: boolean | null;
+  accessibilityImpact: boolean | null;
+  visualImpact: boolean | null;
+  apiImpact: boolean | null;
+  confidence: number;
+  status: ReleaseImpactStatus;
+  evidence: DeploymentEvidenceReference[];
+  unknownFields: string[];
+  calculatedAt: string;
+}
+
+export interface DeploymentIntelligenceData {
+  snapshot: DeploymentSnapshot;
+  correlation: DeploymentReleaseCorrelation;
+  previousDeployment: {
+    status: 'RESOLVED' | 'NO_PREVIOUS' | 'INCONCLUSIVE';
+    deploymentId: string | null;
+    commitSha: string | null;
+    reason: string;
+  };
+  changeComparison: {
+    status: 'ANALYZED' | 'INCONCLUSIVE' | 'IDENTICAL_COMMITS';
+    changedFilesCount: number;
+    affectedRoutes: string[];
+    affectedApis: string[];
+    affectedWorkflows: string[];
+    criticalWorkflows: string[];
+    classifications: string[];
+    reason: string;
+  };
+}
+
+export function getMockDeploymentIntelligence(deploymentId: string, projectId: string): DeploymentIntelligenceData {
+  const dep = mockDeployments.find((d) => d.id === deploymentId);
+  const commit = dep?.commitSha || '6d8b2a1e94fc07b5a12d';
+  const prevCommit = '3c8f1a2e94fc07b5a12d';
+
+  return {
+    snapshot: {
+      deploymentId: dep?.id || deploymentId,
+      projectId,
+      organizationId: dep?.organizationId || 'org_demo_1',
+      environmentId: dep?.environmentId || 'env-prod-1',
+      environmentName: dep?.environmentId === 'env-prod-1' ? 'Production' : 'Staging',
+      environmentType: dep?.environmentId === 'env-prod-1' ? 'PRODUCTION' : 'STAGING',
+      deploymentStatus: (dep?.status === 'SUCCEEDED' ? 'READY' : (dep?.status as any)) || 'READY',
+      deploymentUrl: dep?.deploymentUrl || 'https://demo.sculra.com',
+      commitSha: commit,
+      branch: dep?.branch || 'main',
+      previousDeploymentId: 'dep-100',
+      previousCommitSha: prevCommit,
+      releaseId: 'rel-201',
+      releaseVersion: 'v2.4.0',
+      provider: dep?.provider || 'GITHUB',
+      startedAt: dep?.startedAt || '2026-09-18T10:00:00Z',
+      completedAt: dep?.completedAt || '2026-09-18T10:04:30Z',
+      source: 'GITHUB',
+      confidence: 1.0,
+      evidence: [
+        { kind: 'DEPLOYMENT_ID', source: 'GITHUB', ref: `deployment:${deploymentId}`, confidence: 1.0 },
+        { kind: 'COMMIT_SHA', source: 'GITHUB', ref: `commit:${commit.slice(0, 7)}`, confidence: 1.0 },
+      ],
+    },
+    correlation: {
+      deploymentId,
+      releaseId: 'rel-201',
+      releaseVersion: 'v2.4.0',
+      correlationMethod: 'commit_match',
+      status: 'COMMIT_MATCH',
+      confidence: 0.85,
+      explanation: `Correlated via exact commit SHA match (${commit.slice(0, 7)}) to release candidate v2.4.0.`,
+    },
+    previousDeployment: {
+      status: 'RESOLVED',
+      deploymentId: 'dep-100',
+      commitSha: prevCommit,
+      reason: 'Resolved to immediately preceding successful deployment in same environment.',
+    },
+    changeComparison: {
+      status: 'ANALYZED',
+      changedFilesCount: 8,
+      affectedRoutes: ['/dashboard', '/billing', '/settings/profile'],
+      affectedApis: ['/api/billing/subscribe', '/api/users/profile'],
+      affectedWorkflows: ['Subscription Checkout Flow', 'Profile Update'],
+      criticalWorkflows: ['Subscription Checkout Flow'],
+      classifications: ['UI', 'API', 'AUTHENTICATION'],
+      reason: 'Analyzed 8 changed files across 3 classifications. 1 critical workflow in blast radius.',
+    },
+  };
+}
+
+export function getMockReleaseImpact(releaseId: string | null, deploymentId: string | null, environmentId: string | null): ReleaseImpact {
+  return {
+    releaseId,
+    deploymentId,
+    environmentId,
+    changedAreaCount: 3,
+    affectedWorkflowCount: 2,
+    criticalWorkflowCount: 1,
+    newRegressionCount: 0,
+    recoveredCount: 1,
+    persistentFailureCount: 0,
+    unresolvedIssueCount: 0,
+    securityImpact: false,
+    authenticationImpact: true,
+    performanceImpact: false,
+    accessibilityImpact: null,
+    visualImpact: false,
+    apiImpact: true,
+    confidence: 0.95,
+    status: 'MATERIAL_IMPACT',
+    evidence: [
+      { kind: 'REGRESSION_COMPARISON', source: 'REGRESSION_COMPARATOR', ref: 'baseline:run-098', confidence: 0.9 },
+      { kind: 'CHANGE_ANALYSIS', source: 'DEPLOYMENT_CHANGE_ANALYZER', ref: 'diff:3c8f1..6d8b2', confidence: 0.9 },
+    ],
+    unknownFields: ['accessibilityImpact'],
+    calculatedAt: new Date().toISOString(),
+  };
+}
+
 
 

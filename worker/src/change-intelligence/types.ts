@@ -134,7 +134,9 @@ export interface ImpactEdge {
     | 'AFFECTED_API'
     | 'AFFECTED_WORKFLOW'
     | 'AFFECTED_QA_TARGET'
-    | 'AFFECTED_ENVIRONMENT';
+    | 'AFFECTED_ENVIRONMENT'
+    | 'DEPLOYED_TO'
+    | 'DEPLOYED_COMMIT';
   reason: string;
   confidence: ImpactConfidence;
   source: string;
@@ -311,7 +313,8 @@ export type RegressionCandidateSource =
   | 'ACCESSIBILITY_SURFACE'
   | 'API_CONTRACT'
   | 'PERFORMANCE_BASELINE'
-  | 'ENVIRONMENT_SPECIFIC_FAILURE';
+  | 'ENVIRONMENT_SPECIFIC_FAILURE'
+  | 'DEPLOYMENT_REGRESSION_SURFACE';
 
 export interface RegressionCandidate {
   id: string;
@@ -349,7 +352,9 @@ export type SkipReasonCode =
   | 'UNSUPPORTED_SURFACE'
   | 'ALREADY_COVERED'
   | 'AUTH_REQUIRED'
-  | 'POLICY_BLOCKED';
+  | 'POLICY_BLOCKED'
+  | 'DEPLOYMENT_IN_PROGRESS'
+  | 'DEPLOYMENT_FAILED';
 
 export interface ChangeDecision {
   id: string;
@@ -370,6 +375,8 @@ export interface ChangeDecision {
   environmentId?: string | null;
   environmentName?: string | null;
   branch?: string | null;
+  deploymentId?: string | null;
+  deploymentStatus?: string | null;
   reuseClassification?: 'REUSE' | 'RERUN' | 'DEFER' | 'REVIEW';
   reuseJustification?: string;
   reusedEvidenceRef?: string;
@@ -403,12 +410,16 @@ export interface TargetRegressionComparison {
   headCommit?: string | null;
   environmentId?: string | null;
   environmentName?: string | null;
+  deploymentId?: string | null;
+  previousDeploymentId?: string | null;
 }
 
 export interface RegressionComparisonResult {
   comparedAt: string;
   baselineRunId?: string;
   currentRunId?: string;
+  deploymentId?: string | null;
+  previousDeploymentId?: string | null;
   totalCompared: number;
   regressionsCount: number;
   recoveriesCount: number;
