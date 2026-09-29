@@ -15,7 +15,7 @@ import { inferEnvironmentType } from '../change-intelligence/environment-snapsho
 
 export interface BuildDeploymentSnapshotInput {
   deploymentId?: string | null;
-  projectId: string;
+  projectId?: string | null;
   organizationId?: string | null;
 
   environmentId?: string | null;
@@ -88,9 +88,14 @@ export function buildDeploymentSnapshot(input: BuildDeploymentSnapshotInput): De
     metadata = {},
   } = input;
 
-  if (!projectId || typeof projectId !== 'string') {
+  if (projectId === '') {
     throw new Error('DeploymentSnapshot requires a valid projectId.');
   }
+
+  const cleanProjectId =
+    projectId && typeof projectId === 'string' && projectId.trim().length > 0
+      ? projectId.trim()
+      : null;
 
   // Strict normalization: empty strings become null
   const cleanDeploymentId =
@@ -214,7 +219,7 @@ export function buildDeploymentSnapshot(input: BuildDeploymentSnapshotInput): De
 
   return {
     deploymentId: cleanDeploymentId,
-    projectId,
+    projectId: cleanProjectId,
     organizationId,
     environmentId: cleanEnvironmentId,
     environmentName: cleanEnvironmentName,

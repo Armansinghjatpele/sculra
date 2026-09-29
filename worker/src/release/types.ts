@@ -346,7 +346,7 @@ export interface DeploymentEvidenceReference {
 
 export interface DeploymentSnapshot {
   deploymentId: string | null;
-  projectId: string;
+  projectId: string | null;
   organizationId: string | null;
 
   environmentId: string | null;

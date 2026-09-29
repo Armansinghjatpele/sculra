@@ -19,6 +19,7 @@ import {
   DeploymentEvent,
   ReleaseGateDecision,
 } from '../src/release';
+import { JobRunner } from '../src/execution/job-runner';
 
 describe('Prompt 63A: Continuous Deployment QA Automation & Release Gate Hardening', () => {
   const mockProjectId = 'proj-hardening-1111';
@@ -918,6 +919,302 @@ describe('Prompt 63A: Continuous Deployment QA Automation & Release Gate Hardeni
       expect(decision.blockers.some((b) => b.dimension === 'EVIDENCE_CONFIDENCE')).toBe(true);
       expect(decision.missingEvidenceDimensions?.length).toBeGreaterThan(0);
       expect(decision.dimensionEvaluations?.['FUNCTIONAL']?.status).toBe('UNMEASURED');
+    });
+  });
+
+  describe('Prompt 63A Final Correctness: Zero Synthetic Evidence & Strict Project Identity', () => {
+    it('campaign success with no measured overall score -> test_runs.overall_score remains NULL (never 100)', async () => {
+      let testRunUpdatePayload: any = null;
+      const mockSupabase: any = {
+        from: vi.fn((table: string) => ({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'camp-test-1',
+                  configuration: { targetUrl: 'https://example.com' },
+                },
+              }),
+            }),
+          }),
+          update: vi.fn((payload: any) => {
+            if (table === 'test_runs') {
+              testRunUpdatePayload = payload;
+            }
+            return {
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: 'camp-test-1', worker_id: 'w1', status: 'COMPLETED' },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'tr-new-1' } }),
+            }),
+          }),
+        })),
+      };
+
+      const runner = new JobRunner(mockSupabase);
+      const fakeJob: any = {
+        jobId: 'camp-test-1',
+        jobType: 'CAMPAIGN',
+        projectId: mockProjectId,
+        config: {
+          testRunId: 'tr-companion-001',
+          targetUrl: 'https://example.com',
+        },
+      };
+
+      // Mock campaign executor that succeeds without producing a measured overallScore
+      const mockExecutor: any = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          summary: {
+            totalTasks: 5,
+            taskResults: [{ status: 'PASSED' }],
+            // No releaseAssessment.overallScore, no summary.overallScore!
+          },
+        }),
+      };
+
+      await runner.runJob(fakeJob, { campaignExecutor: mockExecutor } as any);
+
+      expect(testRunUpdatePayload).toBeDefined();
+      expect(testRunUpdatePayload.status).toBe('passed');
+      // Crucial invariant: Never derive 100 from campaign success!
+      expect(testRunUpdatePayload.overall_score).toBeNull();
+      expect(testRunUpdatePayload.overall_score).not.toBe(100);
+      expect(testRunUpdatePayload.overall_score).not.toBe(50);
+    });
+
+    it('campaign failure with no measured overall score -> test_runs.overall_score remains NULL (never 50)', async () => {
+      let testRunUpdatePayload: any = null;
+      const mockSupabase: any = {
+        from: vi.fn((table: string) => ({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'camp-test-2',
+                  configuration: { targetUrl: 'https://example.com' },
+                },
+              }),
+            }),
+          }),
+          update: vi.fn((payload: any) => {
+            if (table === 'test_runs') {
+              testRunUpdatePayload = payload;
+            }
+            return {
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: 'camp-test-2', worker_id: 'w1', status: 'COMPLETED' },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'tr-new-2' } }),
+            }),
+          }),
+        })),
+      };
+
+      const runner = new JobRunner(mockSupabase);
+      const fakeJob: any = {
+        jobId: 'camp-test-2',
+        jobType: 'CAMPAIGN',
+        projectId: mockProjectId,
+        config: {
+          testRunId: 'tr-companion-002',
+          targetUrl: 'https://example.com',
+        },
+      };
+
+      // Mock campaign executor that fails without producing a measured overallScore
+      const mockExecutor: any = {
+        execute: vi.fn().mockResolvedValue({
+          success: false,
+          summary: {
+            totalTasks: 3,
+            taskResults: [{ status: 'FAILED' }],
+          },
+        }),
+      };
+
+      await runner.runJob(fakeJob, { campaignExecutor: mockExecutor } as any);
+
+      expect(testRunUpdatePayload).toBeDefined();
+      expect(testRunUpdatePayload.status).toBe('failed');
+      // Crucial invariant: Never derive 50 from campaign failure!
+      expect(testRunUpdatePayload.overall_score).toBeNull();
+      expect(testRunUpdatePayload.overall_score).not.toBe(50);
+      expect(testRunUpdatePayload.overall_score).not.toBe(100);
+    });
+
+    it('campaign with real measured overall score -> test_runs.overall_score preserved exactly', async () => {
+      let testRunUpdatePayload: any = null;
+      const mockSupabase: any = {
+        from: vi.fn((table: string) => ({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'camp-test-3',
+                  configuration: { targetUrl: 'https://example.com' },
+                },
+              }),
+            }),
+          }),
+          update: vi.fn((payload: any) => {
+            if (table === 'test_runs') {
+              testRunUpdatePayload = payload;
+            }
+            return {
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: 'camp-test-3', worker_id: 'w1', status: 'COMPLETED' },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'tr-new-3' } }),
+            }),
+          }),
+        })),
+      };
+
+      const runner = new JobRunner(mockSupabase);
+      const fakeJob: any = {
+        jobId: 'camp-test-3',
+        jobType: 'CAMPAIGN',
+        projectId: mockProjectId,
+        config: {
+          testRunId: 'tr-companion-003',
+          targetUrl: 'https://example.com',
+        },
+      };
+
+      const mockExecutor: any = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          summary: {
+            totalTasks: 10,
+            releaseAssessment: {
+              overallScore: 89,
+              recommendation: 'PROCEED',
+            },
+          },
+        }),
+      };
+
+      await runner.runJob(fakeJob, { campaignExecutor: mockExecutor } as any);
+
+      expect(testRunUpdatePayload).toBeDefined();
+      expect(testRunUpdatePayload.status).toBe('passed');
+      expect(testRunUpdatePayload.overall_score).toBe(89);
+    });
+
+    it('missing project ID -> CDOrchestrator rejects as INSUFFICIENT_EVIDENCE with zero synthetic project identity', async () => {
+      const eventWithoutProject = buildDeploymentEvent({
+        provider: 'VERCEL',
+        projectId: undefined,
+        deploymentId: 'dep-no-project-001',
+        environmentName: 'production',
+        commitSha: 'sha-test-no-proj',
+        deploymentStatus: 'READY',
+      });
+
+      const result = await CDOrchestrator.orchestrate({
+        event: eventWithoutProject,
+      });
+
+      expect(result.snapshot).toBeNull();
+      expect(result.eligibility.eligible).toBe(false);
+      expect(result.eligibility.status).toBe('INSUFFICIENT_EVIDENCE');
+      expect(result.eligibility.missingFields).toContain('projectId');
+      expect(result.campaignDecision).toBeNull();
+      expect(result.campaignId).toBeNull();
+      expect(result.gateDecision).toBeNull();
+
+      // Invariant: Never invent 'unknown-project'
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain('unknown-project');
+    });
+
+    it('missing project ID -> release gate evaluates to INSUFFICIENT_EVIDENCE and can NEVER yield PASS', () => {
+      const decision = ReleaseGatePolicyEvaluator.evaluate({
+        projectId: '', // Missing project ID
+        hasMeasuredEvidence: true,
+        categoryScores: fullCleanScores,
+        overallReadinessScore: 95,
+      });
+
+      expect(decision.decision).toBe('INSUFFICIENT_EVIDENCE');
+      expect(decision.decision).not.toBe('PASS');
+      expect(decision.blockers.some((b) => b.reason.includes('missing required projectId'))).toBe(true);
+    });
+
+    it('missing overall score in release gate -> dimension is UNMEASURED and gate yields INSUFFICIENT_EVIDENCE', () => {
+      const decision = ReleaseGatePolicyEvaluator.evaluate({
+        projectId: mockProjectId,
+        hasMeasuredEvidence: true,
+        overallReadinessScore: undefined, // Missing overall score
+        categoryScores: {
+          functional: 95,
+          security: 90,
+          api: 90,
+          // overall is omitted!
+        },
+      });
+
+      expect(decision.dimensionEvaluations?.['RELEASE_READINESS']?.status).toBe('UNMEASURED');
+      expect(decision.missingEvidenceDimensions).toContain('RELEASE_READINESS');
+      expect(decision.decision).toBe('INSUFFICIENT_EVIDENCE');
+      expect(decision.decision).not.toBe('PASS');
+    });
+
+    it('real measured score below threshold -> FAILED and BLOCK according to policy', () => {
+      const decision = ReleaseGatePolicyEvaluator.evaluate({
+        projectId: mockProjectId,
+        hasMeasuredEvidence: true,
+        overallReadinessScore: 65, // Below 75% threshold
+        categoryScores: {
+          ...fullCleanScores,
+          overall: 65,
+        },
+      });
+
+      expect(decision.dimensionEvaluations?.['RELEASE_READINESS']?.status).toBe('FAILED');
+      expect(decision.decision).toBe('BLOCK');
+      expect(decision.blockers.some((b) => b.dimension === 'RELEASE_READINESS')).toBe(true);
+    });
+
+    it('real measured score above threshold -> PASSED', () => {
+      const decision = ReleaseGatePolicyEvaluator.evaluate({
+        projectId: mockProjectId,
+        hasMeasuredEvidence: true,
+        overallReadinessScore: 92,
+        categoryScores: fullCleanScores,
+      });
+
+      expect(decision.dimensionEvaluations?.['RELEASE_READINESS']?.status).toBe('PASSED');
+      expect(decision.decision).toBe('PASS');
     });
   });
 });

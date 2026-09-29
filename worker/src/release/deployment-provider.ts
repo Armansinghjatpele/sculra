@@ -163,7 +163,7 @@ export class VercelDeploymentProvider implements DeploymentProvider {
       });
     }
 
-    const projectId = payload.projectId || meta.sculraProjectId || headers['x-sculra-project-id'] || 'unknown-project';
+    const projectId = payload.projectId || meta.sculraProjectId || headers['x-sculra-project-id'] || null;
 
     const safeMeta = redactSensitiveData({
       ...meta,
@@ -302,7 +302,7 @@ export class RailwayDeploymentProvider implements DeploymentProvider {
       });
     }
 
-    const projectId = payload.projectId || meta.sculraProjectId || headers['x-sculra-project-id'] || 'unknown-project';
+    const projectId = payload.projectId || meta.sculraProjectId || headers['x-sculra-project-id'] || null;
 
     const safeMeta = redactSensitiveData({
       ...meta,
@@ -403,7 +403,7 @@ export class GenericDeploymentProvider implements DeploymentProvider {
     headers: Record<string, string> = {}
   ): DeploymentSnapshot {
     const deploymentId = payload.deployment_id || payload.deploymentId || payload.id || null;
-    const projectId = payload.project_id || payload.projectId || headers['x-sculra-project-id'] || 'unknown-project';
+    const projectId = payload.project_id || payload.projectId || headers['x-sculra-project-id'] || null;
     const commitSha = payload.commit_sha || payload.commitSha || payload.sha || null;
     const branch = payload.branch || payload.ref || null;
     const deploymentUrl = payload.deployment_url || payload.deploymentUrl || payload.url || null;

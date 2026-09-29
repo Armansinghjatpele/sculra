@@ -173,17 +173,19 @@ export class JobRunner {
             }
           }
 
-          const campaignExecutor = new CampaignExecutor({
-            campaignId: job.jobId,
-            projectId: job.projectId,
-            organizationId: job.organizationId || undefined,
-            testRunId: testRunId || undefined,
-            targetUrl: targetUrl || 'http://localhost:3000',
-            objective: campaignObjective,
-            config: campaignConfig,
-            supabaseClient: this.supabase,
-            cancellationToken: token,
-          });
+          const campaignExecutor =
+            (options as any).campaignExecutor ||
+            new CampaignExecutor({
+              campaignId: job.jobId,
+              projectId: job.projectId,
+              organizationId: job.organizationId || undefined,
+              testRunId: testRunId || undefined,
+              targetUrl: targetUrl || 'http://localhost:3000',
+              objective: campaignObjective,
+              config: campaignConfig,
+              supabaseClient: this.supabase,
+              cancellationToken: token,
+            });
 
           const campResult = await campaignExecutor.execute();
           const finalStatus: ExecutionJobStatus =
@@ -200,7 +202,12 @@ export class JobRunner {
                 .update({
                   status: testRunStatus,
                   completed_at: new Date().toISOString(),
-                  overall_score: campResult.summary?.releaseAssessment?.overallScore ?? (campResult.success ? 100 : 50),
+                  overall_score:
+                    typeof campResult.summary?.releaseAssessment?.overallScore === 'number'
+                      ? campResult.summary.releaseAssessment.overallScore
+                      : typeof (campResult.summary as any)?.overallScore === 'number'
+                      ? (campResult.summary as any).overallScore
+                      : null,
                 })
                 .eq('id', testRunId);
             } catch (err: any) {

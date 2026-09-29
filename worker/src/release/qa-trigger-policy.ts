@@ -40,7 +40,7 @@ export class QATriggerPolicyEvaluator {
   ): QATriggerEligibility {
     const policy: QATriggerPolicy = {
       ...DEFAULT_QA_TRIGGER_POLICY,
-      projectId: snapshot.projectId,
+      projectId: snapshot.projectId || '',
       ...policyConfig,
     };
 

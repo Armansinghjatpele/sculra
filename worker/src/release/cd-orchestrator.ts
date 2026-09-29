@@ -85,7 +85,7 @@ export interface CDOrchestratorInput {
 
 export interface CDOrchestrationResult {
   event: DeploymentEvent;
-  snapshot: DeploymentSnapshot;
+  snapshot: DeploymentSnapshot | null;
   eligibility: QATriggerEligibility;
   campaignDecision: CampaignTriggerDecision | null;
   campaignId: string | null;
@@ -122,10 +122,38 @@ export class CDOrchestrator {
 
     const notificationsDispatched: string[] = [];
 
+    // Reject immediately if projectId is missing: NO EVIDENCE -> NO INFERENCE
+    if (!event.projectId) {
+      return {
+        event,
+        snapshot: null,
+        eligibility: {
+          eligible: false,
+          status: 'INSUFFICIENT_EVIDENCE',
+          reasons: [
+            'Cannot trigger automatic QA: missing required projectId. NO EVIDENCE -> NO INFERENCE.',
+          ],
+          missingFields: ['projectId'],
+          evaluatedAt: new Date().toISOString(),
+        },
+        campaignDecision: null,
+        campaignId: null,
+        isDuplicateCampaign: false,
+        correlation: null,
+        previousDeployment: null,
+        changeComparison: null,
+        releaseImpact: null,
+        gateDecision: null,
+        approvalRequestId: null,
+        notificationsDispatched,
+        ciFeedbackReported: false,
+      };
+    }
+
     // 1. Build Canonical DeploymentSnapshot from Event
     const snapshot = buildDeploymentSnapshot({
       deploymentId: event.deploymentId,
-      projectId: event.projectId || 'unknown-project',
+      projectId: event.projectId,
       organizationId: event.orgId,
       environmentId: event.environmentId,
       environmentName: event.environmentName,
@@ -210,7 +238,7 @@ export class CDOrchestrator {
     // 7. Campaign Deduplication & Idempotency Key
     const idempotencyKey = computeCampaignIdempotencyKey({
       organizationId: event.orgId,
-      projectId: snapshot.projectId,
+      projectId: snapshot.projectId || event.projectId!,
       deploymentId: snapshot.deploymentId,
       triggerType: 'DEPLOYMENT_READY',
       policyVersion: releaseGatePolicy?.version,
@@ -300,7 +328,7 @@ export class CDOrchestrator {
     // 9. Deterministic Release Gate Evaluation (Factual evidence only)
     const hasMeasuredEvidence = Boolean(taskResults && taskResults.length > 0);
     const gateDecision = ReleaseGatePolicyEvaluator.evaluate({
-      projectId: snapshot.projectId,
+      projectId: snapshot.projectId || event.projectId!,
       organizationId: snapshot.organizationId || event.orgId,
       policy: releaseGatePolicy,
       releaseId: snapshot.releaseId,

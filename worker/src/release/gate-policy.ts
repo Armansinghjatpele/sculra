@@ -186,6 +186,36 @@ export class ReleaseGatePolicyEvaluator {
     const decisionId = randomUUID();
     const evaluatedAt = new Date().toISOString();
 
+    // Strict Evidence Boundary: missing projectId cannot yield PASS, evaluates to INSUFFICIENT_EVIDENCE
+    if (!projectId) {
+      return {
+        id: decisionId,
+        releaseId,
+        deploymentId,
+        projectId: '',
+        organizationId,
+        environmentId,
+        policyId,
+        policyVersion,
+        decision: 'INSUFFICIENT_EVIDENCE',
+        blockers: [
+          {
+            dimension: 'EVIDENCE_CONFIDENCE',
+            reason: 'Cannot evaluate release gate: missing required projectId. NO EVIDENCE -> NO INFERENCE.',
+            severity: 'CRITICAL',
+          },
+        ],
+        warnings: [],
+        dimensionEvaluations: {},
+        missingEvidenceDimensions: ['EVIDENCE_CONFIDENCE'],
+        evidence: [],
+        confidence: 0.0,
+        evaluatedAt,
+        evaluatedBy,
+        source,
+      };
+    }
+
     const blockers: ReleaseGateBlocker[] = [];
     const warnings: ReleaseGateWarning[] = [];
     const dimensionEvaluations: Record<string, DimensionEvaluation> = {};
