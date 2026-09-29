@@ -17,6 +17,7 @@ import { randomUUID } from 'crypto';
 import {
   DeploymentEvent,
   DeploymentLifecycleStatus,
+  DeploymentProcessingStatus,
   DeploymentSource,
   EnvironmentType,
 } from './types';
@@ -33,6 +34,9 @@ export interface BuildDeploymentEventInput {
   environmentName?: string | null;
   environmentType?: EnvironmentType | null;
   deploymentStatus?: DeploymentLifecycleStatus | null;
+  processingStatus?: DeploymentProcessingStatus | null;
+  campaignId?: string | null;
+  gateDecisionId?: string | null;
   commitSha?: string | null;
   branch?: string | null;
   repository?: string | null;
@@ -96,6 +100,10 @@ export function buildDeploymentEvent(input: BuildDeploymentEventInput): Deployme
     ? (redactSensitiveData(input.metadata) as Record<string, any>)
     : undefined;
 
+  const processingStatus: DeploymentProcessingStatus = input.processingStatus || 'RECEIVED';
+  const campaignId = cleanString(input.campaignId);
+  const gateDecisionId = cleanString(input.gateDecisionId);
+
   return {
     eventId: cleanString(input.eventId) || randomUUID(),
     projectId,
@@ -107,6 +115,9 @@ export function buildDeploymentEvent(input: BuildDeploymentEventInput): Deployme
     environmentName,
     environmentType,
     deploymentStatus,
+    processingStatus,
+    campaignId,
+    gateDecisionId,
     commitSha,
     branch,
     repository,

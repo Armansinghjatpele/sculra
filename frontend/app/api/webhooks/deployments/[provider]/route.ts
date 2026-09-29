@@ -3,17 +3,19 @@
 // (frontend/app/api/webhooks/deployments/[provider]/route.ts)
 // Supports: Vercel, Railway, Generic CI/CD
 //
-// Invariants (Prompt 63):
-// - Authenticates webhook signature / token
-// - Lightweight & asynchronous: never blocks webhook request waiting for QA
-// - Zero arbitrary code execution from webhook payloads
-// - Deduplicates provider events idempotently
+// Invariants (Prompt 63 & Prompt 63A):
+// - Authenticates webhook signature / token with constant-time verification
+// - Production webhook secret is MANDATORY in production environments
+// - Persists deployment_events synchronously with processing_status = 'RECEIVED'
+// - Atomically enqueues durable QA job into public.qa_campaigns (status: 'QUEUED')
+// - Zero in-memory fire-and-forget Promise execution (production serverless safe)
+// - Returns 202 Accepted immediately without waiting for QA execution
+// - Deduplicates provider events idempotently via Postgres unique constraint
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 import { DeploymentWebhookIngestionService } from '../../../../../../worker/src/release/webhook-ingestion';
-import { CDOrchestrator } from '../../../../../../worker/src/release/cd-orchestrator';
 
 export async function POST(
   req: NextRequest,
@@ -48,14 +50,37 @@ export async function POST(
 
     const supabase = getSupabaseServiceClient();
 
-    // Ingest and authenticate webhook
+    // Look up webhook secret from environment or project configuration
+    const candidateProjectId = headers['x-sculra-project-id'] || payload.projectId || payload.project_id;
+    let webhookSecret =
+      process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`] ||
+      process.env.DEPLOYMENT_WEBHOOK_SECRET;
+
+    if (supabase && candidateProjectId && !webhookSecret) {
+      try {
+        const { data: proj } = await supabase
+          .from('projects')
+          .select('webhook_secret')
+          .eq('id', candidateProjectId)
+          .maybeSingle();
+
+        if (proj?.webhook_secret) {
+          webhookSecret = proj.webhook_secret;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    // Ingest, authenticate, deduplicate, and enqueue durable QA campaign job
     const ingestionResult = await DeploymentWebhookIngestionService.ingest(
       {
         providerName: provider,
         rawBody,
         payload,
         headers,
-        projectId: headers['x-sculra-project-id'] || payload.projectId || payload.project_id,
+        webhookSecret,
+        projectId: candidateProjectId,
         organizationId: headers['x-sculra-org-id'] || payload.organizationId || payload.orgId,
       },
       supabase
@@ -73,40 +98,29 @@ export async function POST(
         {
           accepted: true,
           status: 'DUPLICATE_ACKNOWLEDGED',
+          provider: ingestionResult.event?.provider,
           providerEventId: ingestionResult.event?.providerEventId,
-          eventId: ingestionResult.event?.eventId,
+          eventId: ingestionResult.eventId || ingestionResult.event?.eventId,
+          campaignId: ingestionResult.campaignId || ingestionResult.event?.campaignId,
         },
         { status: 200 }
       );
     }
 
-    // Asynchronous Execution Handover:
-    // Process CD Orchestrator in background without blocking HTTP response
-    if (ingestionResult.event) {
-      const event = ingestionResult.event;
-      // Trigger orchestration asynchronously
-      Promise.resolve().then(async () => {
-        try {
-          await CDOrchestrator.orchestrate({
-            event,
-            supabaseClient: supabase,
-          });
-        } catch (bgErr) {
-          console.error('[CD Webhook Background Orchestration Error]:', bgErr);
-        }
-      });
-    }
-
+    // Durable queue job was inserted into qa_campaigns with status: 'QUEUED'.
+    // Zero fire-and-forget in-memory promises remain.
     return NextResponse.json(
       {
         accepted: true,
-        status: 'PROCESSING',
+        status: ingestionResult.status || 'QUEUED',
         provider: ingestionResult.event?.provider,
         providerEventId: ingestionResult.event?.providerEventId,
-        eventId: ingestionResult.event?.eventId,
+        eventId: ingestionResult.eventId || ingestionResult.event?.eventId,
+        campaignId: ingestionResult.campaignId,
+        idempotencyKey: ingestionResult.idempotencyKey,
         deploymentStatus: ingestionResult.event?.deploymentStatus,
       },
-      { status: 202 }
+      { status: ingestionResult.statusCode || 202 }
     );
   } catch (err: any) {
     console.error('[Deployment Webhook Route Fatal Error]:', err);

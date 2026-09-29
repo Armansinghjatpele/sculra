@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getProject } from '@/services/db';
 import { getSupabaseServiceClient } from '@/lib/supabase';
-import { buildDeploymentSnapshot } from '../../../../../../../../worker/src/release/deployment-snapshot';
 import { buildDeploymentEvent } from '../../../../../../../../worker/src/release/deployment-event';
 import { CDOrchestrator } from '../../../../../../../../worker/src/release/cd-orchestrator';
 
@@ -45,6 +44,15 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Deployment record not found.' }, { status: 404 });
     }
 
+    const mappedStatus =
+      deployment.status === 'SUCCEEDED' || deployment.status === 'READY'
+        ? 'READY'
+        : deployment.status === 'RUNNING'
+        ? 'DEPLOYING'
+        : deployment.status === 'FAILED'
+        ? 'FAILED'
+        : 'RECEIVED';
+
     const event = buildDeploymentEvent({
       projectId: id,
       orgId: project.organizationId || null,
@@ -53,7 +61,7 @@ export async function POST(
       environmentId: deployment.environment_id,
       environmentName: deployment.project_environments?.name || null,
       environmentType: deployment.project_environments?.type || null,
-      deploymentStatus: deployment.status === 'SUCCEEDED' ? 'READY' : deployment.status === 'RUNNING' ? 'DEPLOYING' : 'READY',
+      deploymentStatus: mappedStatus,
       commitSha: deployment.commit_sha,
       branch: deployment.branch,
       deploymentUrl: deployment.deployment_url,

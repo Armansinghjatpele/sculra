@@ -67,19 +67,14 @@ export async function POST(
     let overallScore: number | undefined = undefined;
 
     if (latestRun) {
-      categoryScores = latestRun.category_scores || {
-        functional: latestRun.status === 'passed' ? 100 : 70,
-        security: 85,
-        accessibility: 80,
-        performance: 85,
-        visual: 90,
-      };
-      overallScore = latestRun.overall_score || 85;
+      categoryScores = latestRun.category_scores || undefined;
+      overallScore = typeof latestRun.overall_score === 'number' ? latestRun.overall_score : undefined;
     }
 
-    // 4. Deterministic Gate Evaluation
+    // 4. Deterministic Gate Evaluation (Factual evidence only)
     const decision = ReleaseGatePolicyEvaluator.evaluate({
       projectId: id,
+      organizationId: project.organizationId || null,
       policy: policyRow || undefined,
       releaseId: releaseId || null,
       deploymentId: deploymentId || null,

@@ -31,6 +31,7 @@ import { IEvidenceStorage } from '../storage';
 import { WorkerLogger } from '../logger';
 import { CIGateEngine } from '../cicd/gate';
 import { CIFeedbackGenerator } from '../cicd/feedback';
+import { CDOrchestrator } from '../release/cd-orchestrator';
 
 export interface JobRunnerOptions {
   cancellationToken?: CancellationToken;
@@ -266,6 +267,33 @@ export class JobRunner {
               this.logger.warn('ci_gate_evaluation_failed', {
                 jobId: job.jobId,
                 error: gateErr.message,
+              });
+            }
+          }
+
+          // Continuous Deployment Gate evaluation for deployment-triggered campaigns
+          if (
+            this.supabase &&
+            (job.config?.trigger === 'AUTOMATIC_DEPLOYMENT' ||
+              job.config?.deploymentEventId ||
+              job.config?.deploymentId)
+          ) {
+            try {
+              await CDOrchestrator.finalizeDeploymentGate({
+                campaignId: job.jobId,
+                projectId: job.projectId,
+                organizationId: job.organizationId || null,
+                deploymentEventId: job.config?.deploymentEventId,
+                deploymentId: job.config?.deploymentId,
+                campResult,
+                supabaseClient: this.supabase,
+                ciFeedbackOptions: job.config?.ciFeedbackOptions,
+                releaseGatePolicy: job.config?.releaseGatePolicy,
+              });
+            } catch (cdGateErr: any) {
+              this.logger.warn('cd_gate_finalization_failed', {
+                jobId: job.jobId,
+                error: cdGateErr.message,
               });
             }
           }

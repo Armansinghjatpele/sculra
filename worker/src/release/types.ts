@@ -35,6 +35,7 @@ export interface CategoryScores {
   api?: number;
   performance?: number;
   accessibility?: number;
+  authorization?: number;
 }
 
 export interface ScoreDeduction {
@@ -456,6 +457,14 @@ export interface DeploymentChangeComparison {
 // Prompt 63: Continuous Deployment QA Automation & Release Gate Enforcement Types
 // ==============================================================================
 
+export type DeploymentProcessingStatus =
+  | 'RECEIVED'
+  | 'QUEUED'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'RETRYABLE';
+
 export interface DeploymentEvent {
   eventId: string;
   projectId: string | null;
@@ -467,6 +476,9 @@ export interface DeploymentEvent {
   environmentName: string | null;
   environmentType: EnvironmentType | null;
   deploymentStatus: DeploymentLifecycleStatus;
+  processingStatus?: DeploymentProcessingStatus;
+  campaignId?: string | null;
+  gateDecisionId?: string | null;
   commitSha: string | null;
   branch: string | null;
   repository: string | null;
@@ -607,17 +619,36 @@ export interface ReleaseGateWarning {
   threshold?: number;
 }
 
+export type DimensionEvaluationStatus =
+  | 'MEASURED'
+  | 'UNMEASURED'
+  | 'FAILED'
+  | 'PASSED'
+  | 'NOT_APPLICABLE';
+
+export interface DimensionEvaluation {
+  dimension: ReleaseGateDimension;
+  status: DimensionEvaluationStatus;
+  score?: number | null;
+  threshold?: number | null;
+  violations?: string[];
+  evidenceRef?: string | null;
+}
+
 export interface ReleaseGateDecision {
   id: string;
   releaseId: string | null;
   deploymentId: string | null;
   projectId: string;
+  organizationId?: string | null;
   environmentId: string | null;
   policyId: string;
   policyVersion: string;
   decision: ReleaseGateDecisionType;
   blockers: ReleaseGateBlocker[];
   warnings: ReleaseGateWarning[];
+  dimensionEvaluations?: Record<string, DimensionEvaluation>;
+  missingEvidenceDimensions?: ReleaseGateDimension[];
   evidence: DeploymentEvidenceReference[];
   confidence: number;
   evaluatedAt: string;

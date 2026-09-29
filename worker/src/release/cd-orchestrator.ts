@@ -53,7 +53,7 @@ import { QATriggerPolicyEvaluator } from './qa-trigger-policy';
 import { SmartCampaignSelector } from './campaign-selector';
 import { computeCampaignIdempotencyKey, CampaignDeduplicationManager } from './campaign-dedupe';
 import { ReleaseImpactAnalyzer } from './release-impact';
-import { ReleaseGatePolicyEvaluator } from './gate-policy';
+import { ReleaseGatePolicyEvaluator, persistReleaseGateDecision } from './gate-policy';
 import { ReleaseGateApprovalManager } from './human-approval';
 import { CDNotificationDispatcher } from './cd-notifications';
 import { CIFeedbackService, CIFeedbackOptions } from './ci-feedback';
@@ -297,9 +297,11 @@ export class CDOrchestrator {
       taskResults,
     });
 
-    // 9. Deterministic Release Gate Evaluation
+    // 9. Deterministic Release Gate Evaluation (Factual evidence only)
+    const hasMeasuredEvidence = Boolean(taskResults && taskResults.length > 0);
     const gateDecision = ReleaseGatePolicyEvaluator.evaluate({
       projectId: snapshot.projectId,
+      organizationId: snapshot.organizationId || event.orgId,
       policy: releaseGatePolicy,
       releaseId: snapshot.releaseId,
       deploymentId: snapshot.deploymentId,
@@ -311,9 +313,17 @@ export class CDOrchestrator {
       regressions,
       releaseImpact,
       correlation,
-      hasMeasuredEvidence: taskResults.length > 0 || !campaignExecutorCallback,
+      hasMeasuredEvidence,
       confidence: snapshot.confidence,
     });
+
+    if (supabaseClient) {
+      try {
+        await persistReleaseGateDecision(supabaseClient, gateDecision);
+      } catch {
+        // Table or network error in non-migrated environment
+      }
+    }
 
     // 10. Human Approval Flow if Decision is REVIEW
     let approvalRequestId: string | null = null;
@@ -384,5 +394,151 @@ export class CDOrchestrator {
       notificationsDispatched,
       ciFeedbackReported,
     };
+  }
+
+  /**
+   * Finalizes release gate evaluation when an asynchronous durable campaign finishes in worker.
+   * Evaluates release gate against real stored evidence, updates deployment_events, and notifies team.
+   */
+  public static async finalizeDeploymentGate(input: {
+    campaignId: string;
+    projectId: string;
+    organizationId?: string | null;
+    deploymentEventId?: string | null;
+    deploymentId?: string | null;
+    campResult: {
+      success: boolean;
+      summary?: any;
+      error?: any;
+    };
+    supabaseClient: SupabaseClient;
+    notificationEngine?: NotificationEngine | null;
+    ciFeedbackOptions?: CIFeedbackOptions | null;
+    releaseGatePolicy?: Partial<ReleaseGatePolicy>;
+  }): Promise<ReleaseGateDecision> {
+    const {
+      campaignId,
+      projectId,
+      organizationId,
+      deploymentEventId,
+      deploymentId,
+      campResult,
+      supabaseClient,
+      notificationEngine,
+      ciFeedbackOptions,
+      releaseGatePolicy,
+    } = input;
+
+    let depEvent: any = null;
+    if (deploymentEventId) {
+      const { data } = await supabaseClient
+        .from('deployment_events')
+        .select('*')
+        .eq('id', deploymentEventId)
+        .maybeSingle();
+      depEvent = data;
+    } else if (deploymentId) {
+      const { data } = await supabaseClient
+        .from('deployment_events')
+        .select('*')
+        .eq('deployment_id', deploymentId)
+        .order('received_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      depEvent = data;
+    }
+
+    const summary = campResult.summary;
+    const taskCount = summary?.totalTasksExecuted ?? summary?.taskResults?.length ?? 0;
+    const hasMeasuredEvidence = campResult.success && taskCount > 0;
+
+    const categoryScores = summary?.releaseAssessment?.categoryScores || summary?.categoryScores || undefined;
+    const overallScore = summary?.releaseAssessment?.overallScore ?? summary?.overallScore ?? undefined;
+    const regressions = summary?.regressions || [];
+    const openIssues = summary?.bugObservations || summary?.issues || [];
+
+    const effectiveDepId = deploymentId || depEvent?.deployment_id || null;
+    const effectiveOrgId = organizationId || depEvent?.organization_id || null;
+    const effectiveEnvId = depEvent?.environment_id || null;
+    const effectiveEnvName = depEvent?.environment_name || null;
+
+    const gateDecision = ReleaseGatePolicyEvaluator.evaluate({
+      projectId,
+      organizationId: effectiveOrgId,
+      policy: releaseGatePolicy,
+      deploymentId: effectiveDepId,
+      environmentId: effectiveEnvId,
+      environmentName: effectiveEnvName,
+      categoryScores,
+      overallReadinessScore: overallScore,
+      openIssues,
+      regressions,
+      hasMeasuredEvidence,
+      source: 'WORKER_CAMPAIGN_FINALIZATION',
+    });
+
+    // Persist gate decision
+    await persistReleaseGateDecision(supabaseClient, gateDecision);
+
+    // Update deployment_events processing_status and gate_decision_id
+    if (depEvent) {
+      await supabaseClient
+        .from('deployment_events')
+        .update({
+          processing_status: campResult.success ? 'COMPLETED' : 'FAILED',
+          gate_decision_id: gateDecision.id,
+          campaign_id: campaignId,
+        })
+        .eq('id', depEvent.id);
+    }
+
+    // Human Approval if REVIEW
+    if (gateDecision.decision === 'REVIEW') {
+      ReleaseGateApprovalManager.createApprovalRequest({
+        decision: gateDecision,
+        organizationId: effectiveOrgId,
+        requesterId: 'system:cd_worker',
+        reason: 'Release gate requires human review and sign-off.',
+      });
+
+      if (notificationEngine) {
+        await CDNotificationDispatcher.dispatch(notificationEngine, {
+          eventType: 'APPROVAL_REQUESTED',
+          projectId,
+          organizationId: effectiveOrgId,
+          deploymentId: effectiveDepId,
+          environmentName: effectiveEnvName,
+          decision: gateDecision,
+          summaryMessage: `Release gate for deployment ${effectiveDepId || campaignId} requires human approval.`,
+        });
+      }
+    }
+
+    // Truthful notification dispatch
+    const gateNotificationMap: Record<string, any> = {
+      PASS: 'RELEASE_GATE_PASSED',
+      BLOCK: 'RELEASE_GATE_BLOCKED',
+      REVIEW: 'RELEASE_GATE_REVIEW',
+      INSUFFICIENT_EVIDENCE: 'RELEASE_GATE_INSUFFICIENT_EVIDENCE',
+    };
+    const gateNotificationEvent = gateNotificationMap[gateDecision.decision];
+    if (gateNotificationEvent && notificationEngine) {
+      await CDNotificationDispatcher.dispatch(notificationEngine, {
+        eventType: gateNotificationEvent,
+        projectId,
+        organizationId: effectiveOrgId,
+        deploymentId: effectiveDepId,
+        environmentName: effectiveEnvName,
+        decision: gateDecision,
+        blockers: gateDecision.blockers.map((b) => b.reason),
+      });
+    }
+
+    // CI feedback report
+    if (ciFeedbackOptions) {
+      await CIFeedbackService.reportGateDecision(gateDecision, ciFeedbackOptions);
+    }
+
+    return gateDecision;
   }
 }
