@@ -17,6 +17,7 @@ export interface PrioritizationContext {
   stabilitySignals?: import('../history/types').StabilitySignal[];
   recentRegressions?: import('../history/types').RegressionEvent[];
   changeIntelligence?: import('../change-intelligence/types').ChangeAnalysisResult;
+  productionSignals?: import('../signals/types').ProductionSignal[];
 }
 
 export class DeterministicPrioritizer {
@@ -334,6 +335,36 @@ export class DeterministicPrioritizer {
             reasons.push(boost.reason);
             break; // Apply highest matching boost
           }
+        }
+      }
+
+      // 9. Production Signals Feedback Loop (Prompt 64)
+      if (context.productionSignals && context.productionSignals.length > 0) {
+        const candidateIdentifier = (candidate.identifier || candidate.selector || candidate.id || '').toLowerCase();
+        const candidateUrl = (candidate.pageUrl || (candidate as any).url || '').toLowerCase();
+        const workflowId = (candidate.workflowId || '').toLowerCase();
+
+        const matchingSignals = context.productionSignals.filter((sig) => {
+          const sigRoute = (sig.affectedRoute || '').toLowerCase();
+          const sigUrl = (sig.affectedUrl || '').toLowerCase();
+          const sigService = (sig.affectedService || '').toLowerCase();
+          const sigTitle = (sig.title || '').toLowerCase();
+
+          return (
+            (sigRoute && (candidateIdentifier.includes(sigRoute) || candidateUrl.includes(sigRoute) || (workflowId && workflowId.includes(sigRoute)))) ||
+            (sigUrl && (candidateUrl.includes(sigUrl) || sigUrl.includes(candidateUrl))) ||
+            (workflowId && sigTitle.includes(workflowId)) ||
+            (sigService && candidateIdentifier.includes(sigService))
+          );
+        });
+
+        if (matchingSignals.length > 0) {
+          const count = matchingSignals.length;
+          const boostPts = Math.min(25, 15 + count * 3);
+          baseScore += boostPts;
+          reasons.push(
+            `Prioritized because this workflow had ${count} production signal(s) in the previous 14 days.`
+          );
         }
       }
 

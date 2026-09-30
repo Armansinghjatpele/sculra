@@ -38,9 +38,11 @@ const BASE_VIEWER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.NOTIFICATIONS_READ,
   PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE,
   PERMISSIONS.INCIDENTS_READ,
+  // Production Signals & Post-Release Intelligence read
+  PERMISSIONS.SIGNALS_READ,
 ] as const;
 
-// Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation + Credential usage
+// Developer: Viewer permissions + Issue triage + Fix planning & requests + Deployments/Releases creation + Credential usage + Signal Ingestion
 const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   ...BASE_VIEWER_PERMISSIONS,
   PERMISSIONS.ISSUES_UPDATE,
@@ -51,6 +53,7 @@ const DEVELOPER_PERMISSIONS: readonly SculraPermission[] = [
   PERMISSIONS.RELEASES_CREATE,
   PERMISSIONS.CREDENTIALS_USE,
   PERMISSIONS.INCIDENTS_MANAGE,
+  PERMISSIONS.SIGNALS_INGEST,
 ] as const;
 
 // QA Lead: Developer permissions + Campaign, Test, Source, Strategy & QA Engine executions + Environments/Release Checks

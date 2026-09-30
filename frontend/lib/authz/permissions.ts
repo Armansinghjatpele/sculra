@@ -147,6 +147,10 @@ export const PERMISSIONS = {
   // Incidents
   INCIDENTS_READ: 'incidents.read',
   INCIDENTS_MANAGE: 'incidents.manage',
+
+  // Production Signals & Post-Release Intelligence
+  SIGNALS_READ: 'signals.read',
+  SIGNALS_INGEST: 'signals.ingest',
 };
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -435,6 +439,15 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { key: PERMISSIONS.RELEASE_GATES_APPROVE, label: 'Approve Gate Review', description: 'Approve releases in REVIEW state' },
       { key: PERMISSIONS.RELEASE_GATES_OVERRIDE, label: 'Override Gate Decision', description: 'Administratively override blocked gates', isSensitive: true },
       { key: PERMISSIONS.RELEASE_GATES_CONFIGURE, label: 'Configure Gate Policies', description: 'Create and update release gate rules', isSensitive: true },
+    ],
+  },
+  {
+    id: 'signals',
+    name: 'Production Signals & Feedback',
+    description: 'Ingest production signals, review incident correlation, and inspect post-release feedback',
+    permissions: [
+      { key: PERMISSIONS.SIGNALS_READ, label: 'View Production Signals', description: 'View ingested signals and correlation breakdown' },
+      { key: PERMISSIONS.SIGNALS_INGEST, label: 'Ingest Production Signals', description: 'Manually submit or authorize webhook ingestion of production signals', isSensitive: true },
     ],
   },
 ];

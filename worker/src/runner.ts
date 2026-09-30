@@ -984,9 +984,14 @@ export class BrowserRunner {
     } finally {
       // Clean up browser resources
       try {
-        if (page) await page.close().catch(() => {});
-        if (context) await context.close().catch(() => {});
-        if (browser) await browser.close().catch(() => {});
+        await Promise.race([
+          (async () => {
+            if (page) await page.close().catch(() => {});
+            if (context) await context.close().catch(() => {});
+            if (browser) await browser.close().catch(() => {});
+          })(),
+          new Promise((resolve) => setTimeout(resolve, 5000)),
+        ]);
         this.logger.log('browser_closed');
       } catch (cleanupErr: any) {
         this.logger.warn('cleanup_warning', { message: cleanupErr.message });

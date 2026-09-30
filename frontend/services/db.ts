@@ -4642,8 +4642,61 @@ export async function getReleaseImpact(
   };
 }
 
+// ==============================================================================
+// Prompt 64: Post-Release QA Intelligence & Incident Correlation
+// ==============================================================================
 
+export async function getPostReleaseIntelligence(
+  clerkToken: string,
+  projectId: string,
+  deploymentId: string
+): Promise<any> {
+  const supabase = getSupabaseUserClient(clerkToken);
 
+  try {
+    const [correlationsRes, directSignalsRes, verificationsRes] = await Promise.all([
+      supabase
+        .from('signal_correlations')
+        .select('*, production_signals(*)')
+        .eq('deployment_id', deploymentId)
+        .order('evaluated_at', { ascending: false }),
+      supabase
+        .from('production_signals')
+        .select('*')
+        .eq('deployment_id', deploymentId)
+        .order('last_observed_at', { ascending: false }),
+      supabase
+        .from('post_release_verifications')
+        .select('*')
+        .eq('deployment_id', deploymentId)
+        .order('created_at', { ascending: false }),
+    ]);
 
+    const allSignalsMap = new Map<string, any>();
+    for (const s of directSignalsRes.data || []) allSignalsMap.set(s.id, s);
+    for (const c of correlationsRes.data || []) {
+      if (c.production_signals) allSignalsMap.set(c.production_signals.id, c.production_signals);
+    }
+    const signals = Array.from(allSignalsMap.values());
+    const verifications = verificationsRes.data || [];
+    const correlations = correlationsRes.data || [];
 
-
+    return {
+      deploymentId,
+      projectId,
+      signals,
+      correlations,
+      verifications,
+      signalsCount: signals.length,
+    };
+  } catch {
+    return {
+      deploymentId,
+      projectId,
+      signals: [],
+      correlations: [],
+      verifications: [],
+      signalsCount: 0,
+    };
+  }
+}

@@ -70,6 +70,12 @@ export class NotificationTemplater {
       case 'DEPLOYMENT_COMPLETED':
       case 'DEPLOYMENT_FAILED':
       case 'DEPLOYMENT_HEALTH_DEGRADED':
+      case 'POST_RELEASE_REGRESSION_CONFIRMED':
+      case 'POST_RELEASE_SIGNAL_CRITICAL':
+      case 'POST_RELEASE_POSSIBLE_REGRESSION':
+      case 'POST_RELEASE_RECOVERY_OBSERVED':
+      case 'POST_RELEASE_VERIFICATION_FAILED':
+      case 'POST_RELEASE_INSUFFICIENT_EVIDENCE':
         return `/projects/${event.projectId}/deployments`;
 
       case 'ENVIRONMENT_UNREACHABLE':
@@ -100,6 +106,14 @@ export class NotificationTemplater {
         return 'Inspect CI/CD Gate Trace';
       case 'SECURITY_BLOCKER_CREATED':
         return 'Inspect Security Blocker';
+      case 'POST_RELEASE_REGRESSION_CONFIRMED':
+      case 'POST_RELEASE_POSSIBLE_REGRESSION':
+      case 'POST_RELEASE_SIGNAL_CRITICAL':
+        return 'Inspect Post-Release Correlation';
+      case 'POST_RELEASE_VERIFICATION_FAILED':
+        return 'Inspect Verification Campaign';
+      case 'POST_RELEASE_RECOVERY_OBSERVED':
+        return 'Inspect Recovery Evidence';
       default:
         return 'View Details';
     }

@@ -140,6 +140,10 @@ export const PERMISSIONS = {
   // Incidents
   INCIDENTS_READ: 'incidents.read',
   INCIDENTS_MANAGE: 'incidents.manage',
+
+  // Production Signals & Post-Release Intelligence
+  SIGNALS_READ: 'signals.read',
+  SIGNALS_INGEST: 'signals.ingest',
 } as const;
 
 export type SculraPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

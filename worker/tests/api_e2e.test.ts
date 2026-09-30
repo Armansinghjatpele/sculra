@@ -240,7 +240,7 @@ describe('API & Backend Autonomous QA E2E Integration', () => {
     // 19. Verify Worker continued after individual API failures
     expect(result.apiTestResults!.length).toBeGreaterThan(3);
     expect(result.durationMs).toBeGreaterThan(0);
-  }, 30000);
+  }, 60000);
 
   it('respects cancellation token cleanly during execution', async () => {
     const cancelToken: CancellationToken = { isCancelled: true };

@@ -22,6 +22,7 @@ import {
   getProjectEnvironments,
   getDeploymentIntelligence,
   getDeploymentImpact,
+  getPostReleaseIntelligence,
 } from '@/services/db';
 
 interface DeploymentsPageProps {
@@ -45,6 +46,7 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
   const [inspectingDepId, setInspectingDepId] = React.useState<string | null>(null);
   const [intelData, setIntelData] = React.useState<DeploymentIntelligenceData | null>(null);
   const [impactData, setImpactData] = React.useState<ReleaseImpact | null>(null);
+  const [postReleaseData, setPostReleaseData] = React.useState<any | null>(null);
   const [intelLoading, setIntelLoading] = React.useState(false);
 
   // Record deployment modal
@@ -62,6 +64,7 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
       setInspectingDepId(null);
       setIntelData(null);
       setImpactData(null);
+      setPostReleaseData(null);
       return;
     }
 
@@ -70,12 +73,14 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
       setIntelLoading(true);
       const token = await getToken();
       if (token) {
-        const [intel, impact] = await Promise.all([
+        const [intel, impact, postRelease] = await Promise.all([
           getDeploymentIntelligence(token, projectId, depId),
           getDeploymentImpact(token, projectId, depId),
+          getPostReleaseIntelligence(token, projectId, depId),
         ]);
         setIntelData(intel);
         setImpactData(impact);
+        setPostReleaseData(postRelease);
       }
     } catch (err) {
       console.error('[Inspect Deployment Error]:', err);
@@ -393,6 +398,87 @@ export default function DeploymentsPage({ params }: DeploymentsPageProps) {
                               <span className="text-zinc-500 text-4xs">NO EVIDENCE → NO INFERENCE</span>
                             </div>
                           )}
+
+                          {/* Post-Release Intelligence & Incident Correlation */}
+                          <div className="p-4 rounded-xl bg-zinc-950/80 border border-white/10 space-y-3">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-3xs uppercase tracking-wider text-muted-foreground font-bold">
+                                  Post-Release Intelligence & Incident Correlation
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-4xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                  PRODUCTION FEEDBACK
+                                </span>
+                              </div>
+                              <span className="text-4xs text-zinc-500 font-mono">
+                                Invariant: NO EVIDENCE → NO INFERENCE
+                              </span>
+                            </div>
+
+                            {/* Health State Banner */}
+                            <div className="p-3 rounded-lg bg-zinc-900/90 border border-white/5 flex items-center justify-between text-3xs">
+                              <div>
+                                <span className="text-zinc-500">Post-Release State: </span>
+                                {postReleaseData && postReleaseData.signals && postReleaseData.signals.length > 0 ? (
+                                  <span className="font-bold text-danger">INCIDENT / REGRESSION DETECTED</span>
+                                ) : postReleaseData && postReleaseData.verifications && postReleaseData.verifications.length > 0 ? (
+                                  <span className="font-bold text-success">VERIFICATION ACTIVE / HEALTHY</span>
+                                ) : (
+                                  <span className="font-semibold text-zinc-400">INSUFFICIENT EVIDENCE (UNMEASURED)</span>
+                                )}
+                              </div>
+                              <div className="text-4xs text-zinc-400">
+                                {postReleaseData && postReleaseData.signals ? `${postReleaseData.signals.length} signal(s)` : '0 signals'}
+                              </div>
+                            </div>
+
+                            {/* Production Signals List if any */}
+                            {postReleaseData && postReleaseData.signals && postReleaseData.signals.length > 0 ? (
+                              <div className="space-y-2">
+                                <div className="text-4xs uppercase tracking-wider text-zinc-400 font-semibold">
+                                  Observed Production Signals:
+                                </div>
+                                <div className="space-y-1.5">
+                                  {postReleaseData.signals.map((sig: any) => (
+                                    <div key={sig.id} className="p-2.5 rounded bg-zinc-900 border border-zinc-800 text-3xs space-y-1">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`px-1 py-0.2 rounded text-4xs font-bold ${
+                                            sig.severity === 'CRITICAL' ? 'bg-danger/20 text-danger' : 'bg-warning/20 text-warning'
+                                          }`}>
+                                            {sig.severity}
+                                          </span>
+                                          <span className="font-bold text-foreground">{sig.title}</span>
+                                        </div>
+                                        <span className="text-4xs text-zinc-500 font-mono">
+                                          {sig.provider} | {sig.signal_type || sig.signalType}
+                                        </span>
+                                      </div>
+                                      <div className="text-4xs text-zinc-400 flex items-center gap-3">
+                                        <span>Route: <strong className="text-zinc-300">{sig.affected_route || sig.affectedRoute || 'Unspecified'}</strong></span>
+                                        <span>Observed: <strong className="text-zinc-300">{new Date(sig.last_observed_at || sig.lastObservedAt || Date.now()).toLocaleTimeString()}</strong></span>
+                                        <span>Occurrences: <strong className="text-zinc-300">{sig.occurrence_count || 1}</strong></span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-2.5 rounded bg-zinc-900/60 border border-zinc-800 text-3xs text-muted-foreground">
+                                <span className="text-zinc-400">
+                                  ℹ️ <strong>Truthful Monitoring Notice:</strong> No production signals or monitoring alerts recorded for this deployment window. Missing monitoring data is strictly classified as <strong className="text-zinc-300">INSUFFICIENT EVIDENCE</strong> and never fabricated as Healthy.
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Correlation Guardrail Notice */}
+                            <div className="p-2.5 rounded bg-zinc-950 border border-zinc-800 text-4xs text-zinc-400 flex items-center justify-between">
+                              <span>
+                                🛡️ <strong>Correlation Rule:</strong> Temporal proximity is strictly classified as <code className="text-zinc-300">TEMPORAL_ONLY</code> unless commit SHA or deployment identifiers establish factual causality.
+                              </span>
+                              <span className="text-zinc-500 font-mono">NO EVIDENCE → NO INFERENCE</span>
+                            </div>
+                          </div>
                         </div>
                       ) : null}
                     </div>
