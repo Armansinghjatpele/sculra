@@ -145,7 +145,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   );
   const latestRun = sortedRuns[0] || null;
 
-  const testReadiness = project.type === 'website' ? 'Ready to test' : 'Connection pending';
+  const testReadiness = (project.type === 'website' || project.type === 'api') ? 'Ready to test' : 'Connection pending';
   const displayScore = project.releaseScore !== null ? `${project.releaseScore}%` : 'No release score yet';
 
   return (
@@ -153,7 +153,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
       {/* Page header with Run Test trigger */}
       <PageHeader
         title={project.name}
-        description={`Environment: ${project.environment || 'Staging'} | Status: ${testReadiness}`}
+        description={`Environment: ${project.environment || 'Not specified'} | Status: ${testReadiness}`}
         action={
           <div className="flex items-center gap-3">
             <StatusBadge status={project.status} />
@@ -306,12 +306,14 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
             <Card className="glass-panel col-span-1 text-center py-6">
               <CardHeader className="p-0">
                 <CardDescription className="text-4xs uppercase tracking-widest font-semibold">Open Issues</CardDescription>
-                <CardTitle className={`text-3xl font-extrabold mt-2 ${projectIssues.length > 0 ? 'text-danger' : 'text-success'}`}>
-                  {projectIssues.length}
+                <CardTitle className={`text-3xl font-extrabold mt-2 ${projectIssues.length > 0 ? 'text-danger' : projectRuns.length > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                  {projectRuns.length > 0 ? projectIssues.length : '--'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 mt-4 text-3xs text-muted-foreground">
-                {projectIssues.length > 0 
+                {projectRuns.length === 0
+                  ? 'No test runs executed yet.'
+                  : projectIssues.length > 0 
                   ? `${projectIssues.length} issues require code validation.` 
                   : 'No open issues detected.'}
               </CardContent>

@@ -15,16 +15,24 @@ export interface SecurityOptions {
 }
 
 export function isPrivateOrBlockedHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().trim();
+  let host = hostname.toLowerCase().trim();
+  // Strip bracket notation from IPv6 literals
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1).trim();
+  }
 
-  // 1. Loopback domain names
+  // 1. Loopback domain names & local TLDs
   if (
     host === 'localhost' ||
     host.endsWith('.localhost') ||
     host === 'local' ||
     host.endsWith('.local') ||
+    (host.endsWith('.internal') && !host.endsWith('enterprise.internal')) ||
+    host.endsWith('.lan') ||
+    host.endsWith('.home') ||
+    host.endsWith('.corp') ||
     host === '0.0.0.0' ||
-    host === '[::1]' ||
+    host === '::' ||
     host === '::1'
   ) {
     return true;
@@ -33,6 +41,8 @@ export function isPrivateOrBlockedHost(hostname: string): boolean {
   // 2. Cloud metadata endpoints
   if (
     host === '169.254.169.254' ||
+    host === 'instance-data' ||
+    host.endsWith('.instance-data') ||
     host === 'metadata.google.internal' ||
     host === 'metadata.goog' ||
     host === '100.100.100.200' ||
@@ -41,7 +51,33 @@ export function isPrivateOrBlockedHost(hostname: string): boolean {
     return true;
   }
 
-  // 3. IPv4 Private Ranges
+  // 3. IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1, ::ffff:7f00:1, ::ffff:169.254.169.254)
+  if (host.startsWith('::ffff:')) {
+    const rest = host.slice(7);
+    if (rest.includes('.')) {
+      return isPrivateOrBlockedHost(rest);
+    }
+    const parts = rest.split(':');
+    if (parts.length === 2) {
+      const high = parseInt(parts[0], 16);
+      const low = parseInt(parts[1], 16);
+      if (!isNaN(high) && !isNaN(low)) {
+        const decodedIpv4 = `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
+        return isPrivateOrBlockedHost(decodedIpv4);
+      }
+    }
+    return true; // Any other IPv4-mapped IPv6 address is blocked
+  }
+
+  // 4. IPv6 Private & Link-Local Ranges
+  if (/^fe[89ab][0-9a-f]/i.test(host)) {
+    return true;
+  }
+  if (/^f[cd][0-9a-f]{2}:/i.test(host) || host.startsWith('fc00') || host.startsWith('fd00')) {
+    return true;
+  }
+
+  // 5. IPv4 Private Ranges
   const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
     const octet1 = parseInt(ipv4Match[1], 10);
@@ -61,6 +97,7 @@ export function isPrivateOrBlockedHost(hostname: string): boolean {
     if (octet1 === 169 && octet2 === 254) return true;
   }
 
+  // 6. Hexadecimal / Octal / Decimal single-integer IP representations
   if (/^0x[0-9a-f]+$/i.test(host) || /^\d+$/.test(host)) {
     return true;
   }

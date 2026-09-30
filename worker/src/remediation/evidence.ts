@@ -67,7 +67,9 @@ export class RemediationEvidenceFormatter {
         project_id: analysis.projectId,
         type: 'change_context',
         title: `Change Context: ${analysis.changeContextSummary.relationship}`,
-        message: `Correlated with commit ${analysis.changeContextSummary.commitSha || 'HEAD'}`,
+        message: analysis.changeContextSummary.commitSha
+          ? `Correlated with commit ${analysis.changeContextSummary.commitSha}`
+          : 'Correlated with working code changes',
         metadata: {
           changeSummary: analysis.changeContextSummary,
         },

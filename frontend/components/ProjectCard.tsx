@@ -27,7 +27,7 @@ export function ProjectCard({ project }: { project: Project }) {
       <CardContent className="py-2.5 space-y-2 font-mono text-[10px]">
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Environment</span>
-          <span className="font-semibold text-foreground">{project.environment || 'Staging'}</span>
+          <span className="font-semibold text-foreground">{project.environment || '--'}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Stability Score</span>
@@ -37,9 +37,13 @@ export function ProjectCard({ project }: { project: Project }) {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Open Issues</span>
-          <span className={`font-semibold ${project.openIssuesCount > 0 ? 'text-danger' : 'text-success'}`}>
-            {project.openIssuesCount} detected
-          </span>
+          {project.lastTestRun ? (
+            <span className={`font-semibold ${project.openIssuesCount > 0 ? 'text-danger' : 'text-success'}`}>
+              {project.openIssuesCount} detected
+            </span>
+          ) : (
+            <span className="font-semibold text-muted-foreground">--</span>
+          )}
         </div>
       </CardContent>
 

@@ -62,7 +62,7 @@ export interface ProjectSource {
   type: SourceType;
   locator: string;
   branch?: string;
-  environment: string;
+  environment?: string;
   status: SourceStatus;
   configuration: Record<string, any>;
   capabilities: SourceCapability[];

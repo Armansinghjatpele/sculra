@@ -6,7 +6,7 @@ export interface Project {
   id: string;
   name: string;
   type: 'website' | 'github' | 'zip' | 'desktop' | 'api';
-  status: 'passed' | 'running' | 'failed' | 'needs_review';
+  status: 'passed' | 'running' | 'failed' | 'needs_review' | 'idle' | 'queued';
   lastTestRun?: string;
   releaseScore: number | null;
   openIssuesCount: number;
@@ -1770,7 +1770,7 @@ export interface ProjectSource {
   type: SourceType;
   locator: string;
   branch?: string;
-  environment: string;
+  environment?: string;
   status: SourceStatus;
   configuration: Record<string, any>;
   capabilities: SourceCapability[];

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Verify project is testable
-    if (project.type !== 'website') {
+    if (project.type !== 'website' && project.type !== 'api') {
       return NextResponse.json(
         {
           success: false,

@@ -67,8 +67,15 @@ export class JobFinalizer {
       error_message: result.error || null,
     };
 
-    if (isCampaign && result.summary) {
-      updatePayload.summary = result.summary;
+    if (isCampaign) {
+      if (result.summary) {
+        updatePayload.summary = result.summary;
+      }
+    } else {
+      updatePayload.overall_score = typeof result.releaseScore === 'number' ? result.releaseScore : null;
+      if (result.releaseVerdict) {
+        updatePayload.release_verdict = result.releaseVerdict;
+      }
     }
 
     // Ownership guard: only update if this worker is still the registered owner

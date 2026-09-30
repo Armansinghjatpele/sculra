@@ -61,8 +61,8 @@ export class SourceOrchestrator {
     // 1. Normalize input
     const sourceType = String(input.type).toUpperCase() as SourceType;
     const locator = input.locator ? input.locator.trim() : '';
-    const environment = input.environment || 'PRODUCTION';
-    const branch = input.branch || (sourceType === 'GITHUB' ? 'main' : undefined);
+    const environment = input.environment || undefined;
+    const branch = input.branch || undefined;
     const config = input.configuration || {};
 
     if (!locator) {

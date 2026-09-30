@@ -154,8 +154,8 @@ export async function getProjects(clerkToken: string, clerkOrgId?: string | null
 
   // Format database projects to client models
   return (data || []).map((p: any) => {
-    let env = 'Staging';
-    let branch = 'main';
+    let env: string | undefined = undefined;
+    let branch: string | undefined = undefined;
     if (p.description) {
       try {
         const meta = JSON.parse(p.description);
@@ -171,11 +171,12 @@ export async function getProjects(clerkToken: string, clerkOrgId?: string | null
     );
     const lastRun = sortedRuns[0] || null;
 
-    let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' = 'running';
+    let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' | 'idle' | 'queued' = 'idle';
     if (lastRun) {
       if (lastRun.status === 'passed') uiStatus = 'passed';
       else if (lastRun.status === 'failed' || lastRun.status === 'cancelled') uiStatus = 'failed';
       else if (lastRun.status === 'needs_review') uiStatus = 'needs_review';
+      else if (lastRun.status === 'queued') uiStatus = 'queued';
       else uiStatus = 'running';
     }
 
@@ -214,8 +215,8 @@ export async function getProject(clerkToken: string, id: string) {
 
   if (!data) return null;
 
-  let env = 'Staging';
-  let branch = 'main';
+  let env: string | undefined = undefined;
+  let branch: string | undefined = undefined;
   if (data.description) {
     try {
       const meta = JSON.parse(data.description);
@@ -231,11 +232,12 @@ export async function getProject(clerkToken: string, id: string) {
   );
   const lastRun = sortedRuns[0] || null;
 
-  let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' = 'running';
+  let uiStatus: 'passed' | 'running' | 'failed' | 'needs_review' | 'idle' | 'queued' = 'idle';
   if (lastRun) {
     if (lastRun.status === 'passed') uiStatus = 'passed';
     else if (lastRun.status === 'failed' || lastRun.status === 'cancelled') uiStatus = 'failed';
     else if (lastRun.status === 'needs_review') uiStatus = 'needs_review';
+    else if (lastRun.status === 'queued') uiStatus = 'queued';
     else uiStatus = 'running';
   }
 
@@ -259,7 +261,7 @@ export async function getProject(clerkToken: string, id: string) {
     ciEnabled: !!data.ci_enabled,
     githubRepoOwner: data.github_repo_owner || undefined,
     githubRepoName: data.github_repo_name || undefined,
-    ciDefaultBranch: data.ci_default_branch || 'main',
+    ciDefaultBranch: data.ci_default_branch || undefined,
     ciTriggerOnPush: data.ci_trigger_on_push !== false,
     ciTriggerOnPr: data.ci_trigger_on_pr !== false,
     ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
@@ -300,6 +302,29 @@ export async function createProject(clerkToken: string, projectData: {
       .maybeSingle();
     if (org) {
       internalOrgId = org.id;
+    } else {
+      // Auto-provision organization if Clerk org is active but webhook sync is pending
+      const { data: newOrg } = await supabase
+        .from('organizations')
+        .insert({
+          clerk_organization_id: projectData.clerkOrgId,
+          name: `Org ${projectData.clerkOrgId.slice(-6)}`,
+          slug: `org-${projectData.clerkOrgId.slice(-6).toLowerCase()}`,
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (newOrg) {
+        internalOrgId = newOrg.id;
+        await supabase
+          .from('organization_members')
+          .insert({
+            organization_id: newOrg.id,
+            user_id: projectData.clerkUserId,
+            role: 'owner',
+            status: 'active',
+          });
+      }
     }
   }
 
@@ -315,8 +340,8 @@ export async function createProject(clerkToken: string, projectData: {
       created_by: projectData.clerkUserId,
       status: 'active',
       description: JSON.stringify({
-        environment: projectData.environment || 'Staging',
-        branch: projectData.branch || 'main',
+        ...(projectData.environment ? { environment: projectData.environment } : {}),
+        ...(projectData.branch ? { branch: projectData.branch } : {}),
       }),
     })
     .select('*')
@@ -330,14 +355,14 @@ export async function createProject(clerkToken: string, projectData: {
     id: data.id,
     name: data.name,
     type: data.source_type,
-    status: 'running',
+    status: 'idle',
     lastTestRun: undefined,
     releaseScore: null,
     openIssuesCount: 0,
     url: data.source_url,
     repoUrl: data.repository_url,
-    environment: projectData.environment || 'Staging',
-    branch: projectData.branch || 'main',
+    environment: projectData.environment,
+    branch: projectData.branch,
   } as Project;
 }
 
@@ -927,6 +952,18 @@ export async function createTestRun(
     }
   }
 
+  // Fallback to project's own organization_id if not resolved from runData
+  if (!internalOrgId && runData.projectId) {
+    const { data: proj } = await supabase
+      .from('projects')
+      .select('organization_id')
+      .eq('id', runData.projectId)
+      .maybeSingle();
+    if (proj?.organization_id) {
+      internalOrgId = proj.organization_id;
+    }
+  }
+
   const { data, error } = await supabase
     .from('test_runs')
     .insert({
@@ -1373,8 +1410,8 @@ function mapCampaignRow(data: any): Campaign {
       },
       adaptiveInsertion: config.adaptiveInsertion !== false,
       minReleaseScoreThreshold: config.minReleaseScoreThreshold ?? 80,
-      environment: config.environment || 'staging',
-      branch: config.branch || 'main',
+      environment: config.environment || undefined,
+      branch: config.branch || undefined,
       commitHash: config.commitSha,
     },
     budgetStatus: budget,
@@ -1398,6 +1435,20 @@ export async function createCampaign(
   config: Record<string, any>
 ): Promise<Campaign> {
   const supabase = getSupabaseUserClient(clerkToken);
+
+  // Duplicate Campaign Protection: return existing active run if present
+  let activeQuery = supabase
+    .from('qa_campaigns')
+    .select('*')
+    .eq('project_id', projectId);
+
+  const { data: activeExisting } = typeof (activeQuery as any).in === 'function'
+    ? await (activeQuery as any).in('status', ['QUEUED', 'PENDING', 'RUNNING']).order('created_at', { ascending: false }).limit(1).maybeSingle().catch(() => ({ data: null }))
+    : { data: null };
+
+  if (activeExisting) {
+    return mapCampaignRow(activeExisting);
+  }
 
   const projectQuery = supabase
     .from('projects')
@@ -1431,8 +1482,8 @@ export async function createCampaign(
     targetUrl,
     domains,
     targetRole: config.targetRole,
-    environment: config.environment || 'staging',
-    branch: config.branch || 'main',
+    environment: config.environment || undefined,
+    branch: config.branch || undefined,
     commitSha: config.commitSha || config.commitHash,
     adaptiveInsertion: config.adaptiveInsertion !== false,
     minReleaseScoreThreshold: config.minReleaseScoreThreshold ?? 80,
@@ -1697,7 +1748,7 @@ export async function getProjectCIConfig(
       ciEnabled: false,
       githubRepoOwner: '',
       githubRepoName: '',
-      ciDefaultBranch: 'main',
+      ciDefaultBranch: '',
       ciTriggerOnPush: true,
       ciTriggerOnPr: true,
       ciGatePolicy: 'BLOCK_ON_CRITICAL_ISSUE' as const,
@@ -1712,7 +1763,7 @@ export async function getProjectCIConfig(
     ciEnabled: !!data.ci_enabled,
     githubRepoOwner: data.github_repo_owner || '',
     githubRepoName: data.github_repo_name || '',
-    ciDefaultBranch: data.ci_default_branch || 'main',
+    ciDefaultBranch: data.ci_default_branch || '',
     ciTriggerOnPush: data.ci_trigger_on_push !== false,
     ciTriggerOnPr: data.ci_trigger_on_pr !== false,
     ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
@@ -2839,7 +2890,7 @@ function mapProjectSourceRecord(row: any): ProjectSource {
     type: row.source_type,
     locator: row.locator,
     branch: row.branch || undefined,
-    environment: row.environment || 'PRODUCTION',
+    environment: row.environment || undefined,
     status: row.status,
     configuration: row.configuration || {},
     capabilities: row.capabilities || [],
@@ -2856,7 +2907,7 @@ function mapSourceSnapshotRecord(row: any): SourceSnapshot {
     organizationId: row.organization_id || undefined,
     fingerprint: row.fingerprint,
     revision: row.revision || undefined,
-    environment: row.environment || 'PRODUCTION',
+    environment: row.environment || undefined,
     capabilities: row.capabilities || [],
     metadata: row.metadata || {},
     status: row.status,
@@ -2925,7 +2976,7 @@ export async function createProjectSource(
     source_type: source.type,
     locator: source.locator,
     branch: source.branch,
-    environment: source.environment || 'PRODUCTION',
+    environment: source.environment || undefined,
     status: source.status || 'CONFIGURED',
     configuration: source.configuration || {},
     capabilities: source.capabilities || [],
@@ -2945,7 +2996,7 @@ export async function createProjectSource(
       type: source.type || 'WEBSITE',
       locator: source.locator || 'https://demo.sculra.com',
       branch: source.branch,
-      environment: source.environment || 'PRODUCTION',
+      environment: source.environment || undefined,
       status: source.status || 'AVAILABLE',
       configuration: source.configuration || {},
       capabilities: source.capabilities || [],

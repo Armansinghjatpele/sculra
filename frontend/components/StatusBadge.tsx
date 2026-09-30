@@ -12,13 +12,22 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
 
   if (normalized === 'passed' || normalized === 'active') {
     variant = 'success';
-  } else if (normalized === 'running') {
+  } else if (normalized === 'running' || normalized === 'validating') {
     variant = 'accent';
-  } else if (normalized === 'failed') {
+  } else if (normalized === 'failed' || normalized === 'blocked') {
     variant = 'danger';
-  } else if (normalized === 'needs_review' || normalized === 'queued') {
+  } else if (
+    normalized === 'needs_review' ||
+    normalized === 'queued' ||
+    normalized === 'insufficient_evidence'
+  ) {
     variant = 'warning';
-  } else if (normalized === 'cancelled' || normalized === 'archived' || normalized === 'paused') {
+  } else if (
+    normalized === 'cancelled' ||
+    normalized === 'archived' ||
+    normalized === 'paused' ||
+    normalized === 'idle'
+  ) {
     variant = 'default';
   }
 
@@ -28,7 +37,7 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
       className={cn('text-5xs uppercase tracking-wider py-0.5 px-2 select-none font-mono', className)}
       {...props}
     >
-      {normalized.replace('_', ' ')}
+      {normalized.replace(/_/g, ' ')}
     </Badge>
   );
 }

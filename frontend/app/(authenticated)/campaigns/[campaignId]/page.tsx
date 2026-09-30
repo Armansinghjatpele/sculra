@@ -99,7 +99,7 @@ export default function CampaignControlPlanePage({ params }: CampaignDetailPageP
 
   React.useEffect(() => {
     loadCampaignData();
-    // Poll every 3 seconds if RUNNING or PENDING
+    // Poll every 3 seconds if RUNNING or PENDING (includes DB QUEUED status)
     const interval = setInterval(() => {
       if (campaign?.status === 'RUNNING' || campaign?.status === 'PENDING') {
         loadCampaignData();

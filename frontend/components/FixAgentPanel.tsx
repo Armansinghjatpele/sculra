@@ -620,7 +620,7 @@ export function FixAgentPanel({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Base Branch (Read-Only):</span>
-                  <span className="text-zinc-300">{remediation.baseBranch || 'main'}</span>
+                  <span className="text-zinc-300">{remediation.baseBranch || '--'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Commit SHA:</span>

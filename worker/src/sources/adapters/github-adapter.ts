@@ -169,12 +169,12 @@ export class GitHubSourceAdapter implements ISourceAdapter {
       }
 
       const repoData = await repoRes.json();
-      const defaultBranch = repoData.default_branch || 'main';
+      const defaultBranch = repoData.default_branch || '';
       const effectiveBranch = branch || defaultBranch;
 
       // 2. Fetch latest commit SHA
       let latestSha = config?.commitSha || '';
-      if (!latestSha) {
+      if (!latestSha && effectiveBranch) {
         try {
           const commitRes = await fetch(
             `https://api.github.com/repos/${owner}/${repo}/commits/${effectiveBranch}`,
@@ -188,15 +188,14 @@ export class GitHubSourceAdapter implements ISourceAdapter {
             latestSha = commitData.sha || '';
           }
         } catch {
-          // Graceful fallback to default HEAD if branch query times out
-          latestSha = 'HEAD';
+          latestSha = '';
         }
       }
 
       const fingerprint = SourceFingerprinter.compute('GITHUB', {
         repository: `${owner}/${repo}`,
-        branch: effectiveBranch,
-        commitSha: latestSha || 'HEAD',
+        branch: effectiveBranch || undefined,
+        commitSha: latestSha || undefined,
       });
 
       return {
@@ -206,37 +205,38 @@ export class GitHubSourceAdapter implements ISourceAdapter {
         capabilities: SourceCapabilityResolver.resolve('GITHUB', 'HEALTHY', 'AVAILABLE'),
         health: 'HEALTHY',
         fingerprint: fingerprint.hash,
-        revision: latestSha,
+        revision: latestSha || undefined,
         latencyMs: Date.now() - startTime,
         errors: [],
         warnings: [],
         metadata: SourceRedactor.sanitize({
           owner,
           repo,
-          branch: effectiveBranch,
-          defaultBranch,
+          branch: effectiveBranch || undefined,
+          defaultBranch: defaultBranch || undefined,
           visibility: repoData.visibility || (repoData.private ? 'private' : 'public'),
           fullName: repoData.full_name,
         }),
       };
     } catch (err: any) {
-      // Offline fallback: if network error in dev/test, return valid with offline warning
-      const fallbackFingerprint = SourceFingerprinter.compute('GITHUB', {
-        repository: `${owner}/${repo}`,
-        branch,
-        commitSha: 'HEAD',
-      });
-
       return {
-        valid: true,
-        status: 'AVAILABLE',
+        valid: false,
+        status: 'UNAVAILABLE',
         sourceType: 'GITHUB',
-        capabilities: SourceCapabilityResolver.resolve('GITHUB', 'HEALTHY', 'AVAILABLE'),
-        health: 'HEALTHY',
-        fingerprint: fallbackFingerprint.hash,
-        revision: config?.commitSha || 'HEAD',
-        errors: [],
-        warnings: [`GitHub API probe skipped or unavailable (${err.message}). Defaulted to offline metadata.`],
+        capabilities: SourceCapabilityResolver.resolve('GITHUB', 'UNREACHABLE', 'UNAVAILABLE'),
+        health: 'UNREACHABLE',
+        fingerprint: '',
+        revision: undefined,
+        latencyMs: Date.now() - startTime,
+        errors: [
+          {
+            code: 'GITHUB_API_UNAVAILABLE',
+            message: `GitHub repository probe failed or unreachable: ${err.message}`,
+            fatal: true,
+            field: 'locator',
+          },
+        ],
+        warnings: [],
         metadata: { owner, repo, branch },
       };
     }
@@ -247,8 +247,8 @@ export class GitHubSourceAdapter implements ISourceAdapter {
     const repoSlug = parsed ? `${parsed.owner}/${parsed.repo}` : source.locator;
     return SourceFingerprinter.compute('GITHUB', {
       repository: repoSlug,
-      branch: source.branch || 'main',
-      commitSha: source.configuration?.commitSha || 'HEAD',
+      branch: source.branch || undefined,
+      commitSha: source.configuration?.commitSha || undefined,
     });
   }
 

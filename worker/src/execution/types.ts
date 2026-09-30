@@ -66,6 +66,8 @@ export interface ExecutionResult {
   metrics?: ExecutionMetrics;
   summary?: any;
   data?: any;
+  releaseScore?: number | null;
+  releaseVerdict?: string;
 }
 
 export interface WorkerIdentityInfo {

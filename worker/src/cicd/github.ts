@@ -24,7 +24,7 @@ export function parseGitHubWebhook(
     fullName,
     cloneUrl: repoRaw.clone_url || repoRaw.git_url,
     htmlUrl: repoRaw.html_url,
-    defaultBranch: repoRaw.default_branch || 'main',
+    defaultBranch: repoRaw.default_branch || undefined,
   };
 
   const sender = payload.sender?.login || 'unknown';

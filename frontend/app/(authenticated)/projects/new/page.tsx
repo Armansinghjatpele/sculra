@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stack, Flex, Grid } from '@/components/LayoutPrimitives';
+import { Stack, Flex } from '@/components/LayoutPrimitives';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/Card';
+import { StatusBadge } from '@/components/StatusBadge';
 import { createProject, createProjectSource } from '@/services/db';
 
 type SourceType = 'website' | 'github' | 'zip' | 'desktop' | 'api';
@@ -30,13 +30,25 @@ export default function NewProjectPage() {
   // Form states
   const [projectName, setProjectName] = React.useState('');
   const [targetUrl, setTargetUrl] = React.useState('');
-  const [branchName, setBranchName] = React.useState('main');
+  const [branchName, setBranchName] = React.useState('');
   const [environment, setEnvironment] = React.useState('Staging');
 
-  // Validation states
+  // Validation & probe states
   const [errorMsg, setErrorMsg] = React.useState('');
+  const [checkingConnection, setCheckingConnection] = React.useState(false);
+  const [connectionResult, setConnectionResult] = React.useState<{
+    status: 'CONNECTED' | 'NOT_CONNECTED' | 'INVALID' | 'UNAUTHORIZED' | 'NOT_SUPPORTED' | 'INSUFFICIENT_EVIDENCE';
+    statusCode?: number;
+    responseTime?: number;
+    error?: string;
+    branch?: string;
+    commitSha?: string;
+  } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [createdProjectId, setCreatedProjectId] = React.useState('');
+  const [isStartingQa, setIsStartingQa] = React.useState(false);
+  const [runError, setRunError] = React.useState<string | null>(null);
 
   const sourcesList = [
     {
@@ -111,7 +123,7 @@ export default function NewProjectPage() {
   // Validation functions
   const validateWebsiteUrl = (url: string) => {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      return 'Website target URL must start with http:// or https://';
+      return 'Target URL must start with http:// or https://';
     }
     try {
       new URL(url);
@@ -129,7 +141,7 @@ export default function NewProjectPage() {
     return '';
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     setErrorMsg('');
     if (currentStep === 1) {
       const sourceConfig = sourcesList.find((s) => s.id === selectedSource);
@@ -141,6 +153,10 @@ export default function NewProjectPage() {
     } else if (currentStep === 2) {
       if (!projectName.trim()) {
         setErrorMsg('Project Name is required.');
+        return;
+      }
+      if (!targetUrl.trim()) {
+        setErrorMsg('Target URL or repository is required.');
         return;
       }
       if (selectedSource === 'website' || selectedSource === 'api') {
@@ -156,7 +172,31 @@ export default function NewProjectPage() {
           return;
         }
       }
-      setCurrentStep(3);
+
+      // Real server-side validation & SSRF probe
+      setCheckingConnection(true);
+      try {
+        const res = await fetch('/api/projects/check-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: selectedSource,
+            url: targetUrl,
+            branch: branchName.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status === 'INVALID') {
+          setErrorMsg(data.error || 'Connection validation failed. Target is invalid or unreachable.');
+          return;
+        }
+        setConnectionResult(data);
+        setCurrentStep(3);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Connection check encountered a network error.');
+      } finally {
+        setCheckingConnection(false);
+      }
     }
   };
 
@@ -174,19 +214,20 @@ export default function NewProjectPage() {
           repoUrl: selectedSource === 'github' ? targetUrl : undefined,
           clerkOrgId: orgId,
           clerkUserId: userId,
-          environment,
-          branch: selectedSource === 'github' ? branchName : undefined,
+          environment: environment || undefined,
+          branch: selectedSource === 'github' && branchName.trim() ? branchName.trim() : undefined,
         });
 
         // Also register project source
         try {
           await createProjectSource(token, {
             projectId: project.id,
+            organizationId: project.organization_id || undefined,
             type: selectedSource.toUpperCase() as any,
             locator: targetUrl,
-            branch: selectedSource === 'github' ? branchName : undefined,
-            environment,
-            status: 'AVAILABLE',
+            branch: selectedSource === 'github' && branchName.trim() ? branchName.trim() : undefined,
+            environment: environment || undefined,
+            status: connectionResult?.status === 'CONNECTED' ? 'AVAILABLE' : 'CONFIGURED',
           });
         } catch (srcErr) {
           console.warn('[ProjectSource creation notice]:', srcErr);
@@ -195,11 +236,34 @@ export default function NewProjectPage() {
         setCreatedProjectId(project.id);
         setCurrentStep(4);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('[Project creation failed]', e);
-      setErrorMsg('Failed saving project target. Verify database configuration.');
+      setErrorMsg(e.message || 'Failed saving project target. Verify database configuration.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRunFirstQa = async () => {
+    if (!createdProjectId) return;
+    try {
+      setIsStartingQa(true);
+      setRunError(null);
+      const res = await fetch('/api/test-runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: createdProjectId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.testRunId) {
+        router.push(`/test-runs/${data.testRunId}`);
+      } else {
+        setRunError(data.error || 'Failed initiating first QA run.');
+      }
+    } catch (e: any) {
+      setRunError(e.message || 'Network error triggering test run.');
+    } finally {
+      setIsStartingQa(false);
     }
   };
 
@@ -350,6 +414,32 @@ export default function NewProjectPage() {
                     </>
                   )}
 
+                  {selectedSource === 'api' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">API Base URL</label>
+                        <Input
+                          placeholder="https://api.example.com/v1"
+                          value={targetUrl}
+                          onChange={(e) => setTargetUrl(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Environment Scope</label>
+                        <Select
+                          value={environment}
+                          onChange={(e) => setEnvironment(e.target.value)}
+                          options={[
+                            { label: 'Staging Environment (Default)', value: 'Staging' },
+                            { label: 'Development Sandbox', value: 'Development' },
+                            { label: 'Production Instance', value: 'Production' },
+                          ]}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   {selectedSource === 'github' && (
                     <>
                       <div className="space-y-1.5">
@@ -362,9 +452,9 @@ export default function NewProjectPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground">Target Branch</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Target Branch (Optional)</label>
                         <Input
-                          placeholder="main"
+                          placeholder="e.g. main"
                           value={branchName}
                           onChange={(e) => setBranchName(e.target.value)}
                         />
@@ -372,9 +462,9 @@ export default function NewProjectPage() {
 
                       {/* Github integration block */}
                       <div className="p-4 border border-white/5 bg-zinc-900/30 rounded-lg space-y-1 font-mono text-[10px]">
-                        <span className="text-foreground font-bold block">🐙 GitHub OAuth Integration</span>
+                        <span className="text-foreground font-bold block">🐙 GitHub Repository Validation</span>
                         <p className="text-muted-foreground leading-normal">
-                          GitHub connection will be completed in the next integration step. Project configs can be saved if URL is verified.
+                          Sculra will verify repository existence and branch accessibility before registering the project.
                         </p>
                       </div>
                     </>
@@ -382,11 +472,21 @@ export default function NewProjectPage() {
                 </Stack>
 
                 <Flex justify="between" className="pt-4">
-                  <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)}>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentStep(1)} disabled={checkingConnection}>
                     Back
                   </Button>
-                  <Button variant="accent" size="sm" onClick={handleNextStep}>
-                    Continue
+                  <Button variant="accent" size="sm" onClick={handleNextStep} disabled={checkingConnection}>
+                    {checkingConnection ? (
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Validating Target...
+                      </span>
+                    ) : (
+                      'Validate & Continue'
+                    )}
                   </Button>
                 </Flex>
               </Stack>
@@ -404,7 +504,7 @@ export default function NewProjectPage() {
               <Stack spacing={20}>
                 <div>
                   <h2 className="text-base font-extrabold text-foreground">Confirm connection details</h2>
-                  <p className="text-xs text-muted-foreground mt-1">Verify entered project parameters before registering targets.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Verify entered project parameters and connection probe results.</p>
                 </div>
 
                 <div className="bg-zinc-900/20 border border-white/5 p-6 rounded-xl space-y-4 font-mono text-xs">
@@ -420,16 +520,32 @@ export default function NewProjectPage() {
                     <span className="text-muted-foreground">Target URL</span>
                     <span className="text-foreground truncate max-w-[300px]">{targetUrl}</span>
                   </div>
-                  {selectedSource === 'github' && (
+                  {selectedSource === 'github' && branchName && (
                     <div className="flex justify-between border-b border-white/5 pb-2">
                       <span className="text-muted-foreground">Branch</span>
                       <span className="text-foreground font-semibold">{branchName}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
+                  <div className="flex justify-between border-b border-white/5 pb-2">
                     <span className="text-muted-foreground">Environment</span>
-                    <span className="text-foreground font-semibold">{environment}</span>
+                    <span className="text-foreground font-semibold">{environment || 'Not specified'}</span>
                   </div>
+                  {connectionResult && (
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-muted-foreground">Connection Probe</span>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={connectionResult.status} />
+                        {connectionResult.responseTime !== undefined && (
+                          <span className="text-muted-foreground text-[10px]">({connectionResult.responseTime} ms)</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {connectionResult?.error && (
+                    <div className="p-2.5 rounded bg-warning/10 border border-warning/20 text-warning text-[11px]">
+                      Notice: {connectionResult.error}
+                    </div>
+                  )}
                 </div>
 
                 <Flex justify="between" className="pt-4">
@@ -451,40 +567,85 @@ export default function NewProjectPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.15 }}
             >
-              <div className="border border-white/5 bg-zinc-950/20 rounded-2xl p-12 text-center space-y-6 shadow-glass max-w-lg mx-auto">
+              <div className="border border-white/5 bg-zinc-950/20 rounded-2xl p-10 text-center space-y-6 shadow-glass max-w-lg mx-auto">
                 <div className="h-10 w-10 rounded-full bg-success/10 border border-success/20 flex items-center justify-center mx-auto text-success text-lg font-bold">
                   ✓
                 </div>
                 <div className="space-y-2">
                   <h2 className="text-lg font-extrabold text-foreground">Project Target Connected</h2>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    &quot;{projectName}&quot; has been registered successfully. QA agents can now target this endpoint for automated regression runs.
+                    &quot;{projectName}&quot; has been registered. You can immediately launch your first autonomous QA run or manage project details.
                   </p>
                 </div>
 
                 <div className="bg-zinc-900/40 border border-white/5 p-4 rounded-xl text-left font-mono text-[10px] space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Status</span>
-                    <span className="text-success font-bold uppercase tracking-wider">Connected</span>
+                    <StatusBadge status={connectionResult?.status || 'CONNECTED'} />
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Environment</span>
-                    <span className="text-foreground font-semibold">{environment}</span>
+                    <span className="text-foreground font-semibold">{environment || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Test Readiness</span>
                     <span className="text-accent font-semibold">
-                      {selectedSource === 'website' ? 'Ready to test' : 'Connection pending'}
+                      {(selectedSource === 'website' || selectedSource === 'api') ? 'Ready to test' : 'Connection pending'}
                     </span>
                   </div>
+                  {connectionResult?.responseTime !== undefined && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Latency</span>
+                      <span className="text-foreground font-semibold">{connectionResult.responseTime} ms</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-4 flex items-center justify-center gap-3">
-                  <Button variant="outline" onClick={() => router.push(`/projects/${createdProjectId}/sources`)}>
-                    Manage Sources
+                {runError && (
+                  <div className="p-3 border border-danger/25 bg-danger/5 rounded-xl font-mono text-xs text-danger text-left">
+                    ⚠️ {runError}
+                  </div>
+                )}
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  {(selectedSource === 'website' || selectedSource === 'api') && (
+                    <Button
+                      variant="accent"
+                      onClick={handleRunFirstQa}
+                      disabled={isStartingQa}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                    >
+                      {isStartingQa ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>Enqueuing QA Run...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                          <span>Run First QA</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => router.push(`/projects/${createdProjectId}`)}
+                  >
+                    Open Project
                   </Button>
-                  <Button variant="accent" onClick={() => router.push(`/projects/${createdProjectId}`)}>
-                    Open Project details
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => router.push(`/projects/${createdProjectId}/sources`)}
+                  >
+                    Sources
                   </Button>
                 </div>
               </div>
