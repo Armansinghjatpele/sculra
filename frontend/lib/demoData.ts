@@ -28,6 +28,8 @@ export interface Project {
   organization_id?: string | null;
   createdBy?: string;
   created_by?: string;
+  clerkOrgId?: string;
+  clerk_organization_id?: string;
 }
 
 import type { SculraRole, MembershipStatus } from './authz/roles';

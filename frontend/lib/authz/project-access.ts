@@ -44,6 +44,12 @@ export async function requireProjectAccess(
     if (project.organization_id === null && project.created_by !== authContext.userId) {
       throw new ResourceAccessDeniedError('Project', projectId);
     }
+    if (project.clerk_organization_id && authContext.orgId && project.clerk_organization_id !== authContext.orgId) {
+      throw new ResourceAccessDeniedError('Project', projectId);
+    }
+    if (project.clerkOrgId && authContext.orgId && project.clerkOrgId !== authContext.orgId) {
+      throw new ResourceAccessDeniedError('Project', projectId);
+    }
   }
 
   return { project, authContext };

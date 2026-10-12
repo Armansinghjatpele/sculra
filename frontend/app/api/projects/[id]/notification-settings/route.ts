@@ -4,7 +4,7 @@
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, PERMISSIONS } from '@/lib/authz';
+import { requireProjectPermission, PERMISSIONS } from '@/lib/authz';
 import {
   getNotificationPreferences,
   updateNotificationPreference,
@@ -16,21 +16,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authContext = await getAuthContext(req);
     const { id } = await params;
-    const projectId = id;
-
-    if (!authContext.permissions.has(PERMISSIONS.NOTIFICATIONS_READ)) {
-      return NextResponse.json(
-        { success: false, error: 'Permission denied.' },
-        { status: 403 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.NOTIFICATIONS_READ);
 
     const preferences = await getNotificationPreferences(
       authContext.clerkToken,
       authContext.orgId || undefined,
-      projectId
+      id
     );
 
     const deliveryHealth = await getDeliveryHealth(
@@ -46,7 +38,7 @@ export async function GET(
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching project settings.' },
+      { success: false, error: err.message || 'Failed fetching project settings.', code: err.code },
       { status: statusCode }
     );
   }
@@ -57,21 +49,29 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authContext = await getAuthContext(req);
     const { id } = await params;
-    const projectId = id;
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE);
 
-    if (!authContext.permissions.has(PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE)) {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { success: false, error: 'Permission denied to update settings.' },
-        { status: 403 }
+        { success: false, error: 'Invalid JSON request body.' },
+        { status: 400 }
       );
     }
 
-    const body = await req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { success: false, error: 'Request body must be an object.' },
+        { status: 400 }
+      );
+    }
+
     const updated = await updateNotificationPreference(authContext.clerkToken, {
       ...body,
-      project_id: projectId,
+      project_id: id,
       clerk_user_id: authContext.userId,
       organization_id: authContext.orgId,
     });
@@ -83,7 +83,7 @@ export async function PATCH(
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed updating project settings.' },
+      { success: false, error: err.message || 'Failed updating project settings.', code: err.code },
       { status: statusCode }
     );
   }

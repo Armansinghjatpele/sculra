@@ -4,7 +4,7 @@
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, PERMISSIONS } from '@/lib/authz';
+import { requireProjectPermission, PERMISSIONS } from '@/lib/authz';
 import {
   getProjectIncidentById,
   updateIncidentStatus,
@@ -15,20 +15,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string; incidentId: string }> }
 ) {
   try {
-    const authContext = await getAuthContext(req);
     const { id, incidentId } = await params;
-    const projectId = id;
-
-    if (!authContext.permissions.has(PERMISSIONS.INCIDENTS_READ)) {
-      return NextResponse.json(
-        { success: false, error: 'Permission denied to view incident.' },
-        { status: 403 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.INCIDENTS_READ);
 
     const incident = await getProjectIncidentById(
       authContext.clerkToken,
-      projectId,
+      id,
       incidentId
     );
 
@@ -46,7 +38,7 @@ export async function GET(
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching incident.' },
+      { success: false, error: err.message || 'Failed fetching incident.', code: err.code },
       { status: statusCode }
     );
   }
@@ -57,23 +49,40 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; incidentId: string }> }
 ) {
   try {
-    const authContext = await getAuthContext(req);
-    const { incidentId } = await params;
+    const { id, incidentId } = await params;
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.INCIDENTS_MANAGE);
 
-    if (!authContext.permissions.has(PERMISSIONS.INCIDENTS_MANAGE)) {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { success: false, error: 'Permission denied to update incident.' },
-        { status: 403 }
+        { success: false, error: 'Invalid JSON request body.' },
+        { status: 400 }
       );
     }
 
-    const body = await req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { success: false, error: 'Request body must be an object.' },
+        { status: 400 }
+      );
+    }
+
     const { status, notes } = body;
 
     if (!status || !['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'SUPPRESSED'].includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Invalid incident status transition.' },
         { status: 400 }
+      );
+    }
+
+    const existing = await getProjectIncidentById(authContext.clerkToken, id, incidentId);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Incident not found.' },
+        { status: 404 }
       );
     }
 
@@ -99,7 +108,7 @@ export async function PATCH(
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed updating incident.' },
+      { success: false, error: err.message || 'Failed updating incident.', code: err.code },
       { status: statusCode }
     );
   }

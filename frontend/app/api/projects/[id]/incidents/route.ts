@@ -4,7 +4,7 @@
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, PERMISSIONS } from '@/lib/authz';
+import { requireProjectPermission, PERMISSIONS } from '@/lib/authz';
 import { getProjectIncidents } from '@/services/db';
 
 export async function GET(
@@ -12,22 +12,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authContext = await getAuthContext(req);
     const { id } = await params;
-    const projectId = id;
-
-    if (!authContext.permissions.has(PERMISSIONS.INCIDENTS_READ)) {
-      return NextResponse.json(
-        { success: false, error: 'Permission denied to view incidents.' },
-        { status: 403 }
-      );
-    }
+    const { authContext } = await requireProjectPermission(req, id, PERMISSIONS.INCIDENTS_READ);
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || undefined;
     const severity = searchParams.get('severity') || undefined;
 
-    const incidents = await getProjectIncidents(authContext.clerkToken, projectId, {
+    const incidents = await getProjectIncidents(authContext.clerkToken, id, {
       status,
       severity,
     });
@@ -40,7 +32,7 @@ export async function GET(
   } catch (err: any) {
     const statusCode = err.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed fetching incidents.' },
+      { success: false, error: err.message || 'Failed fetching incidents.', code: err.code },
       { status: statusCode }
     );
   }
