@@ -41,4 +41,55 @@ describe('Sculra Dashboard Demo Data Structures', () => {
       expect(mockRuns[0].issuesCount).toBe(0);
     });
   });
+
+  describe('Client Component SSR Rendering', () => {
+    it('renders IssueList in SSR without useState throwing', async () => {
+      const React = await import('react');
+      const { renderToString } = await import('react-dom/server');
+      const { IssueList } = await import('../components/IssueList');
+      const html = renderToString(
+        React.createElement(IssueList, {
+          issues: [
+            {
+              id: 'iss-1',
+              title: 'Navigation Layout Shift',
+              severity: 'critical',
+              description: 'Element moves unexpectedly during render',
+              type: 'visual',
+              status: 'open',
+              path: '/dashboard',
+              occurrenceCount: 2,
+            },
+          ],
+        })
+      );
+      expect(html).toContain('Navigation Layout Shift');
+      expect(html).toContain('critical');
+    });
+
+    it('renders Avatar, Search, Accordion without crashing in SSR', async () => {
+      const React = await import('react');
+      const { renderToString } = await import('react-dom/server');
+      const { Avatar } = await import('../components/Avatar');
+      const { Search } = await import('../components/Search');
+      const { Accordion, AccordionItem } = await import('../components/Accordion');
+
+      const avatarHtml = renderToString(React.createElement(Avatar, { fallbackText: 'QA' }));
+      expect(avatarHtml).toContain('QA');
+
+      const searchHtml = renderToString(React.createElement(Search, { placeholder: 'Search...' }));
+      expect(searchHtml).toContain('Search...');
+
+      const accordionHtml = renderToString(
+        React.createElement(
+          Accordion,
+          null,
+          React.createElement(AccordionItem, { title: 'Test Accordion' }, 'Content')
+        )
+      );
+      expect(accordionHtml).toContain('Test Accordion');
+    });
+  });
 });
+
+
