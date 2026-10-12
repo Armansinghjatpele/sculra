@@ -52,12 +52,13 @@ describe('Sculra Dashboard Demo Data Structures', () => {
           issues: [
             {
               id: 'iss-1',
-              title: 'Navigation Layout Shift',
+              projectId: 'proj-1',
+              projectName: 'Sculra Landing Page',
               severity: 'critical',
+              title: 'Navigation Layout Shift',
               description: 'Element moves unexpectedly during render',
-              type: 'visual',
+              detectedAt: '2026-10-12T00:00:00.000Z',
               status: 'open',
-              path: '/dashboard',
               occurrenceCount: 2,
             },
           ],
@@ -81,11 +82,12 @@ describe('Sculra Dashboard Demo Data Structures', () => {
       expect(searchHtml).toContain('Search...');
 
       const accordionHtml = renderToString(
-        React.createElement(
-          Accordion,
-          null,
-          React.createElement(AccordionItem, { title: 'Test Accordion' }, 'Content')
-        )
+        React.createElement(Accordion, {
+          children: React.createElement(AccordionItem, {
+            title: 'Test Accordion',
+            children: 'Content',
+          }),
+        })
       );
       expect(accordionHtml).toContain('Test Accordion');
     });
