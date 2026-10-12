@@ -1,6 +1,6 @@
 // ==============================================================================
 // Sculra Project Notification Settings API (GET / PATCH)
-// (frontend/app/api/projects/[projectId]/notification-settings/route.ts)
+// (frontend/app/api/projects/[id]/notification-settings/route.ts)
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,11 +13,12 @@ import {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await getAuthContext(req);
-    const { projectId } = await params;
+    const { id } = await params;
+    const projectId = id;
 
     if (!authContext.permissions.has(PERMISSIONS.NOTIFICATIONS_READ)) {
       return NextResponse.json(
@@ -53,11 +54,12 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await getAuthContext(req);
-    const { projectId } = await params;
+    const { id } = await params;
+    const projectId = id;
 
     if (!authContext.permissions.has(PERMISSIONS.NOTIFICATIONS_PREFERENCES_UPDATE)) {
       return NextResponse.json(

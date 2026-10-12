@@ -1,6 +1,6 @@
 // ==============================================================================
 // Sculra Project Incidents API (GET)
-// (frontend/app/api/projects/[projectId]/incidents/route.ts)
+// (frontend/app/api/projects/[id]/incidents/route.ts)
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,11 +9,12 @@ import { getProjectIncidents } from '@/services/db';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await getAuthContext(req);
-    const { projectId } = await params;
+    const { id } = await params;
+    const projectId = id;
 
     if (!authContext.permissions.has(PERMISSIONS.INCIDENTS_READ)) {
       return NextResponse.json(

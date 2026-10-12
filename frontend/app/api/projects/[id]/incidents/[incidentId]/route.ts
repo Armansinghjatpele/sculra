@@ -1,6 +1,6 @@
 // ==============================================================================
 // Sculra Project Incident Item API (GET / PATCH)
-// (frontend/app/api/projects/[projectId]/incidents/[incidentId]/route.ts)
+// (frontend/app/api/projects/[id]/incidents/[incidentId]/route.ts)
 // ==============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,11 +12,12 @@ import {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ projectId: string; incidentId: string }> }
+  { params }: { params: Promise<{ id: string; incidentId: string }> }
 ) {
   try {
     const authContext = await getAuthContext(req);
-    const { projectId, incidentId } = await params;
+    const { id, incidentId } = await params;
+    const projectId = id;
 
     if (!authContext.permissions.has(PERMISSIONS.INCIDENTS_READ)) {
       return NextResponse.json(
@@ -53,7 +54,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ projectId: string; incidentId: string }> }
+  { params }: { params: Promise<{ id: string; incidentId: string }> }
 ) {
   try {
     const authContext = await getAuthContext(req);
