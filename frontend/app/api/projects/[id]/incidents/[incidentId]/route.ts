@@ -91,7 +91,8 @@ export async function PATCH(
       incidentId,
       status,
       notes,
-      authContext.userId
+      authContext.userId,
+      id
     );
 
     if (!updated) {

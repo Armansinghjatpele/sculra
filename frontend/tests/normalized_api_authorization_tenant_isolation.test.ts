@@ -31,6 +31,20 @@ vi.mock('@/services/db', () => ({
   getDeliveryHealth: (...args: any[]) => mockGetDeliveryHealth(...args),
 }));
 
+// Mock Supabase user client for authz organization lookup
+const mockSupabaseClient = {
+  from: vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }),
+    }),
+  }),
+};
+vi.mock('@/lib/supabase', () => ({
+  getSupabaseUserClient: () => mockSupabaseClient,
+}));
+
 // Import normalized route handlers
 import { GET as getIncidents } from '@/app/api/projects/[id]/incidents/route';
 import {
@@ -259,6 +273,75 @@ describe('Normalized API Routes Authorization & Multi-Tenant Isolation', () => {
       expect(res.status).toBe(404);
       expect(mockUpdateNotificationPreference).not.toHaveBeenCalled();
     });
+
+    it('strictly prevents personal-workspace users from accessing another user personal project', async () => {
+      mockAuth.mockResolvedValue({
+        userId: 'user_personal_alice',
+        orgId: null,
+        orgRole: null,
+        getToken: vi.fn().mockResolvedValue('jwt_alice_token'),
+      });
+      mockGetProject.mockResolvedValue({
+        id: OTHER_PROJECT_ID,
+        organization_id: null,
+        created_by: 'user_personal_bob',
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${OTHER_PROJECT_ID}/incidents`
+      );
+      const res = await getIncidents(req, {
+        params: Promise.resolve({ id: OTHER_PROJECT_ID }),
+      });
+      expect(res.status).toBe(404);
+      expect(mockGetProjectIncidents).not.toHaveBeenCalled();
+    });
+
+    it('strictly prevents personal-workspace users from accessing organization projects', async () => {
+      mockAuth.mockResolvedValue({
+        userId: 'user_personal_alice',
+        orgId: null,
+        orgRole: null,
+        getToken: vi.fn().mockResolvedValue('jwt_alice_token'),
+      });
+      mockGetProject.mockResolvedValue({
+        id: OTHER_PROJECT_ID,
+        organization_id: TENANT_1_ORG,
+        created_by: 'user_personal_alice',
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${OTHER_PROJECT_ID}/incidents`
+      );
+      const res = await getIncidents(req, {
+        params: Promise.resolve({ id: OTHER_PROJECT_ID }),
+      });
+      expect(res.status).toBe(404);
+      expect(mockGetProjectIncidents).not.toHaveBeenCalled();
+    });
+
+    it('strictly prevents organization users from accessing personal projects of another user', async () => {
+      mockAuth.mockResolvedValue({
+        userId: 'user_org_member',
+        orgId: TENANT_1_ORG,
+        orgRole: 'org:admin',
+        getToken: vi.fn().mockResolvedValue('jwt_org_token'),
+      });
+      mockGetProject.mockResolvedValue({
+        id: OTHER_PROJECT_ID,
+        organization_id: null,
+        created_by: 'user_personal_bob',
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${OTHER_PROJECT_ID}/incidents`
+      );
+      const res = await getIncidents(req, {
+        params: Promise.resolve({ id: OTHER_PROJECT_ID }),
+      });
+      expect(res.status).toBe(404);
+      expect(mockGetProjectIncidents).not.toHaveBeenCalled();
+    });
   });
 
   // ----------------------------------------------------------------------------
@@ -310,6 +393,37 @@ describe('Normalized API Routes Authorization & Multi-Tenant Isolation', () => {
       expect(res.status).toBe(404);
       expect(mockUpdateIncidentStatus).not.toHaveBeenCalled();
     });
+
+    it('returns 400 when incident mutation fails at the project boundary', async () => {
+      mockGetProjectIncidentById.mockResolvedValue({
+        id: VALID_INCIDENT_ID,
+        project_id: VALID_PROJECT_ID,
+        status: 'OPEN',
+      });
+      mockUpdateIncidentStatus.mockResolvedValue(null);
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${VALID_PROJECT_ID}/incidents/${VALID_INCIDENT_ID}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'RESOLVED' }),
+        }
+      );
+      const res = await patchIncident(req, {
+        params: Promise.resolve({ id: VALID_PROJECT_ID, incidentId: VALID_INCIDENT_ID }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe('Incident update failed.');
+      expect(mockUpdateIncidentStatus).toHaveBeenCalledWith(
+        'jwt_admin_token',
+        VALID_INCIDENT_ID,
+        'RESOLVED',
+        undefined,
+        'user_member_1',
+        VALID_PROJECT_ID
+      );
+    });
   });
 
   // ----------------------------------------------------------------------------
@@ -360,6 +474,74 @@ describe('Normalized API Routes Authorization & Multi-Tenant Isolation', () => {
       expect(res.status).toBe(400);
       const data = await res.json();
       expect(data.error).toBe('Request body must be an object.');
+    });
+
+    it('rejects PATCH /notification-settings with unsupported arbitrary payload fields', async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${VALID_PROJECT_ID}/notification-settings`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ email_enabled: true, malicious_injected_field: 'exploit' }),
+        }
+      );
+      const res = await patchNotificationSettings(req, {
+        params: Promise.resolve({ id: VALID_PROJECT_ID }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain('Invalid field in notification settings: "malicious_injected_field"');
+      expect(mockUpdateNotificationPreference).not.toHaveBeenCalled();
+    });
+
+    it('rejects PATCH /notification-settings with empty body object', async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${VALID_PROJECT_ID}/notification-settings`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({}),
+        }
+      );
+      const res = await patchNotificationSettings(req, {
+        params: Promise.resolve({ id: VALID_PROJECT_ID }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe('No notification preference fields provided to update.');
+      expect(mockUpdateNotificationPreference).not.toHaveBeenCalled();
+    });
+
+    it('rejects PATCH /notification-settings with invalid enum values', async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${VALID_PROJECT_ID}/notification-settings`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ channel: 'INVALID_CHANNEL' }),
+        }
+      );
+      const res = await patchNotificationSettings(req, {
+        params: Promise.resolve({ id: VALID_PROJECT_ID }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain('Invalid channel');
+      expect(mockUpdateNotificationPreference).not.toHaveBeenCalled();
+    });
+
+    it('disallows client parameter tampering to override project_id or organization_id in notification settings', async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/projects/${VALID_PROJECT_ID}/notification-settings`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ project_id: OTHER_PROJECT_ID, email_enabled: true }),
+        }
+      );
+      const res = await patchNotificationSettings(req, {
+        params: Promise.resolve({ id: VALID_PROJECT_ID }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain('Invalid field in notification settings: "project_id"');
+      expect(mockUpdateNotificationPreference).not.toHaveBeenCalled();
     });
   });
 
@@ -448,6 +630,14 @@ describe('Normalized API Routes Authorization & Multi-Tenant Isolation', () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.incident.status).toBe('RESOLVED');
+      expect(mockUpdateIncidentStatus).toHaveBeenCalledWith(
+        'jwt_admin_token',
+        VALID_INCIDENT_ID,
+        'RESOLVED',
+        'Fixed bug in backend handler',
+        'user_member_1',
+        VALID_PROJECT_ID
+      );
     });
 
     it('successfully queries GET /api/projects/:id/notification-settings', async () => {
@@ -494,6 +684,15 @@ describe('Normalized API Routes Authorization & Multi-Tenant Isolation', () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.preference.email_enabled).toBe(false);
+      expect(mockUpdateNotificationPreference).toHaveBeenCalledWith(
+        'jwt_admin_token',
+        {
+          project_id: VALID_PROJECT_ID,
+          clerk_user_id: 'user_member_1',
+          organization_id: TENANT_1_ORG,
+          email_enabled: false,
+        }
+      );
     });
   });
 });

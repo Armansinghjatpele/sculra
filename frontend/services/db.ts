@@ -266,6 +266,9 @@ export async function getProject(clerkToken: string, id: string) {
     ciTriggerOnPr: data.ci_trigger_on_pr !== false,
     ciGatePolicy: data.ci_gate_policy || 'BLOCK_ON_CRITICAL_ISSUE',
     ciWebhookSecret: data.ci_webhook_secret || undefined,
+    organization_id: data.organization_id || null,
+    created_by: data.created_by,
+    clerk_organization_id: data.organizations?.clerk_organization_id || data.clerk_organization_id || undefined,
     fixAgentPolicy: {
       fixAgentEnabled: !!data.fix_agent_enabled,
       fixAgentMode: data.fix_agent_mode || 'PLAN_ONLY',
@@ -774,7 +777,8 @@ export async function updateIncidentStatus(
   incidentId: string,
   status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'SUPPRESSED',
   notes?: string,
-  actor?: string
+  actor?: string,
+  projectId?: string
 ): Promise<NotificationIncident | null> {
   const supabase = getSupabaseUserClient(clerkToken);
   const now = new Date().toISOString();
@@ -793,10 +797,16 @@ export async function updateIncidentStatus(
     if (notes) updates.resolution_notes = notes;
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('notification_incidents')
     .update(updates)
-    .eq('id', incidentId)
+    .eq('id', incidentId);
+
+  if (projectId) {
+    query = query.eq('project_id', projectId);
+  }
+
+  const { data, error } = await query
     .select('*')
     .single();
 
