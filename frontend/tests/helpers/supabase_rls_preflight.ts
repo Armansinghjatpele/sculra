@@ -24,7 +24,13 @@ export interface PreflightResult {
   config?: PreflightConfig;
 }
 
-export const KNOWN_PRODUCTION_URLS = [
+export interface VerificationResult {
+  clean: boolean;
+  lingering: string[];
+  verificationErrors: string[];
+}
+
+export const KNOWN_PRODUCTION_HOSTS = [
   'vycrimzpywqyjhtvvuax.supabase.co',
   'sculra.com',
   'api.sculra.com',
@@ -43,6 +49,27 @@ const PLACEHOLDER_TOKENS = new Set([
   'undefined',
   'null',
 ]);
+
+/**
+ * Sanitizes error messages by scrubbing potential JWTs, authorization headers,
+ * and API keys before logging or reporting.
+ */
+export function sanitizeErrorMessage(message?: string): string {
+  if (!message) return 'Unknown error';
+  let sanitized = String(message);
+  // Redact any JWT-like strings (three base64url segments separated by dots)
+  sanitized = sanitized.replace(/eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[REDACTED_JWT]');
+  // Redact Bearer tokens
+  sanitized = sanitized.replace(/Bearer\s+[^\s"',]+/gi, 'Bearer [REDACTED]');
+  // Redact apiKey / apikey query params or header values
+  sanitized = sanitized.replace(/apikey[=:]\s*[^\s"',&]+/gi, 'apikey=[REDACTED]');
+  // Redact authorization headers
+  sanitized = sanitized.replace(/authorization[=:]\s*[^\s"',&]+/gi, 'authorization=[REDACTED]');
+  // Redact Supabase secret / service role keys (long base64 or sbp_ patterns)
+  sanitized = sanitized.replace(/sbp_[a-zA-Z0-9]+/g, '[REDACTED_KEY]');
+  sanitized = sanitized.replace(/ey[a-zA-Z0-9_-]{30,}/g, '[REDACTED_KEY]');
+  return sanitized;
+}
 
 /**
  * Safely decodes a JWT payload without verifying cryptographic signature.
@@ -108,45 +135,79 @@ export function validateTenantJwt(
 }
 
 /**
- * Detects whether a database target URL points to a known production database.
+ * Normalizes a URL hostname: lowers case, strips trailing dot (FQDN root),
+ * and unwraps IPv6 brackets.
  */
-export function isProductionDatabaseUrl(url?: string): boolean {
-  if (!url) return false;
-  const lower = url.toLowerCase();
-  for (const prodHost of KNOWN_PRODUCTION_URLS) {
-    if (lower.includes(prodHost)) return true;
+export function normalizeHostname(url: URL): string {
+  let host = url.hostname.toLowerCase().replace(/\.$/, '');
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1);
   }
-  const prodEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  if (prodEnvUrl && prodEnvUrl.includes('.supabase.co')) {
-    try {
-      const parsedEnv = new URL(prodEnvUrl);
-      const parsedTarget = new URL(url);
-      if (parsedEnv.hostname === parsedTarget.hostname) {
-        return true;
-      }
-    } catch {
-      if (lower.includes(prodEnvUrl.toLowerCase())) return true;
-    }
-  }
-  return false;
+  return host;
 }
 
 /**
- * Identifies if a target URL points to a local test database.
+ * Detects whether a database target URL points to a known production database.
+ * Uses exact and subdomain matching on parsed hostnames to prevent substring false-positives.
+ */
+export function isProductionDatabaseUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const host = normalizeHostname(parsed);
+
+    // Exact match or subdomain of known production hosts
+    for (const prodHost of KNOWN_PRODUCTION_HOSTS) {
+      if (host === prodHost || host.endsWith('.' + prodHost)) {
+        return true;
+      }
+    }
+
+    // Match production project ref on supabase.co
+    if (host === 'vycrimzpywqyjhtvvuax' || host.endsWith('.vycrimzpywqyjhtvvuax') || host === 'vycrimzpywqyjhtvvuax.supabase.co') {
+      return true;
+    }
+
+    // Check against configured production environment URL if present
+    const prodEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    if (prodEnvUrl) {
+      try {
+        const parsedEnv = new URL(prodEnvUrl);
+        const envHost = normalizeHostname(parsedEnv);
+        if (host === envHost || host.endsWith('.' + envHost)) {
+          return true;
+        }
+      } catch {
+        // ignore malformed env URL
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Identifies if a target URL points to a genuine local test database.
+ * Strict hostname check: exactly 'localhost', '127.0.0.1', or IPv6 '::1'.
+ * Port 54321 alone NEVER makes a remote host local.
+ * Malformed URLs and unsupported protocols return false.
  */
 export function isLocalDatabaseUrl(url?: string): boolean {
   if (!url) return false;
   try {
     const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    return (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '::1' ||
-      parsed.port === '54321'
-    );
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const host = normalizeHostname(parsed);
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
   } catch {
-    return url.includes('localhost') || url.includes('127.0.0.1') || url.includes(':54321');
+    return false;
   }
 }
 
@@ -169,20 +230,34 @@ export function validateRlsPreflight(env: Record<string, string | undefined>): P
   // 1. Validate Target Database URL
   if (!url) {
     blockedReasons.push('TEST_SUPABASE_URL is missing. A dedicated Supabase test instance is required.');
-  } else if (isProductionDatabaseUrl(url)) {
-    isProductionAttempt = true;
-    blockedReasons.push(
-      'Target URL matches protected production database (vycrimzpywqyjhtvvuax.supabase.co). Refusing execution.'
-    );
   } else {
-    const isLocal = isLocalDatabaseUrl(url);
-    const isConfirmedRemote =
-      env.CONFIRM_ISOLATED_TEST_DB === 'true' || env.ALLOW_REMOTE_TEST_DB === 'true';
+    let parsedUrl: URL | null = null;
+    try {
+      parsedUrl = new URL(url);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        blockedReasons.push(
+          `TEST_SUPABASE_URL protocol '${parsedUrl.protocol}' is unsupported. Only HTTP and HTTPS are permitted.`
+        );
+      }
+    } catch {
+      blockedReasons.push('TEST_SUPABASE_URL is malformed. A valid HTTP or HTTPS URL is required.');
+    }
 
-    if (!isLocal && !isConfirmedRemote) {
+    if (isProductionDatabaseUrl(url)) {
+      isProductionAttempt = true;
       blockedReasons.push(
-        'Remote Supabase test target specified without explicit acknowledgement. Set CONFIRM_ISOLATED_TEST_DB=true to verify this is a dedicated non-production instance.'
+        'Target URL matches protected production database (vycrimzpywqyjhtvvuax.supabase.co). Refusing execution.'
       );
+    } else if (parsedUrl && (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:')) {
+      const isLocal = isLocalDatabaseUrl(url);
+      const isConfirmedRemote =
+        env.CONFIRM_ISOLATED_TEST_DB === 'true' || env.ALLOW_REMOTE_TEST_DB === 'true';
+
+      if (!isLocal && !isConfirmedRemote) {
+        blockedReasons.push(
+          'Remote Supabase test target specified without explicit acknowledgement. Set CONFIRM_ISOLATED_TEST_DB=true to verify this is a dedicated non-production instance.'
+        );
+      }
     }
   }
 
@@ -296,6 +371,7 @@ export function formatPreflightReport(result: PreflightResult): string {
 
 /**
  * Validates service role client connectivity before any fixture setup is attempted.
+ * Sanitizes errors before returning to ensure credentials/headers are never leaked.
  */
 export async function verifyServiceRoleConnection(
   adminClient: SupabaseClient
@@ -303,16 +379,17 @@ export async function verifyServiceRoleConnection(
   try {
     const { error } = await adminClient.from('projects').select('id').limit(1);
     if (error) {
-      return { ok: false, error: error.message };
+      return { ok: false, error: sanitizeErrorMessage(error.message) };
     }
     return { ok: true };
   } catch (err: any) {
-    return { ok: false, error: err?.message || 'Unknown network/connection failure' };
+    return { ok: false, error: sanitizeErrorMessage(err?.message || 'Unknown network/connection failure') };
   }
 }
 
 /**
- * Fixture lifecycle registry ensuring complete rollback and verified cleanup.
+ * Fixture lifecycle registry ensuring complete rollback, dependency-safe deletion,
+ * and fail-closed post-cleanup verification across all recorded categories.
  */
 export class TestFixtureRegistry {
   private organizations: string[] = [];
@@ -351,32 +428,36 @@ export class TestFixtureRegistry {
     this.preferences.push(projectId);
   }
 
+  /**
+   * Cleans up all recorded fixtures in reverse dependency order.
+   * Reports errors for any failed delete query.
+   */
   async cleanup(adminClient: SupabaseClient): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    // 1. Delete preferences
+    // 1. Delete notification preferences
     if (this.preferences.length > 0) {
       try {
         const { error } = await adminClient
           .from('notification_preferences')
           .delete()
           .in('project_id', this.preferences);
-        if (error) errors.push(`Preferences cleanup: ${error.message}`);
+        if (error) errors.push(`Notification preferences deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Preferences cleanup exception: ${e.message}`);
+        errors.push(`Notification preferences deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
-    // 2. Delete incidents
+    // 2. Delete notification incidents
     if (this.incidents.length > 0) {
       try {
         const { error } = await adminClient
           .from('notification_incidents')
           .delete()
           .in('id', this.incidents);
-        if (error) errors.push(`Incidents cleanup: ${error.message}`);
+        if (error) errors.push(`Notification incidents deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Incidents cleanup exception: ${e.message}`);
+        errors.push(`Notification incidents deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
@@ -387,9 +468,9 @@ export class TestFixtureRegistry {
           .from('issues')
           .delete()
           .in('id', this.issues);
-        if (error) errors.push(`Issues cleanup: ${error.message}`);
+        if (error) errors.push(`Issues deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Issues cleanup exception: ${e.message}`);
+        errors.push(`Issues deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
@@ -400,9 +481,9 @@ export class TestFixtureRegistry {
           .from('test_runs')
           .delete()
           .in('id', this.testRuns);
-        if (error) errors.push(`Test runs cleanup: ${error.message}`);
+        if (error) errors.push(`Test runs deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Test runs cleanup exception: ${e.message}`);
+        errors.push(`Test runs deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
@@ -413,22 +494,22 @@ export class TestFixtureRegistry {
           .from('projects')
           .delete()
           .in('id', this.projects);
-        if (error) errors.push(`Projects cleanup: ${error.message}`);
+        if (error) errors.push(`Projects deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Projects cleanup exception: ${e.message}`);
+        errors.push(`Projects deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
-    // 6. Delete memberships
+    // 6. Delete organization memberships
     if (this.organizations.length > 0) {
       try {
         const { error } = await adminClient
           .from('organization_memberships')
           .delete()
           .in('organization_id', this.organizations);
-        if (error) errors.push(`Memberships cleanup: ${error.message}`);
+        if (error) errors.push(`Organization memberships deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Memberships cleanup exception: ${e.message}`);
+        errors.push(`Organization memberships deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
@@ -439,50 +520,145 @@ export class TestFixtureRegistry {
           .from('organizations')
           .delete()
           .in('id', this.organizations);
-        if (error) errors.push(`Organizations cleanup: ${error.message}`);
+        if (error) errors.push(`Organizations deletion failed: ${sanitizeErrorMessage(error.message)}`);
       } catch (e: any) {
-        errors.push(`Organizations cleanup exception: ${e.message}`);
+        errors.push(`Organizations deletion exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
     return { success: errors.length === 0, errors };
   }
 
+  /**
+   * Verifies that all recorded fixture categories are completely removed.
+   * Fails closed: if any query fails or records linger, clean is false.
+   */
   async verifyCleanedUp(
     adminClient: SupabaseClient
-  ): Promise<{ clean: boolean; lingering: string[] }> {
+  ): Promise<VerificationResult> {
     const lingering: string[] = [];
+    const verificationErrors: string[] = [];
 
-    if (this.projects.length > 0) {
-      const { data } = await adminClient
-        .from('projects')
-        .select('id')
-        .in('id', this.projects);
-      if (data && data.length > 0) {
-        lingering.push(`Projects lingering: ${data.map((d) => d.id).join(', ')}`);
+    // 1. Verify notification preferences
+    if (this.preferences.length > 0) {
+      try {
+        const { data, error } = await adminClient
+          .from('notification_preferences')
+          .select('project_id')
+          .in('project_id', this.preferences);
+        if (error) {
+          verificationErrors.push(`Notification preferences verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Notification preferences lingering (${data.length} records): ${data.map((d: any) => d.project_id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Notification preferences verification query exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
+    // 2. Verify notification incidents
     if (this.incidents.length > 0) {
-      const { data } = await adminClient
-        .from('notification_incidents')
-        .select('id')
-        .in('id', this.incidents);
-      if (data && data.length > 0) {
-        lingering.push(`Incidents lingering: ${data.map((d) => d.id).join(', ')}`);
+      try {
+        const { data, error } = await adminClient
+          .from('notification_incidents')
+          .select('id')
+          .in('id', this.incidents);
+        if (error) {
+          verificationErrors.push(`Notification incidents verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Notification incidents lingering (${data.length} records): ${data.map((d: any) => d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Notification incidents verification query exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
+    // 3. Verify issues
+    if (this.issues.length > 0) {
+      try {
+        const { data, error } = await adminClient
+          .from('issues')
+          .select('id')
+          .in('id', this.issues);
+        if (error) {
+          verificationErrors.push(`Issues verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Issues lingering (${data.length} records): ${data.map((d: any) => d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Issues verification query exception: ${sanitizeErrorMessage(e?.message)}`);
+      }
+    }
+
+    // 4. Verify test runs
+    if (this.testRuns.length > 0) {
+      try {
+        const { data, error } = await adminClient
+          .from('test_runs')
+          .select('id')
+          .in('id', this.testRuns);
+        if (error) {
+          verificationErrors.push(`Test runs verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Test runs lingering (${data.length} records): ${data.map((d: any) => d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Test runs verification query exception: ${sanitizeErrorMessage(e?.message)}`);
+      }
+    }
+
+    // 5. Verify projects
+    if (this.projects.length > 0) {
+      try {
+        const { data, error } = await adminClient
+          .from('projects')
+          .select('id')
+          .in('id', this.projects);
+        if (error) {
+          verificationErrors.push(`Projects verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Projects lingering (${data.length} records): ${data.map((d: any) => d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Projects verification query exception: ${sanitizeErrorMessage(e?.message)}`);
+      }
+    }
+
+    // 6. Verify organization memberships
     if (this.organizations.length > 0) {
-      const { data } = await adminClient
-        .from('organizations')
-        .select('id')
-        .in('id', this.organizations);
-      if (data && data.length > 0) {
-        lingering.push(`Organizations lingering: ${data.map((d) => d.id).join(', ')}`);
+      try {
+        const { data, error } = await adminClient
+          .from('organization_memberships')
+          .select('id, organization_id')
+          .in('organization_id', this.organizations);
+        if (error) {
+          verificationErrors.push(`Organization memberships verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Organization memberships lingering (${data.length} records): ${data.map((d: any) => d.organization_id || d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Organization memberships verification query exception: ${sanitizeErrorMessage(e?.message)}`);
       }
     }
 
-    return { clean: lingering.length === 0, lingering };
+    // 7. Verify organizations
+    if (this.organizations.length > 0) {
+      try {
+        const { data, error } = await adminClient
+          .from('organizations')
+          .select('id')
+          .in('id', this.organizations);
+        if (error) {
+          verificationErrors.push(`Organizations verification query failed: ${sanitizeErrorMessage(error.message)}`);
+        } else if (data && data.length > 0) {
+          lingering.push(`Organizations lingering (${data.length} records): ${data.map((d: any) => d.id).join(', ')}`);
+        }
+      } catch (e: any) {
+        verificationErrors.push(`Organizations verification query exception: ${sanitizeErrorMessage(e?.message)}`);
+      }
+    }
+
+    const clean = verificationErrors.length === 0 && lingering.length === 0;
+    return { clean, lingering, verificationErrors };
   }
 }

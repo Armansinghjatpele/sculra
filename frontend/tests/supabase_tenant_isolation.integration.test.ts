@@ -277,25 +277,40 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
         },
       ]);
       if (prefErr) throw new Error(`Setup error (notification_preferences): ${prefErr.message}`);
-    } catch (err) {
-      // Partial setup failure: cleanup already recorded resources and fail setup
-      await fixtureRegistry.cleanup(adminClient);
-      throw err;
+    } catch (setupErr: any) {
+      // Partial setup failure: cleanup already recorded resources and report both errors if rollback fails
+      const rollback = await fixtureRegistry.cleanup(adminClient);
+      if (!rollback.success) {
+        throw new Error(
+          `Fixture setup failed: ${setupErr.message}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
+        );
+      }
+      throw setupErr;
     }
   });
 
   afterAll(async () => {
     if (!preflight.isReady || !adminClient) return;
 
-    // Reliable cleanup & verification
+    // Reliable cleanup & fail-closed verification
     const cleanupResult = await fixtureRegistry.cleanup(adminClient);
+    const verification = await fixtureRegistry.verifyCleanedUp(adminClient);
+
+    const failures: string[] = [];
     if (!cleanupResult.success) {
-      throw new Error(`Cleanup failed with errors: ${cleanupResult.errors.join('; ')}`);
+      failures.push(`Cleanup operations failed: ${cleanupResult.errors.join('; ')}`);
+    }
+    if (!verification.clean) {
+      if (verification.verificationErrors.length > 0) {
+        failures.push(`Verification queries failed: ${verification.verificationErrors.join('; ')}`);
+      }
+      if (verification.lingering.length > 0) {
+        failures.push(`Lingering fixtures detected: ${verification.lingering.join('; ')}`);
+      }
     }
 
-    const verification = await fixtureRegistry.verifyCleanedUp(adminClient);
-    if (!verification.clean) {
-      throw new Error(`Post-cleanup verification failed: lingering fixtures detected: ${verification.lingering.join('; ')}`);
+    if (failures.length > 0) {
+      throw new Error(`Post-test lifecycle failure:\n${failures.join('\n')}`);
     }
   });
 
