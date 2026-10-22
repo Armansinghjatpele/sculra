@@ -18,6 +18,7 @@ import {
   formatPreflightReport,
   verifyServiceRoleConnection,
   TestFixtureRegistry,
+  sanitizeErrorMessage,
 } from './helpers/supabase_rls_preflight';
 
 // ------------------------------------------------------------------------------
@@ -73,7 +74,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     // 2. Validate Service-Role Connection before touching any fixtures
     const connCheck = await verifyServiceRoleConnection(adminClient);
     if (!connCheck.ok) {
-      throw new Error(`Admin service-role connection verification failed: ${connCheck.error}`);
+      throw new Error(`Admin service-role connection verification failed: ${sanitizeErrorMessage(connCheck.error)}`);
     }
 
     // 3. Initialize Public / Unauthenticated Client
@@ -118,7 +119,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
         { id: testOrgAId, clerk_organization_id: tenantA.orgId || 'org_test_a', name: 'Test Tenant A', slug: `tenant-a-${testOrgAId.slice(0, 6)}` },
         { id: testOrgBId, clerk_organization_id: tenantB.orgId || 'org_test_b', name: 'Test Tenant B', slug: `tenant-b-${testOrgBId.slice(0, 6)}` },
       ]);
-      if (orgErr) throw new Error(`Setup error (organizations): ${orgErr.message}`);
+      if (orgErr) throw new Error(`Setup error (organizations): ${sanitizeErrorMessage(orgErr.message)}`);
 
       // Organization Memberships (active status required by RLS)
       fixtureRegistry.recordMembership(testOrgAId, userAId);
@@ -127,7 +128,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
         { organization_id: testOrgAId, clerk_user_id: userAId, role: 'admin', status: 'active' },
         { organization_id: testOrgBId, clerk_user_id: userBId, role: 'admin', status: 'active' },
       ]);
-      if (memErr) throw new Error(`Setup error (organization_memberships): ${memErr.message}`);
+      if (memErr) throw new Error(`Setup error (organization_memberships): ${sanitizeErrorMessage(memErr.message)}`);
 
       // Projects
       fixtureRegistry.recordProject(testProjectAId);
@@ -168,7 +169,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
           created_by: userDId,
         },
       ]);
-      if (projErr) throw new Error(`Setup error (projects): ${projErr.message}`);
+      if (projErr) throw new Error(`Setup error (projects): ${sanitizeErrorMessage(projErr.message)}`);
 
       // Test Runs
       fixtureRegistry.recordTestRun(testRunAId);
@@ -193,7 +194,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
           created_by: userBId,
         },
       ]);
-      if (runErr) throw new Error(`Setup error (test_runs): ${runErr.message}`);
+      if (runErr) throw new Error(`Setup error (test_runs): ${sanitizeErrorMessage(runErr.message)}`);
 
       // Issues
       fixtureRegistry.recordIssue(testIssueAId);
@@ -220,7 +221,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
           status: 'open',
         },
       ]);
-      if (issueErr) throw new Error(`Setup error (issues): ${issueErr.message}`);
+      if (issueErr) throw new Error(`Setup error (issues): ${sanitizeErrorMessage(issueErr.message)}`);
 
       // Notification Incidents
       fixtureRegistry.recordIncident(testIncidentAId);
@@ -251,7 +252,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
           primary_entity_id: testProjectBId,
         },
       ]);
-      if (incErr) throw new Error(`Setup error (notification_incidents): ${incErr.message}`);
+      if (incErr) throw new Error(`Setup error (notification_incidents): ${sanitizeErrorMessage(incErr.message)}`);
 
       // Notification Preferences
       fixtureRegistry.recordPreference(testProjectAId);
@@ -276,16 +277,17 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
           enabled: false,
         },
       ]);
-      if (prefErr) throw new Error(`Setup error (notification_preferences): ${prefErr.message}`);
+      if (prefErr) throw new Error(`Setup error (notification_preferences): ${sanitizeErrorMessage(prefErr.message)}`);
     } catch (setupErr: any) {
       // Partial setup failure: cleanup already recorded resources and report both errors if rollback fails
+      const sanitizedSetupMsg = sanitizeErrorMessage(setupErr?.message || String(setupErr));
       const rollback = await fixtureRegistry.cleanup(adminClient);
       if (!rollback.success) {
         throw new Error(
-          `Fixture setup failed: ${setupErr.message}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
+          `Fixture setup failed: ${sanitizedSetupMsg}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
         );
       }
-      throw setupErr;
+      throw new Error(`Fixture setup failed: ${sanitizedSetupMsg}`);
     }
   });
 

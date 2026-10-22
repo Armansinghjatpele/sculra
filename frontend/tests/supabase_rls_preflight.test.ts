@@ -333,13 +333,14 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
         try {
           throw new Error('Initial setup query failed: Table projects schema mismatch');
         } catch (setupErr: any) {
+          const sanitizedSetupMsg = sanitizeErrorMessage(setupErr?.message || String(setupErr));
           const rollback = await registry.cleanup(mockAdminClient);
           if (!rollback.success) {
             throw new Error(
-              `Fixture setup failed: ${setupErr.message}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
+              `Fixture setup failed: ${sanitizedSetupMsg}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
             );
           }
-          throw setupErr;
+          throw new Error(`Fixture setup failed: ${sanitizedSetupMsg}`);
         }
       } catch (err: any) {
         caughtError = err;
@@ -348,6 +349,51 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(caughtError).not.toBeNull();
       expect(caughtError?.message).toContain('Initial setup query failed: Table projects schema mismatch');
       expect(caughtError?.message).toContain('Foreign key constraint violated during rollback');
+    });
+
+    it('retains both setup and rollback failures while fully sanitizing secrets in both errors', async () => {
+      const registry = new TestFixtureRegistry();
+      registry.recordProject('proj-leak-test');
+
+      const rawSetupSecret = ['sk', 'test', 'super_secret_setup_key_12345'].join('_');
+      const rawRollbackSecret = ['whsec', 'rollback_webhook_secret_99999'].join('_');
+
+      const mockDelete = vi.fn().mockReturnValue({
+        in: vi.fn().mockResolvedValue({
+          error: { message: `Rollback delete failed: Bearer ${rawRollbackSecret}` },
+        }),
+      });
+      const mockAdminClient = {
+        from: vi.fn().mockReturnValue({ delete: mockDelete }),
+      } as any;
+
+      let caughtError: Error | null = null;
+      try {
+        try {
+          throw new Error(`Setup error (projects): connection rejected with apikey=${rawSetupSecret}`);
+        } catch (setupErr: any) {
+          const sanitizedSetupMsg = sanitizeErrorMessage(setupErr?.message || String(setupErr));
+          const rollback = await registry.cleanup(mockAdminClient);
+          if (!rollback.success) {
+            throw new Error(
+              `Fixture setup failed: ${sanitizedSetupMsg}. Rollback cleanup also failed: ${rollback.errors.join('; ')}`
+            );
+          }
+          throw new Error(`Fixture setup failed: ${sanitizedSetupMsg}`);
+        }
+      } catch (err: any) {
+        caughtError = err;
+      }
+
+      expect(caughtError).not.toBeNull();
+      // Must retain diagnostic structure of both errors
+      expect(caughtError?.message).toContain('Fixture setup failed: Setup error (projects): connection rejected');
+      expect(caughtError?.message).toContain('Rollback cleanup also failed: Projects deletion failed');
+      // Must NOT leak either secret!
+      expect(caughtError?.message).not.toContain(rawSetupSecret);
+      expect(caughtError?.message).not.toContain(rawRollbackSecret);
+      expect(caughtError?.message).toContain('apikey=[REDACTED]');
+      expect(caughtError?.message).toContain('Bearer [REDACTED]');
     });
   });
 
@@ -385,6 +431,141 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(connRes.error).not.toContain(validJwtB);
       expect(connRes.error).not.toContain('sbp_service_role_secret');
       expect(connRes.error).toContain('[REDACTED');
+    });
+
+    it('redacts realistic key formats across Sculra (Clerk, Supabase, Stripe, Sentry, AI providers, Webhooks)', () => {
+      const testSecrets = [
+        ['sk', 'test', 'sample_clerk_secret_key_12345'].join('_'),
+        ['sk', 'live', 'sample_stripe_secret_key_12345'].join('_'),
+        ['pk', 'test', 'sample_clerk_pub_key_12345'].join('_'),
+        ['pk', 'live', 'sample_stripe_pub_key_12345'].join('_'),
+        ['whsec', 'abcdef1234567890abcdef1234567890'].join('_'),
+        ['sbp', 'my_supabase_management_token_999'].join('_'),
+        ['sntrys', 'sentry_auth_token_example_12345'].join('_'),
+        ['sntryu', 'sentry_user_token_example_67890'].join('_'),
+        ['phc', 'posthog_client_key_abcdef123'].join('_'),
+        ['phs', 'posthog_secret_key_fedcba321'].join('_'),
+        ['sk', 'proj', 'openai_api_secret_key_example_9999'].join('-'),
+        ['sk', 'ant', 'anthropic_api_secret_key_example_8888'].join('-'),
+        ['AIza', 'SyB12345678901234567890123456789012'].join(''),
+      ];
+
+      for (const secret of testSecrets) {
+        const raw = `Encountered error with credential ${secret} during operation`;
+        const sanitized = sanitizeErrorMessage(raw);
+        expect(sanitized).not.toContain(secret);
+        expect(sanitized).toContain('[REDACTED_KEY]');
+      }
+    });
+
+    it('redacts connection strings and database URLs with credentials while preserving host and database', () => {
+      const pgUrl = 'postgresql://postgres:SuperSecretP%40ssw0rd!@127.0.0.1:54321/sculra_test?sslmode=disable';
+      const sanitizedPg = sanitizeErrorMessage(`Failed to connect to ${pgUrl}: connection refused`);
+      expect(sanitizedPg).not.toContain('SuperSecretP%40ssw0rd!');
+      expect(sanitizedPg).toContain('postgresql://postgres:[REDACTED]@127.0.0.1:54321/sculra_test?sslmode=disable');
+      expect(sanitizedPg).toContain('connection refused');
+
+      const redisUrl = 'redis://:SecretRedisAuthToken@cache.internal.sculra.com:6379/0';
+      const sanitizedRedis = sanitizeErrorMessage(`Cache unreachable: ${redisUrl}`);
+      expect(sanitizedRedis).not.toContain('SecretRedisAuthToken');
+      expect(sanitizedRedis).toContain('redis://:[REDACTED]@cache.internal.sculra.com:6379/0');
+
+      const sentryDsn = 'https://d41d8cd98f00b204e9800998ecf8427e@o123456.ingest.sentry.io/456789';
+      const sanitizedSentry = sanitizeErrorMessage(`Sentry report failure: ${sentryDsn}`);
+      expect(sanitizedSentry).not.toContain('d41d8cd98f00b204e9800998ecf8427e');
+      expect(sanitizedSentry).toContain('https://[REDACTED]@o123456.ingest.sentry.io/456789');
+    });
+
+    it('redacts sensitive query parameters across various parameter names', () => {
+      const rawUrl =
+        'https://api.sculra.com/webhook?apikey=secret_apikey_val&token=secret_token_val&access_token=secret_access_token&password=secret_password&auth=secret_auth&safe_param=sculra_project';
+      const sanitized = sanitizeErrorMessage(`Error dispatching webhook to ${rawUrl}`);
+
+      expect(sanitized).not.toContain('secret_apikey_val');
+      expect(sanitized).not.toContain('secret_token_val');
+      expect(sanitized).not.toContain('secret_access_token');
+      expect(sanitized).not.toContain('secret_password');
+      expect(sanitized).not.toContain('secret_auth');
+      expect(sanitized).toContain('apikey=[REDACTED]');
+      expect(sanitized).toContain('token=[REDACTED]');
+      expect(sanitized).toContain('access_token=[REDACTED]');
+      expect(sanitized).toContain('password=[REDACTED]');
+      expect(sanitized).toContain('authorization=[REDACTED]');
+      expect(sanitized).toContain('safe_param=sculra_project');
+    });
+
+    it('handles multiline error output and varied header casing', () => {
+      const multiline = `Server responded with error:\nAuthorization:\n  Bearer my_multiline_secret_token\nX-Api-Key:\n  my_secret_x_api_key\nStatus: 401 Unauthorized`;
+      const sanitized = sanitizeErrorMessage(multiline);
+
+      expect(sanitized).not.toContain('my_multiline_secret_token');
+      expect(sanitized).not.toContain('my_secret_x_api_key');
+      expect(sanitized).toContain('authorization=[REDACTED]');
+      expect(sanitized).toContain('apikey=[REDACTED]');
+      expect(sanitized).toContain('Status: 401 Unauthorized');
+
+      // Standalone Bearer header without authorization prefix
+      const standalone = 'Operation failed: Bearer secret_bearer_token_xyz has expired';
+      expect(sanitizeErrorMessage(standalone)).toContain('Bearer [REDACTED]');
+      expect(sanitizeErrorMessage(standalone)).not.toContain('secret_bearer_token_xyz');
+    });
+
+    it('redacts sensitive string values in JSON bodies while preserving diagnostic attributes', () => {
+      const jsonBody = JSON.stringify({
+        code: 'PGRST301',
+        message: 'Authentication failed for requested resource',
+        apiKey: 'sensitive_json_apikey_999',
+        serviceRoleKey: 'sensitive_service_role_key_888',
+        password: 'sensitive_db_password_777',
+        token: 'sensitive_session_token_666',
+        table: 'projects',
+      });
+      const sanitized = sanitizeErrorMessage(`Database error response: ${jsonBody}`);
+
+      expect(sanitized).not.toContain('sensitive_json_apikey_999');
+      expect(sanitized).not.toContain('sensitive_service_role_key_888');
+      expect(sanitized).not.toContain('sensitive_db_password_777');
+      expect(sanitized).not.toContain('sensitive_session_token_666');
+      expect(sanitized).toContain('"apiKey":"[REDACTED]"');
+      expect(sanitized).toContain('"serviceRoleKey":"[REDACTED]"');
+      expect(sanitized).toContain('"code":"PGRST301"');
+      expect(sanitized).toContain('"message":"Authentication failed for requested resource"');
+      expect(sanitized).toContain('"table":"projects"');
+    });
+
+    it('strictly preserves non-sensitive PostgreSQL error messages, constraint names, and table names', () => {
+      const nonSensitiveErrors = [
+        'new row for relation "projects" violates check constraint "projects_name_check"',
+        'insert or update on table "projects" violates foreign key constraint "projects_organization_id_fkey"',
+        'duplicate key value violates unique constraint "organizations_slug_key"',
+        'null value in column "name" of relation "projects" violates not-null constraint',
+        'relation "notification_preferences" does not exist',
+        'new row violates row-level security policy for table "notification_incidents"',
+        'syntax error at or near "WHERE"',
+        'canceling statement due to statement timeout (5000ms)',
+      ];
+
+      for (const err of nonSensitiveErrors) {
+        expect(sanitizeErrorMessage(err)).toBe(err);
+      }
+    });
+
+    it('safely handles null, undefined, Error instances, and non-string inputs', () => {
+      expect(sanitizeErrorMessage(null)).toBe('Unknown error');
+      expect(sanitizeErrorMessage(undefined)).toBe('Unknown error');
+      expect(sanitizeErrorMessage('')).toBe('Unknown error');
+
+      const errObj = new Error('Database error: Bearer secret_err_token_123');
+      const sanitizedErr = sanitizeErrorMessage(errObj);
+      expect(sanitizedErr).not.toContain('secret_err_token_123');
+      expect(sanitizedErr).toContain('Bearer [REDACTED]');
+
+      const customObj = { message: 'Failed query with apikey=secret_custom_token' };
+      const sanitizedCustom = sanitizeErrorMessage(customObj);
+      expect(sanitizedCustom).not.toContain('secret_custom_token');
+      expect(sanitizedCustom).toContain('apikey=[REDACTED]');
+
+      expect(sanitizeErrorMessage(404)).toBe('404');
     });
   });
 

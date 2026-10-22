@@ -51,23 +51,82 @@ const PLACEHOLDER_TOKENS = new Set([
 ]);
 
 /**
- * Sanitizes error messages by scrubbing potential JWTs, authorization headers,
- * and API keys before logging or reporting.
+ * Sanitizes error messages by scrubbing credentials, JWTs, authorization headers,
+ * connection string passwords, API keys, and sensitive tokens before logging or reporting.
+ * Preserves PostgreSQL diagnostics, constraint names, table names, and status codes.
  */
-export function sanitizeErrorMessage(message?: string): string {
-  if (!message) return 'Unknown error';
-  let sanitized = String(message);
-  // Redact any JWT-like strings (three base64url segments separated by dots)
-  sanitized = sanitized.replace(/eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[REDACTED_JWT]');
-  // Redact Bearer tokens
-  sanitized = sanitized.replace(/Bearer\s+[^\s"',]+/gi, 'Bearer [REDACTED]');
-  // Redact apiKey / apikey query params or header values
-  sanitized = sanitized.replace(/apikey[=:]\s*[^\s"',&]+/gi, 'apikey=[REDACTED]');
-  // Redact authorization headers
-  sanitized = sanitized.replace(/authorization[=:]\s*[^\s"',&]+/gi, 'authorization=[REDACTED]');
-  // Redact Supabase secret / service role keys (long base64 or sbp_ patterns)
-  sanitized = sanitized.replace(/sbp_[a-zA-Z0-9]+/g, '[REDACTED_KEY]');
-  sanitized = sanitized.replace(/ey[a-zA-Z0-9_-]{30,}/g, '[REDACTED_KEY]');
+export function sanitizeErrorMessage(message?: unknown): string {
+  if (!message && message !== 0) return 'Unknown error';
+  let sanitized =
+    typeof message === 'string'
+      ? message
+      : (message as any)?.message
+      ? String((message as any).message)
+      : String(message);
+
+  if (!sanitized.trim()) return 'Unknown error';
+
+  // 1. Redact URI user:password credentials (e.g. postgresql://user:pass@host or redis://:pass@host)
+  sanitized = sanitized.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^:\s"'@\/]*):([^@\s"']+)@/g,
+    '$1$2:[REDACTED]@'
+  );
+
+  // 2. Redact Sentry DSN client credentials in URLs (e.g. https://<key>@...ingest.sentry.io/...)
+  sanitized = sanitized.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)[a-zA-Z0-9_-]+@([a-zA-Z0-9.-]*ingest(?:\.[a-z0-9-]+)*\.sentry\.io)/gi,
+    '$1[REDACTED]@$2'
+  );
+
+  // 3. Redact sensitive query parameters in URLs (e.g. ?apikey=... or &token=...)
+  sanitized = sanitized.replace(
+    /([?&](?:api[_-]?key|access[_-]?token|token|secret|password|pwd|auth)=)[^&\s"'#]+/gi,
+    '$1[REDACTED]'
+  );
+
+  // 4. Redact standalone Bearer tokens
+  sanitized = sanitized.replace(/Bearer\s+[^\s"',;]+/gi, 'Bearer [REDACTED]');
+
+  // 5. Redact Authorization headers (both multiline and single-line, colon or equals)
+  sanitized = sanitized.replace(
+    /(?:\b(?:authorization|auth)\s*[:=]\s*(?:\r?\n\s*)?)[^\s"',;&]+/gi,
+    'authorization=[REDACTED]'
+  );
+
+  // 6. Redact API key header values (e.g. apikey: ..., x-api-key: ..., Apikey=...)
+  sanitized = sanitized.replace(
+    /(?:\b(?:x[_-]api[_-]key|api[_-]key|apikey)\s*[:=]\s*(?:\r?\n\s*)?)[^\s"',;&]+/gi,
+    'apikey=[REDACTED]'
+  );
+
+  // 7. Redact sensitive string values in JSON bodies (e.g. "apiKey": "...", "serviceRoleKey": "...")
+  sanitized = sanitized.replace(
+    /("(?:\w*?)(?:key|secret|token|password|pwd|auth|credential|authorization)"\s*:\s*)"[^"]*"/gi,
+    '$1"[REDACTED]"'
+  );
+
+  // 8. Redact realistic key formats used in Sculra:
+  // Clerk & Stripe publishable and secret keys
+  sanitized = sanitized.replace(/\b(?:sk|pk)_(?:test|live)_[a-zA-Z0-9_]+\b/g, '[REDACTED_KEY]');
+  // Webhook secrets
+  sanitized = sanitized.replace(/\bwhsec_[a-zA-Z0-9_]+\b/g, '[REDACTED_KEY]');
+  // Supabase management/service tokens
+  sanitized = sanitized.replace(/\bsbp_[a-zA-Z0-9_]+\b/g, '[REDACTED_KEY]');
+  // Sentry auth tokens
+  sanitized = sanitized.replace(/\bsntry[su]_[a-zA-Z0-9_]+\b/g, '[REDACTED_KEY]');
+  // PostHog keys
+  sanitized = sanitized.replace(/\bph[cs]_[a-zA-Z0-9_]+\b/g, '[REDACTED_KEY]');
+  // OpenAI & Anthropic keys
+  sanitized = sanitized.replace(/\bsk-(?:proj|ant)-[a-zA-Z0-9_-]+\b/g, '[REDACTED_KEY]');
+  // Google AI keys
+  sanitized = sanitized.replace(/\bAIzaSy[a-zA-Z0-9_-]{33}\b/g, '[REDACTED_KEY]');
+
+  // 9. Redact standard 3-part base64url JWTs
+  sanitized = sanitized.replace(/\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/g, '[REDACTED_JWT]');
+
+  // 10. Redact long base64 secret tokens starting with ey
+  sanitized = sanitized.replace(/\bey[a-zA-Z0-9_-]{30,}\b/g, '[REDACTED_KEY]');
+
   return sanitized;
 }
 
