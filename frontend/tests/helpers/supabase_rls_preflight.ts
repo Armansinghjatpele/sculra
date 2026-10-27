@@ -10,10 +10,10 @@ export interface PreflightConfig {
   anonKey: string;
   serviceRoleKey: string;
   isLocal: boolean;
-  tenantA: { jwt: string; sub: string; orgId?: string };
-  tenantB: { jwt: string; sub: string; orgId?: string };
-  userC: { jwt: string; sub: string };
-  userD?: { jwt: string; sub: string };
+  tenantA: { jwt: string; sub: string; orgId: string };
+  tenantB: { jwt: string; sub: string; orgId: string };
+  userC: { jwt: string; sub: string; orgId?: string };
+  userD?: { jwt: string; sub: string; orgId?: string };
 }
 
 export interface PreflightResult {
@@ -183,11 +183,12 @@ export function isPlaceholderToken(token?: string): boolean {
  * is delegated to the Supabase PostgREST gateway during test query execution.
  *
  * Rejects empty tokens, known mock/placeholder tokens, malformed tokens,
- * and tokens missing the required 'sub' claim.
+ * and tokens missing the required 'sub' claim or required 'org_id' claim.
  */
 export function validateTenantJwt(
   token?: string,
-  identifierName: string = 'JWT'
+  identifierName: string = 'JWT',
+  options: { requireOrgId?: boolean } = {}
 ): { valid: boolean; error?: string; sub?: string; orgId?: string } {
   if (!token || !token.trim()) {
     return { valid: false, error: `${identifierName} is missing or empty` };
@@ -205,10 +206,21 @@ export function validateTenantJwt(
   if (!payload.sub || typeof payload.sub !== 'string') {
     return { valid: false, error: `${identifierName} payload is missing required 'sub' claim` };
   }
+
+  const rawOrgId = payload.org_id || payload.orgId;
+  const orgId = typeof rawOrgId === 'string' && rawOrgId.trim() ? rawOrgId.trim() : undefined;
+
+  if (options.requireOrgId && !orgId) {
+    return {
+      valid: false,
+      error: `${identifierName} payload is missing required organization claim ('org_id' or 'orgId'). Tenant tokens must identify their organization context.`,
+    };
+  }
+
   return {
     valid: true,
     sub: payload.sub,
-    orgId: payload.org_id || payload.orgId,
+    orgId,
   };
 }
 
@@ -347,60 +359,70 @@ export function validateRlsPreflight(env: Record<string, string | undefined>): P
     blockedReasons.push('TEST_SUPABASE_SERVICE_ROLE_KEY is missing. Cleanup and fixture provisioning require service role.');
   }
 
-  // 3. Validate Authentic Tenant JWTs (Reject all placeholders)
-  let tenantAData: { sub: string; orgId?: string } | undefined;
-  let tenantBData: { sub: string; orgId?: string } | undefined;
-  let userCData: { sub: string } | undefined;
-  let userDData: { sub: string } | undefined;
+  // 3. Validate Authentic Tenant JWTs (Reject all placeholders & require organization claims for tenants)
+  let tenantAData: { sub: string; orgId: string } | undefined;
+  let tenantBData: { sub: string; orgId: string } | undefined;
+  let userCData: { sub: string; orgId?: string } | undefined;
+  let userDData: { sub: string; orgId?: string } | undefined;
 
-  const valA = validateTenantJwt(jwtTenantA, 'TEST_JWT_TENANT_A');
+  const valA = validateTenantJwt(jwtTenantA, 'TEST_JWT_TENANT_A', { requireOrgId: true });
   if (!valA.valid) {
     blockedReasons.push(valA.error!);
   } else {
-    tenantAData = { sub: valA.sub!, orgId: valA.orgId };
+    tenantAData = { sub: valA.sub!, orgId: valA.orgId! };
   }
 
-  const valB = validateTenantJwt(jwtTenantB, 'TEST_JWT_TENANT_B');
+  const valB = validateTenantJwt(jwtTenantB, 'TEST_JWT_TENANT_B', { requireOrgId: true });
   if (!valB.valid) {
     blockedReasons.push(valB.error!);
   } else {
-    tenantBData = { sub: valB.sub!, orgId: valB.orgId };
+    tenantBData = { sub: valB.sub!, orgId: valB.orgId! };
   }
 
-  const valC = validateTenantJwt(jwtUserC, 'TEST_JWT_USER_C');
+  const valC = validateTenantJwt(jwtUserC, 'TEST_JWT_USER_C', { requireOrgId: false });
   if (!valC.valid) {
     blockedReasons.push(valC.error!);
   } else {
-    userCData = { sub: valC.sub! };
+    userCData = { sub: valC.sub!, orgId: valC.orgId };
   }
 
   if (jwtUserD) {
-    const valD = validateTenantJwt(jwtUserD, 'TEST_JWT_USER_D');
+    const valD = validateTenantJwt(jwtUserD, 'TEST_JWT_USER_D', { requireOrgId: false });
     if (!valD.valid) {
       blockedReasons.push(valD.error!);
     } else {
-      userDData = { sub: valD.sub! };
+      userDData = { sub: valD.sub!, orgId: valD.orgId };
     }
   }
 
   // 4. Verify Distinct Tenant and User Identities
   // Tenant A and Tenant B must represent separate tenants (distinct users and distinct organizations).
-  // User C (and optional User D) must represent separate personal identities.
+  // User C (and optional User D) must represent separate personal identities and not borrow tenant org contexts.
   if (tenantAData && tenantBData) {
     if (tenantAData.sub === tenantBData.sub) {
       blockedReasons.push('Tenant A and Tenant B must have distinct user identities (sub claims are identical).');
     }
-    if (tenantAData.orgId && tenantBData.orgId && tenantAData.orgId === tenantBData.orgId) {
+    if (tenantAData.orgId === tenantBData.orgId) {
       blockedReasons.push('Tenant A and Tenant B must belong to distinct organizations (org_id claims are identical).');
     }
   }
 
-  if (tenantAData && userCData && tenantAData.sub === userCData.sub) {
-    blockedReasons.push('Tenant A and User C must have distinct user identities (sub claims are identical).');
+  if (tenantAData && userCData) {
+    if (tenantAData.sub === userCData.sub) {
+      blockedReasons.push('Tenant A and User C must have distinct user identities (sub claims are identical).');
+    }
+    if (userCData.orgId && userCData.orgId === tenantAData.orgId) {
+      blockedReasons.push('User C must not borrow Tenant A organization context (org_id claims match). Personal user tokens must be independent.');
+    }
   }
 
-  if (tenantBData && userCData && tenantBData.sub === userCData.sub) {
-    blockedReasons.push('Tenant B and User C must have distinct user identities (sub claims are identical).');
+  if (tenantBData && userCData) {
+    if (tenantBData.sub === userCData.sub) {
+      blockedReasons.push('Tenant B and User C must have distinct user identities (sub claims are identical).');
+    }
+    if (userCData.orgId && userCData.orgId === tenantBData.orgId) {
+      blockedReasons.push('User C must not borrow Tenant B organization context (org_id claims match). Personal user tokens must be independent.');
+    }
   }
 
   if (userDData) {
@@ -412,6 +434,12 @@ export function validateRlsPreflight(env: Record<string, string | undefined>): P
     }
     if (userCData && userCData.sub === userDData.sub) {
       blockedReasons.push('User C and User D must have distinct user identities (sub claims are identical).');
+    }
+    if (tenantAData && userDData.orgId && userDData.orgId === tenantAData.orgId) {
+      blockedReasons.push('User D must not borrow Tenant A organization context (org_id claims match).');
+    }
+    if (tenantBData && userDData.orgId && userDData.orgId === tenantBData.orgId) {
+      blockedReasons.push('User D must not borrow Tenant B organization context (org_id claims match).');
     }
   }
 
@@ -436,8 +464,8 @@ export function validateRlsPreflight(env: Record<string, string | undefined>): P
       isLocal: isLocalDatabaseUrl(url!),
       tenantA: { jwt: jwtTenantA!, sub: tenantAData!.sub, orgId: tenantAData!.orgId },
       tenantB: { jwt: jwtTenantB!, sub: tenantBData!.sub, orgId: tenantBData!.orgId },
-      userC: { jwt: jwtUserC!, sub: userCData!.sub },
-      userD: userDData ? { jwt: jwtUserD!, sub: userDData.sub } : undefined,
+      userC: { jwt: jwtUserC!, sub: userCData!.sub, orgId: userCData!.orgId },
+      userD: userDData ? { jwt: jwtUserD!, sub: userDData.sub, orgId: userDData.orgId } : undefined,
     },
   };
 }
@@ -470,9 +498,9 @@ export function formatPreflightReport(result: PreflightResult): string {
   lines.push('    TEST_SUPABASE_URL=http://127.0.0.1:54321');
   lines.push('    TEST_SUPABASE_ANON_KEY=<test-anon-key>');
   lines.push('    TEST_SUPABASE_SERVICE_ROLE_KEY=<test-service-key>');
-  lines.push('    TEST_JWT_TENANT_A=<clerk-jwt-for-tenant-a>');
-  lines.push('    TEST_JWT_TENANT_B=<clerk-jwt-for-tenant-b>');
-  lines.push('    TEST_JWT_USER_C=<clerk-jwt-for-user-c>');
+  lines.push('    TEST_JWT_TENANT_A=<clerk-jwt-for-tenant-a-with-org-a-claim>');
+  lines.push('    TEST_JWT_TENANT_B=<clerk-jwt-for-tenant-b-with-org-b-claim>');
+  lines.push('    TEST_JWT_USER_C=<clerk-jwt-for-personal-user-c>');
   lines.push('    (Optional) CONFIRM_ISOLATED_TEST_DB=true (if remote test project)');
   lines.push('==============================================================================');
 

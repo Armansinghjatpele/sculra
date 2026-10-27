@@ -55,11 +55,11 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   const testIssueAId = crypto.randomUUID();
   const testIssueBId = crypto.randomUUID();
 
-  // Extract authentic Clerk user identifiers from validated JWT claims
-  const userAId = preflight.config?.tenantA.sub || `user_test_tenant_a_${crypto.randomUUID().slice(0, 8)}`;
-  const userBId = preflight.config?.tenantB.sub || `user_test_tenant_b_${crypto.randomUUID().slice(0, 8)}`;
-  const userCId = preflight.config?.userC.sub || `user_test_personal_c_${crypto.randomUUID().slice(0, 8)}`;
-  const userDId = preflight.config?.userD?.sub || `user_test_personal_d_${crypto.randomUUID().slice(0, 8)}`;
+  // Extract authentic Clerk user identifiers from validated JWT claims (no fallback to synthetic orgs)
+  const userAId = preflight.config?.tenantA.sub || '';
+  const userBId = preflight.config?.tenantB.sub || '';
+  const userCId = preflight.config?.userC.sub || '';
+  const userDId = preflight.config?.userD?.sub || `user_other_personal_${crypto.randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
     if (!preflight.isReady || !preflight.config) return;
@@ -112,12 +112,12 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
 
     // 5. Provision Disposable Test Fixtures with atomic error checking & tracking
     try {
-      // Organizations
+      // Organizations (strictly authentic clerk_organization_id from validated tenant JWT claims; no synthetic fallbacks)
       fixtureRegistry.recordOrg(testOrgAId);
       fixtureRegistry.recordOrg(testOrgBId);
       const { error: orgErr } = await adminClient.from('organizations').upsert([
-        { id: testOrgAId, clerk_organization_id: tenantA.orgId || 'org_test_a', name: 'Test Tenant A', slug: `tenant-a-${testOrgAId.slice(0, 6)}` },
-        { id: testOrgBId, clerk_organization_id: tenantB.orgId || 'org_test_b', name: 'Test Tenant B', slug: `tenant-b-${testOrgBId.slice(0, 6)}` },
+        { id: testOrgAId, clerk_organization_id: tenantA.orgId, name: 'Test Tenant A', slug: `tenant-a-${testOrgAId.slice(0, 6)}` },
+        { id: testOrgBId, clerk_organization_id: tenantB.orgId, name: 'Test Tenant B', slug: `tenant-b-${testOrgBId.slice(0, 6)}` },
       ]);
       if (orgErr) throw new Error(`Setup error (organizations): ${sanitizeErrorMessage(orgErr.message)}`);
 
@@ -406,6 +406,19 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 3: Cross-project incident query and mutation denial
   // ----------------------------------------------------------------------------
   it('3. Cross-project incident query returns empty and mutation fails at project boundary', async () => {
+    // Positive control: Tenant A can query its own permitted incident
+    const { data: ownIncident, error: ownReadErr } = await tenantAClient
+      .from('notification_incidents')
+      .select('*')
+      .eq('id', testIncidentAId)
+      .eq('project_id', testProjectAId)
+      .maybeSingle();
+
+    expect(ownReadErr).toBeNull();
+    expect(ownIncident).not.toBeNull();
+    expect(ownIncident?.id).toBe(testIncidentAId);
+
+    // Negative control: Cross-project incident query returns empty
     const { data: incident, error: readError } = await tenantAClient
       .from('notification_incidents')
       .select('*')
@@ -416,6 +429,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(readError).toBeNull();
     expect(incident).toBeNull();
 
+    // Negative control: Mutation fails at cross-project boundary
     const { data: updated, error: updateError } = await tenantAClient
       .from('notification_incidents')
       .update({ status: 'RESOLVED' })
@@ -427,11 +441,12 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(updated).toHaveLength(0);
 
     // Verify status was not modified
-    const { data: intactIncident } = await adminClient
+    const { data: intactIncident, error: verifyErr } = await adminClient
       .from('notification_incidents')
       .select('status')
       .eq('id', testIncidentBId)
       .single();
+    expect(verifyErr).toBeNull();
     expect(intactIncident?.status).toBe('OPEN');
   });
 
@@ -439,7 +454,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 4: Personal-project isolation
   // ----------------------------------------------------------------------------
   it('4. Personal-workspace users cannot access another user personal project', async () => {
-    // User C can read its own personal project
+    // Positive control: User C can read its own personal project
     const { data: ownProject, error: ownErr } = await personalUserCClient
       .from('projects')
       .select('*')
@@ -450,7 +465,18 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(ownProject).not.toBeNull();
     expect(ownProject?.id).toBe(testPersonalProjectCId);
 
-    // User C cannot read User D's personal project
+    // Positive control: User C can update its own personal project
+    const { data: ownUpdated, error: ownUpErr } = await personalUserCClient
+      .from('projects')
+      .update({ name: 'Updated Personal Project C' })
+      .eq('id', testPersonalProjectCId)
+      .select();
+
+    expect(ownUpErr).toBeNull();
+    expect(ownUpdated).toHaveLength(1);
+    expect(ownUpdated![0].name).toBe('Updated Personal Project C');
+
+    // Negative control: User C cannot read User D's personal project
     const { data: otherProject, error: otherErr } = await personalUserCClient
       .from('projects')
       .select('*')
@@ -460,7 +486,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(otherErr).toBeNull();
     expect(otherProject).toBeNull();
 
-    // User C cannot update User D's personal project
+    // Negative control: User C cannot update User D's personal project
     const { data: updatedOther, error: updateErr } = await personalUserCClient
       .from('projects')
       .update({ name: 'Tampered Personal Project' })
@@ -475,6 +501,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 5: Unauthorized insertion into other tenant projects rejected
   // ----------------------------------------------------------------------------
   it('5. Unauthorized users cannot insert incidents into other tenant projects', async () => {
+    // Negative control: Unauthorized insert into Tenant B project rejected
     const { data, error } = await tenantAClient
       .from('notification_incidents')
       .insert({
@@ -496,10 +523,11 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(error?.code).toBe('42501');
 
     // Verify incident was not created in Tenant B project
-    const { data: existing } = await adminClient
+    const { data: existing, error: existErr } = await adminClient
       .from('notification_incidents')
       .select('id')
       .eq('fingerprint', 'fp-injected-rls-test');
+    expect(existErr).toBeNull();
     expect(existing).toHaveLength(0);
   });
 
@@ -507,7 +535,16 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 6: Notification preference isolation
   // ----------------------------------------------------------------------------
   it('6. Notification preferences cannot be read or changed across tenant boundaries', async () => {
-    // Tenant A reading User B's preferences
+    // Positive control: Tenant A reading its own preferences
+    const { data: ownPrefs, error: ownReadErr } = await tenantAClient
+      .from('notification_preferences')
+      .select('*')
+      .eq('clerk_user_id', userAId);
+
+    expect(ownReadErr).toBeNull();
+    expect(ownPrefs).toHaveLength(1);
+
+    // Negative control: Tenant A reading User B's preferences
     const { data: userBPrefs, error: readErr } = await tenantAClient
       .from('notification_preferences')
       .select('*')
@@ -516,7 +553,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(readErr).toBeNull();
     expect(userBPrefs).toHaveLength(0);
 
-    // Tenant A updating User B's preferences
+    // Negative control: Tenant A updating User B's preferences
     const { data: updated, error: updateErr } = await tenantAClient
       .from('notification_preferences')
       .update({ enabled: true })
@@ -527,11 +564,12 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(updated).toHaveLength(0);
 
     // Verify User B's preference is still disabled
-    const { data: intactPref } = await adminClient
+    const { data: intactPref, error: intactErr } = await adminClient
       .from('notification_preferences')
       .select('enabled')
       .eq('clerk_user_id', userBId)
       .single();
+    expect(intactErr).toBeNull();
     expect(intactPref?.enabled).toBe(false);
   });
 
@@ -539,7 +577,22 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 7: Cross-organization test runs and issues isolation
   // ----------------------------------------------------------------------------
   it('7. Tenant A cannot view or mutate Tenant B test runs and issues', async () => {
-    // Tenant A reading Tenant B test runs
+    // Positive control: Tenant B reading its own test runs and issues
+    const { data: ownRunsB, error: ownRunsErr } = await tenantBClient
+      .from('test_runs')
+      .select('*')
+      .eq('project_id', testProjectBId);
+    expect(ownRunsErr).toBeNull();
+    expect(ownRunsB).toHaveLength(1);
+
+    const { data: ownIssuesB, error: ownIssuesErr } = await tenantBClient
+      .from('issues')
+      .select('*')
+      .eq('project_id', testProjectBId);
+    expect(ownIssuesErr).toBeNull();
+    expect(ownIssuesB).toHaveLength(1);
+
+    // Negative control: Tenant A reading Tenant B test runs
     const { data: runsB, error: runsErr } = await tenantAClient
       .from('test_runs')
       .select('*')
@@ -548,7 +601,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(runsErr).toBeNull();
     expect(runsB).toHaveLength(0);
 
-    // Tenant A reading Tenant B issues
+    // Negative control: Tenant A reading Tenant B issues
     const { data: issuesB, error: issuesErr } = await tenantAClient
       .from('issues')
       .select('*')
@@ -557,7 +610,7 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
     expect(issuesErr).toBeNull();
     expect(issuesB).toHaveLength(0);
 
-    // Tenant A inserting a test run into Tenant B project
+    // Negative control: Tenant A inserting a test run into Tenant B project
     const { data: insertedRun, error: insertRunErr } = await tenantAClient
       .from('test_runs')
       .insert({
@@ -575,9 +628,28 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   });
 
   // ----------------------------------------------------------------------------
-  // Scenario 8: Organization membership list privacy
+  // Scenario 8: Organization membership and organization entity privacy
   // ----------------------------------------------------------------------------
-  it('8. Organization memberships cannot be viewed by other organizations', async () => {
+  it('8. Organization memberships and organization records cannot be viewed across tenant boundaries', async () => {
+    // Positive control: Tenant A can read its own membership and organization
+    const { data: ownMemA, error: ownMemErr } = await tenantAClient
+      .from('organization_memberships')
+      .select('*')
+      .eq('organization_id', testOrgAId);
+    expect(ownMemErr).toBeNull();
+    expect(ownMemA).toHaveLength(1);
+    expect(ownMemA![0].clerk_user_id).toBe(userAId);
+
+    const { data: ownOrgA, error: ownOrgErr } = await tenantAClient
+      .from('organizations')
+      .select('*')
+      .eq('id', testOrgAId)
+      .maybeSingle();
+    expect(ownOrgErr).toBeNull();
+    expect(ownOrgA).not.toBeNull();
+    expect(ownOrgA?.id).toBe(testOrgAId);
+
+    // Negative control: Tenant A reading Tenant B memberships
     const { data: membershipsB, error: memErr } = await tenantAClient
       .from('organization_memberships')
       .select('*')
@@ -585,31 +657,76 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
 
     expect(memErr).toBeNull();
     expect(membershipsB).toHaveLength(0);
+
+    // Negative control: Tenant A reading Tenant B organization
+    const { data: orgB, error: orgBErr } = await tenantAClient
+      .from('organizations')
+      .select('*')
+      .eq('id', testOrgBId)
+      .maybeSingle();
+
+    expect(orgBErr).toBeNull();
+    expect(orgB).toBeNull();
   });
 
   // ----------------------------------------------------------------------------
   // Scenario 9: Unauthenticated requests completely denied by RLS
   // ----------------------------------------------------------------------------
   it('9. Unauthenticated requests are completely rejected by RLS across all resources', async () => {
-    const { data: projects } = await unauthenticatedClient
+    const { data: projects, error: pErr } = await unauthenticatedClient
       .from('projects')
       .select('*')
       .eq('id', testProjectAId);
 
+    expect(pErr).toBeNull();
     expect(projects).toHaveLength(0);
 
-    const { data: incidents } = await unauthenticatedClient
+    const { data: incidents, error: incErr } = await unauthenticatedClient
       .from('notification_incidents')
       .select('*')
       .eq('id', testIncidentAId);
 
+    expect(incErr).toBeNull();
     expect(incidents).toHaveLength(0);
 
-    const { data: preferences } = await unauthenticatedClient
+    const { data: preferences, error: prefErr } = await unauthenticatedClient
       .from('notification_preferences')
       .select('*')
       .eq('project_id', testProjectAId);
 
+    expect(prefErr).toBeNull();
     expect(preferences).toHaveLength(0);
+
+    const { data: runs, error: rErr } = await unauthenticatedClient
+      .from('test_runs')
+      .select('*')
+      .eq('id', testRunAId);
+
+    expect(rErr).toBeNull();
+    expect(runs).toHaveLength(0);
+
+    const { data: issues, error: iErr } = await unauthenticatedClient
+      .from('issues')
+      .select('*')
+      .eq('id', testIssueAId);
+
+    expect(iErr).toBeNull();
+    expect(issues).toHaveLength(0);
+
+    const { data: memberships, error: memErr } = await unauthenticatedClient
+      .from('organization_memberships')
+      .select('*')
+      .eq('organization_id', testOrgAId);
+
+    expect(memErr).toBeNull();
+    expect(memberships).toHaveLength(0);
+
+    const { data: orgs, error: orgErr } = await unauthenticatedClient
+      .from('organizations')
+      .select('*')
+      .eq('id', testOrgAId);
+
+    expect(orgErr).toBeNull();
+    expect(orgs).toHaveLength(0);
   });
 });

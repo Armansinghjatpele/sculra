@@ -613,6 +613,29 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(val.orgId).toBe('org_test_a');
     });
 
+    it('enforces requireOrgId when requested, rejecting tokens without organization claim', () => {
+      const tokenWithoutOrg = createTestJwt({ sub: 'user_clerk_no_org' });
+      const tokenWithEmptyOrg = createTestJwt({ sub: 'user_clerk_empty_org', org_id: '   ' });
+      const tokenWithCamelOrg = createTestJwt({ sub: 'user_clerk_camel', orgId: 'org_camel_123' });
+
+      const resNoOrg = validateTenantJwt(tokenWithoutOrg, 'TEST_JWT_TENANT_A', { requireOrgId: true });
+      expect(resNoOrg.valid).toBe(false);
+      expect(resNoOrg.error).toContain("missing required organization claim ('org_id' or 'orgId')");
+
+      const resEmptyOrg = validateTenantJwt(tokenWithEmptyOrg, 'TEST_JWT_TENANT_A', { requireOrgId: true });
+      expect(resEmptyOrg.valid).toBe(false);
+      expect(resEmptyOrg.error).toContain("missing required organization claim ('org_id' or 'orgId')");
+
+      const resCamelOrg = validateTenantJwt(tokenWithCamelOrg, 'TEST_JWT_TENANT_A', { requireOrgId: true });
+      expect(resCamelOrg.valid).toBe(true);
+      expect(resCamelOrg.orgId).toBe('org_camel_123');
+
+      // Personal user tokens (requireOrgId: false) succeed even without org_id
+      const resPersonal = validateTenantJwt(tokenWithoutOrg, 'TEST_JWT_USER_C', { requireOrgId: false });
+      expect(resPersonal.valid).toBe(true);
+      expect(resPersonal.orgId).toBeUndefined();
+    });
+
     it('decodeJwtPayload safely decodes claims and returns null for invalid formats', () => {
       expect(decodeJwtPayload(validJwtA)).toEqual({
         sub: 'user_clerk_101',
@@ -745,6 +768,44 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(
         result.blockedReasons.some((r) =>
           r.includes('Tenant A and User D must have distinct user identities')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when Tenant A or Tenant B tokens are missing an organization claim', () => {
+      const jwtWithoutOrgA = createTestJwt({ sub: 'user_tenant_no_org' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: jwtWithoutOrgA,
+        TEST_JWT_TENANT_B: validJwtB,
+        TEST_JWT_USER_C: validJwtC,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes("TEST_JWT_TENANT_A payload is missing required organization claim ('org_id' or 'orgId')")
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when User C token borrows Tenant A or Tenant B organization context', () => {
+      const jwtUserCBorrowingOrgA = createTestJwt({ sub: 'user_clerk_303', org_id: 'org_test_a' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: validJwtA, // org_id: org_test_a
+        TEST_JWT_TENANT_B: validJwtB, // org_id: org_test_b
+        TEST_JWT_USER_C: jwtUserCBorrowingOrgA,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('User C must not borrow Tenant A organization context')
         )
       ).toBe(true);
     });
