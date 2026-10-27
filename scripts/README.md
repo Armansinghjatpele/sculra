@@ -17,10 +17,12 @@ This folder contains command-line TypeScript scripts used for dev system setup, 
 The isolated RLS test suite exercises real PostgreSQL Row-Level Security policies across 9 core multi-tenant scenarios.
 
 **Critical Safety Rules:**
-- **Production Guard**: Execution against production hostnames (`vycrimzpywqyjhtvvuax.supabase.co`, `sculra.com`, `api.sculra.com`) is strictly blocked.
+- **Production Guard**: Execution against production hostnames (`vycrimzpywqyjhtvvuax.supabase.co`, `sculra.com`, `api.sculra.com`) is strictly blocked before any network activity or token operations.
 - **Fail-Closed Remote Targets**: Remote databases are rejected unless `CONFIRM_ISOLATED_TEST_DB=true` is deliberately supplied.
-- **Authentic Tokens**: Mock tokens (`mock_jwt_*`) are strictly rejected. Valid 3-part base64url Clerk JWTs with `sub` claims are required.
-- **Fail-Closed Cleanup**: Fixture cleanup verifies that all 7 fixture categories (organizations, memberships, projects, test runs, issues, notification incidents, preferences) are completely deleted after test execution.
+- **Authentic & Distinct Identities**: Mock tokens (`mock_jwt_*`) are strictly rejected. Valid 3-part base64url Clerk JWTs with `sub` claims are required. Tenant A, Tenant B, and User C must represent completely distinct identities (`tenantA.sub !== tenantB.sub`, `tenantA.orgId !== tenantB.orgId`, `tenantA.sub !== userC.sub`).
+- **Signature Boundary**: Preflight decoding inspects token claims for environment readiness; cryptographic signature verification is strictly enforced by PostgreSQL/PostgREST at the database boundary.
+- **Exact Fixture Cleanup**: Fixtures are deleted in dependency-safe reverse order. Organization memberships are deleted strictly using exact `(organization_id, clerk_user_id)` key pairs to prevent deleting unrelated memberships. Absence of all 7 fixture categories is verified fail-closed after deletion.
+- **Honest Runner Exit Codes**: The runner and `--check-only` audit strictly return non-zero (`exitCode: 2`) when prerequisites are missing or unsatisfied, returning `0` only when the test environment is fully verified and ready.
 
 ### 2. Environment Setup Options
 

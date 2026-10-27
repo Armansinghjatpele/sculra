@@ -258,8 +258,17 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       const cleanedTables: string[] = [];
       const verifiedTables: string[] = [];
 
-      const mockDelete = vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ error: null }) });
-      const mockSelect = vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ data: [], error: null }) });
+      const createChainedQueryMock = (defaultResolve: any) => {
+        const queryMock: any = {};
+        queryMock.in = vi.fn().mockResolvedValue(defaultResolve);
+        queryMock.eq = vi.fn().mockImplementation(() => queryMock);
+        queryMock.then = (onfulfilled: any, onrejected: any) =>
+          Promise.resolve(defaultResolve).then(onfulfilled, onrejected);
+        return queryMock;
+      };
+
+      const mockDelete = vi.fn().mockImplementation(() => createChainedQueryMock({ error: null }));
+      const mockSelect = vi.fn().mockImplementation(() => createChainedQueryMock({ data: [], error: null }));
 
       const mockAdminClient = {
         from: vi.fn().mockImplementation((table: string) => {
@@ -604,6 +613,17 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(val.orgId).toBe('org_test_a');
     });
 
+    it('decodeJwtPayload safely decodes claims and returns null for invalid formats', () => {
+      expect(decodeJwtPayload(validJwtA)).toEqual({
+        sub: 'user_clerk_101',
+        org_id: 'org_test_a',
+        org_role: 'admin',
+      });
+      expect(decodeJwtPayload('invalid.token')).toBeNull();
+      expect(decodeJwtPayload('')).toBeNull();
+      expect(decodeJwtPayload(null as any)).toBeNull();
+    });
+
     it('formatPreflightReport outputs clean report without secrets', () => {
       const result = validateRlsPreflight({
         TEST_SUPABASE_URL: 'http://127.0.0.1:54321',
@@ -616,6 +636,221 @@ describe('Supabase RLS Preflight & Safety Engine', () => {
       expect(report).toContain('[REAL SUPABASE TENANT-ISOLATION INTEGRATION TESTS: BLOCKED]');
       expect(report).not.toContain('super-secret-anon-key');
       expect(report).not.toContain('super-secret-service-key');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // Regression 10: Distinct Tenant and User Identity Enforcement
+  // ----------------------------------------------------------------------------
+  describe('Regression 10: Distinct Tenant and User Identity Enforcement', () => {
+    const baseValidEnv = {
+      TEST_SUPABASE_URL: 'http://127.0.0.1:54321',
+      TEST_SUPABASE_ANON_KEY: 'test-anon-key',
+      TEST_SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
+    };
+
+    it('rejects when Tenant A and Tenant B share the same user identity (sub claim)', () => {
+      const jwtSharedSubA = createTestJwt({ sub: 'user_shared_123', org_id: 'org_a' });
+      const jwtSharedSubB = createTestJwt({ sub: 'user_shared_123', org_id: 'org_b' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: jwtSharedSubA,
+        TEST_JWT_TENANT_B: jwtSharedSubB,
+        TEST_JWT_USER_C: validJwtC,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('Tenant A and Tenant B must have distinct user identities (sub claims are identical)')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when Tenant A and Tenant B belong to the same organization (org_id claim)', () => {
+      const jwtSharedOrgA = createTestJwt({ sub: 'user_tenant_a', org_id: 'org_shared_same' });
+      const jwtSharedOrgB = createTestJwt({ sub: 'user_tenant_b', org_id: 'org_shared_same' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: jwtSharedOrgA,
+        TEST_JWT_TENANT_B: jwtSharedOrgB,
+        TEST_JWT_USER_C: validJwtC,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('Tenant A and Tenant B must belong to distinct organizations (org_id claims are identical)')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when Tenant A and User C share the same user identity (sub claim)', () => {
+      const jwtSharedSubA = createTestJwt({ sub: 'user_overlap_c', org_id: 'org_a' });
+      const jwtSharedSubC = createTestJwt({ sub: 'user_overlap_c' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: jwtSharedSubA,
+        TEST_JWT_TENANT_B: validJwtB,
+        TEST_JWT_USER_C: jwtSharedSubC,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('Tenant A and User C must have distinct user identities (sub claims are identical)')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when Tenant B and User C share the same user identity (sub claim)', () => {
+      const jwtSharedSubB = createTestJwt({ sub: 'user_overlap_bc', org_id: 'org_b' });
+      const jwtSharedSubC = createTestJwt({ sub: 'user_overlap_bc' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: validJwtA,
+        TEST_JWT_TENANT_B: jwtSharedSubB,
+        TEST_JWT_USER_C: jwtSharedSubC,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('Tenant B and User C must have distinct user identities (sub claims are identical)')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects when User D shares identity with Tenant A, Tenant B, or User C', () => {
+      const jwtDCollidingWithA = createTestJwt({ sub: 'user_clerk_101' });
+
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: validJwtA, // sub: user_clerk_101
+        TEST_JWT_TENANT_B: validJwtB, // sub: user_clerk_202
+        TEST_JWT_USER_C: validJwtC,   // sub: user_clerk_303
+        TEST_JWT_USER_D: jwtDCollidingWithA,
+      });
+
+      expect(result.isReady).toBe(false);
+      expect(result.isBlocked).toBe(true);
+      expect(
+        result.blockedReasons.some((r) =>
+          r.includes('Tenant A and User D must have distinct user identities')
+        )
+      ).toBe(true);
+    });
+
+    it('succeeds with ready status when all tenant and user identities are completely distinct', () => {
+      const result = validateRlsPreflight({
+        ...baseValidEnv,
+        TEST_JWT_TENANT_A: validJwtA,
+        TEST_JWT_TENANT_B: validJwtB,
+        TEST_JWT_USER_C: validJwtC,
+      });
+
+      expect(result.isReady).toBe(true);
+      expect(result.isBlocked).toBe(false);
+      expect(result.blockedReasons).toHaveLength(0);
+      expect(result.config?.tenantA.sub).toBe('user_clerk_101');
+      expect(result.config?.tenantB.sub).toBe('user_clerk_202');
+      expect(result.config?.userC.sub).toBe('user_clerk_303');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // Regression 11: Exact Organization Membership Deletion & Verification
+  // ----------------------------------------------------------------------------
+  describe('Regression 11: Exact Organization Membership Deletion & Verification', () => {
+    it('deletes memberships by exact (organization_id, clerk_user_id) pairs', async () => {
+      const registry = new TestFixtureRegistry();
+      registry.recordMembership('org-alpha', 'user-alpha');
+      registry.recordMembership('org-beta', 'user-beta');
+
+      const deletedPairs: { org: string; user: string }[] = [];
+
+      const mockAdminClient = {
+        from: vi.fn().mockReturnValue({
+          delete: vi.fn().mockReturnValue({
+            eq: vi.fn().mockImplementation((col1, val1) => ({
+              eq: vi.fn().mockImplementation((col2, val2) => {
+                if (col1 === 'organization_id' && col2 === 'clerk_user_id') {
+                  deletedPairs.push({ org: val1, user: val2 });
+                }
+                return Promise.resolve({ error: null });
+              }),
+            })),
+          }),
+        }),
+      } as any;
+
+      const cleanRes = await registry.cleanup(mockAdminClient);
+      expect(cleanRes.success).toBe(true);
+      expect(deletedPairs).toEqual([
+        { org: 'org-alpha', user: 'user-alpha' },
+        { org: 'org-beta', user: 'user-beta' },
+      ]);
+    });
+
+    it('verifyCleanedUp verifies exact membership pairs and flags lingering rows', async () => {
+      const registry = new TestFixtureRegistry();
+      registry.recordMembership('org-gamma', 'user-gamma');
+
+      const mockAdminClient = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockImplementation((col1, val1) => ({
+              eq: vi.fn().mockImplementation((col2, val2) => {
+                // Return lingering record for user-gamma
+                return Promise.resolve({
+                  data: [{ organization_id: val1, clerk_user_id: val2 }],
+                  error: null,
+                });
+              }),
+            })),
+          }),
+        }),
+      } as any;
+
+      const verifyRes = await registry.verifyCleanedUp(mockAdminClient);
+      expect(verifyRes.clean).toBe(false);
+      expect(verifyRes.lingering.some((l) => l.includes('org org-gamma, user user-gamma'))).toBe(true);
+    });
+
+    it('cleanup is idempotent and succeeds cleanly when called repeatedly', async () => {
+      const registry = new TestFixtureRegistry();
+      registry.recordOrg('org-idem-1');
+      registry.recordMembership('org-idem-1', 'user-idem-1');
+      registry.recordProject('proj-idem-1');
+
+      const mockAdminClient = {
+        from: vi.fn().mockReturnValue({
+          delete: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          }),
+        }),
+      } as any;
+
+      // First cleanup call
+      const cleanRes1 = await registry.cleanup(mockAdminClient);
+      expect(cleanRes1.success).toBe(true);
+      expect(cleanRes1.errors).toHaveLength(0);
+
+      // Second cleanup call (repeated / idempotent)
+      const cleanRes2 = await registry.cleanup(mockAdminClient);
+      expect(cleanRes2.success).toBe(true);
+      expect(cleanRes2.errors).toHaveLength(0);
     });
   });
 });

@@ -362,6 +362,17 @@ runOrSkip('Supabase Real Database RLS & Multi-Tenant Isolation Verification', ()
   // Scenario 2: Cross-organization project read and write denial
   // ----------------------------------------------------------------------------
   it('2. Tenant A cannot read or mutate Tenant B project', async () => {
+    // Tenant B can read its own project
+    const { data: tenantBProject, error: bReadErr } = await tenantBClient
+      .from('projects')
+      .select('*')
+      .eq('id', testProjectBId)
+      .maybeSingle();
+
+    expect(bReadErr).toBeNull();
+    expect(tenantBProject).not.toBeNull();
+    expect(tenantBProject?.id).toBe(testProjectBId);
+
     // Read denial: RLS filters out rows where is_org_member is false
     const { data: projectB, error: readError } = await tenantAClient
       .from('projects')

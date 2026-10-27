@@ -132,7 +132,17 @@ export function sanitizeErrorMessage(message?: unknown): string {
 
 /**
  * Safely decodes a JWT payload without verifying cryptographic signature.
- * Returns null if token is not a valid 3-part base64url string.
+ *
+ * IMPORTANT SECURITY NOTICE:
+ * This function ONLY inspects the unverified JSON claims of a 3-part base64url JWT.
+ * It DOES NOT cryptographically verify the signature, issuer (iss), or expiration (exp)
+ * against Clerk's JWKS or Supabase JWT secrets.
+ *
+ * Cryptographic signature verification and authorization enforcement are performed
+ * strictly at the database boundary (Supabase PostgREST / GoTrue / PostgreSQL pg_jwt)
+ * when requests are executed against the database.
+ *
+ * Returns null if the token is missing, not a string, or not a valid 3-part base64url token.
  */
 export function decodeJwtPayload(token: string): Record<string, any> | null {
   if (!token || typeof token !== 'string') return null;
@@ -165,6 +175,15 @@ export function isPlaceholderToken(token?: string): boolean {
 
 /**
  * Validates a JWT string for preflight requirements without logging secrets.
+ *
+ * IMPORTANT:
+ * This preflight validation performs claim inspection only (confirming the token is
+ * properly formatted and contains required claims such as 'sub' and optional 'org_id').
+ * It does NOT perform cryptographic signature verification; cryptographic verification
+ * is delegated to the Supabase PostgREST gateway during test query execution.
+ *
+ * Rejects empty tokens, known mock/placeholder tokens, malformed tokens,
+ * and tokens missing the required 'sub' claim.
  */
 export function validateTenantJwt(
   token?: string,
@@ -364,6 +383,38 @@ export function validateRlsPreflight(env: Record<string, string | undefined>): P
     }
   }
 
+  // 4. Verify Distinct Tenant and User Identities
+  // Tenant A and Tenant B must represent separate tenants (distinct users and distinct organizations).
+  // User C (and optional User D) must represent separate personal identities.
+  if (tenantAData && tenantBData) {
+    if (tenantAData.sub === tenantBData.sub) {
+      blockedReasons.push('Tenant A and Tenant B must have distinct user identities (sub claims are identical).');
+    }
+    if (tenantAData.orgId && tenantBData.orgId && tenantAData.orgId === tenantBData.orgId) {
+      blockedReasons.push('Tenant A and Tenant B must belong to distinct organizations (org_id claims are identical).');
+    }
+  }
+
+  if (tenantAData && userCData && tenantAData.sub === userCData.sub) {
+    blockedReasons.push('Tenant A and User C must have distinct user identities (sub claims are identical).');
+  }
+
+  if (tenantBData && userCData && tenantBData.sub === userCData.sub) {
+    blockedReasons.push('Tenant B and User C must have distinct user identities (sub claims are identical).');
+  }
+
+  if (userDData) {
+    if (tenantAData && tenantAData.sub === userDData.sub) {
+      blockedReasons.push('Tenant A and User D must have distinct user identities (sub claims are identical).');
+    }
+    if (tenantBData && tenantBData.sub === userDData.sub) {
+      blockedReasons.push('Tenant B and User D must have distinct user identities (sub claims are identical).');
+    }
+    if (userCData && userCData.sub === userDData.sub) {
+      blockedReasons.push('User C and User D must have distinct user identities (sub claims are identical).');
+    }
+  }
+
   if (blockedReasons.length > 0) {
     return {
       isReady: false,
@@ -560,7 +611,29 @@ export class TestFixtureRegistry {
     }
 
     // 6. Delete organization memberships
-    if (this.organizations.length > 0) {
+    // Delete only the exact membership rows created by this test run using both key fields: (organization_id, clerk_user_id).
+    // This avoids broad deletion by organization_id alone and preserves pre-existing or unrelated records.
+    if (this.memberships.length > 0) {
+      for (const m of this.memberships) {
+        try {
+          const { error } = await adminClient
+            .from('organization_memberships')
+            .delete()
+            .eq('organization_id', m.organization_id)
+            .eq('clerk_user_id', m.clerk_user_id);
+          if (error) {
+            errors.push(
+              `Organization membership deletion failed for org ${m.organization_id}, user ${m.clerk_user_id}: ${sanitizeErrorMessage(error.message)}`
+            );
+          }
+        } catch (e: any) {
+          errors.push(
+            `Organization membership deletion exception for org ${m.organization_id}, user ${m.clerk_user_id}: ${sanitizeErrorMessage(e?.message)}`
+          );
+        }
+      }
+    } else if (this.organizations.length > 0) {
+      // Fallback if only organizations were recorded without specific memberships
       try {
         const { error } = await adminClient
           .from('organization_memberships')
@@ -684,7 +757,30 @@ export class TestFixtureRegistry {
     }
 
     // 6. Verify organization memberships
-    if (this.organizations.length > 0) {
+    if (this.memberships.length > 0) {
+      for (const m of this.memberships) {
+        try {
+          const { data, error } = await adminClient
+            .from('organization_memberships')
+            .select('organization_id, clerk_user_id')
+            .eq('organization_id', m.organization_id)
+            .eq('clerk_user_id', m.clerk_user_id);
+          if (error) {
+            verificationErrors.push(
+              `Organization membership verification query failed for org ${m.organization_id}, user ${m.clerk_user_id}: ${sanitizeErrorMessage(error.message)}`
+            );
+          } else if (data && data.length > 0) {
+            lingering.push(
+              `Organization membership lingering: org ${m.organization_id}, user ${m.clerk_user_id}`
+            );
+          }
+        } catch (e: any) {
+          verificationErrors.push(
+            `Organization membership verification query exception for org ${m.organization_id}, user ${m.clerk_user_id}: ${sanitizeErrorMessage(e?.message)}`
+          );
+        }
+      }
+    } else if (this.organizations.length > 0) {
       try {
         const { data, error } = await adminClient
           .from('organization_memberships')

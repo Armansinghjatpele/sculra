@@ -52,6 +52,7 @@ export interface RlsRunnerConfig {
   env: Record<string, string | undefined>;
   checkOnly: boolean;
   verbose: boolean;
+  spawnFn?: typeof spawn;
 }
 
 export interface RunnerExecutionResult {
@@ -176,8 +177,18 @@ export async function runIsolatedSupabaseRls(
     };
   }
 
-  // 2. Attempt dynamic Clerk token acquisition if configured
-  if (activeEnv.CLERK_SECRET_KEY) {
+  // 2. Attempt dynamic Clerk token acquisition ONLY if target URL is specified,
+  // safe (non-production), and confirmed isolated or local.
+  const isTargetLocal = targetUrl ? isLocalDatabaseUrl(targetUrl) : false;
+  const isRemoteConfirmed =
+    activeEnv.CONFIRM_ISOLATED_TEST_DB === 'true' || activeEnv.ALLOW_REMOTE_TEST_DB === 'true';
+
+  if (
+    targetUrl &&
+    !isProductionDatabaseUrl(targetUrl) &&
+    (isTargetLocal || isRemoteConfirmed) &&
+    activeEnv.CLERK_SECRET_KEY
+  ) {
     const tokenAcquisition = await acquireClerkTokensIfConfigured(activeEnv);
     if (tokenAcquisition.jwtA) activeEnv.TEST_JWT_TENANT_A = tokenAcquisition.jwtA;
     if (tokenAcquisition.jwtB) activeEnv.TEST_JWT_TENANT_B = tokenAcquisition.jwtB;
@@ -193,7 +204,7 @@ export async function runIsolatedSupabaseRls(
   if (preflight.isBlocked) {
     console.log('\n' + formatPreflightReport(preflight) + '\n');
     return {
-      exitCode: config.checkOnly ? 0 : 2,
+      exitCode: 2,
       isReady: false,
       isBlocked: true,
       isProductionAttempt: preflight.isProductionAttempt,
@@ -227,11 +238,16 @@ export async function runIsolatedSupabaseRls(
     '--run',
   ];
 
+  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  const spawnProcess = config.spawnFn || spawn;
+
   return new Promise((resolve) => {
-    const child = spawn('pnpm', vitestArgs, {
+    let resolved = false;
+
+    const child = spawnProcess(pnpmCommand, vitestArgs, {
       cwd: frontendDir,
       stdio: 'inherit',
-      shell: true,
+      shell: false,
       env: {
         ...process.env,
         ...activeEnv,
@@ -239,6 +255,8 @@ export async function runIsolatedSupabaseRls(
     });
 
     child.on('close', (code) => {
+      if (resolved) return;
+      resolved = true;
       const exitCode = code ?? 1;
       resolve({
         exitCode,
@@ -250,6 +268,8 @@ export async function runIsolatedSupabaseRls(
     });
 
     child.on('error', (err) => {
+      if (resolved) return;
+      resolved = true;
       resolve({
         exitCode: 1,
         isReady: true,
