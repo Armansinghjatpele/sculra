@@ -20,6 +20,7 @@
     "worker:prod": "pnpm --filter @sculra/worker run start:prod",
     "worker:smoke": "pnpm --filter @sculra/worker run test:smoke",
     "test:e2e:authenticated": "tsx scripts/run-authenticated-browser-e2e.ts",
+    "test:rls:isolated": "tsx scripts/run-isolated-supabase-rls.ts",
     "maintenance:daily": "tsx scripts/maintenance/daily-maintenance.ts"
   },
   "devDependencies": {
